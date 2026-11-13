@@ -3,7 +3,7 @@
 
    Same deck as build_cards.py (cards 1, 4 and 5 unchanged, from their scene recordings), except that
    the windows on cards 2 and 3 are the live recordings, on the sample course page, made by live-capture.mjs and live2media.py
-   (out/live-lens.gif, live-tune.gif, live-wordlens.gif, live-lookalike.gif). Cards 2 and 3 run as long
+   (out/live-panel.gif on card 2; live-wordlens.gif and live-lookalike.gif on card 3). Cards 2 and 3 run as long
    as their longest recording, so no real footage is cut or sped up.
    Needs: out/card-0N.png and cards.json (render_cards.mjs), the scene GIFs for s0-title, s5-stuck,
    s6-simplify and s9-close (record.py), the live GIFs, python-pptx and Pillow.
@@ -40,8 +40,8 @@ def card_secs(*names):
 
 CARDS = [
     ('full', 's0-title', 4.6, 'Glider is a Chrome extension built for dyslexic readers. It reshapes any web page to suit how you read, and steps in when you get stuck.'),
-    (2, [live('lens'), live('tune')], card_secs('lens', 'tune'),
-     'Filmed live: the Glider extension running on a sample course reading page. One switch in the panel opens the page up: more space between letters, words and lines, and a bold start to every word. Size and line spacing are then set from the same panel, along with colours that tell b, d, p and q apart and the Atkinson Hyperlegible font.'),
+    (2, [live('panel')], card_secs('panel'),
+     'Filmed live: the Glider extension running on a sample course reading page. Glider is opened from the mark on the side of the screen and the reading lens is switched on: more space between letters, words and lines, and a bold start to every word. Then colours that tell b, d, p and q apart, the Atkinson Hyperlegible font, and the size and spacing sliders, set to 130%, 1, 5 and 2.3.'),
     (3, [live('wordlens'), live('lookalike')], card_secs('wordlens', 'lookalike'),
      'Filmed live on the same course page. Rest on a long word, like "accumulate", and the lens says how hard it is to read, shows the sound of each chunk, sounds it out, and gives its meaning. A word that is easy to mix up, like "affect", lists its look-alikes with a short meaning each.'),
     (4, [['s5-stuck', 's6-simplify']], 14.3, 'With eye tracking on, the camera notices the lines that slow your eyes, and those lines are shown again in plainer words. The gaze in this recording is simulated.'),

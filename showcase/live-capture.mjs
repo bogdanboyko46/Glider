@@ -151,6 +151,45 @@ export const SCENES = {
       await sleep(400);
     },
   },
+  // Card 2, the one window: open Glider from the edge, turn the lens on, then colours for b d p q and the
+  // Hyperlegible font, then move each slider up and down and leave it on the reader's choice.
+  panel: {
+    settings: { on: false }, seconds: 15, start: { x: 560, y: 540 },
+    finish: { fontSize: 130, letterSpacing: 1, wordSpacing: 5, lineHeight: 2.3 },
+    async run(page, p, scene) {
+      await sleep(400);
+      const mark = await box(page, inDock('.ll-pill-main'));
+      await p.glide(mark.x, mark.y, 900); await sleep(200); await p.click();
+      await sleep(700);
+      const on = await box(page, inDock('.ll-head [data-toggle="on"]'));
+      await p.glide(on.x, on.y, 550); await sleep(150); await p.click();
+      await sleep(700);
+      for (const key of ['mirror', 'font']) {
+        const sw = await box(page, inDock(`.ll-body [data-toggle="${key}"]`));
+        await p.glide(sw.x, sw.y, 450); await sleep(120); await p.click();
+        await sleep(450);
+      }
+      // each slider goes up and down, and ends on its setting
+      const path = { fontSize: [150, 130], letterSpacing: [3, 1], wordSpacing: [8, 5], lineHeight: [1.6, 2.3] };
+      for (const key of ['fontSize', 'letterSpacing', 'wordSpacing', 'lineHeight']) {
+        const k = await knob(page, key);
+        await p.glide(k.x, k.y, 380); await sleep(80);
+        for (const value of path[key]) {
+          const x = await page.eval(`(() => { const el = ${inDock(`[data-range="${key}"]`)}; const r = el.getBoundingClientRect(); const f = (${value} - el.min) / (el.max - el.min); return r.left + 9 + f * (r.width - 18); })()`);
+          await p.drag(x, k.y, 420);
+          await sleep(100);
+        }
+        await sleep(120);
+      }
+      const values = await page.eval(`(() => { const root = document.querySelector('#glider-root').shadowRoot; return Object.fromEntries(['fontSize', 'letterSpacing', 'wordSpacing', 'lineHeight'].map((k) => [k, Number(root.querySelector('[data-range="' + k + '"]').value)])); })()`);
+      console.log('  sliders end on:', JSON.stringify(values), JSON.stringify(values) === JSON.stringify(scene.finish) ? '(as asked)' : '(NOT as asked: ' + JSON.stringify(scene.finish) + ')');
+      await sleep(500);
+      const close = await box(page, inDock('[data-action="collapse"]'));
+      await p.glide(close.x, close.y, 450); await p.click();
+      await p.glide(W * 0.5, H * 0.92, 600);
+      await sleep(1300);                                     // the finished page, at rest
+    },
+  },
   // Card 3, left: rest on a long word; the lens shows how hard it is, its parts and sounds; sound it out; its meaning.
   wordlens: {
     settings: { on: true, mirror: true, font: true }, seconds: 7.4, target: 'photosynthesis', start: { x: 300, y: 585 },
