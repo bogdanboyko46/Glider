@@ -33,6 +33,10 @@
       ],
       "js": [
         "content/homophones.js",
+        "content/wordLevels.js",
+        "content/wordParts.js",
+        "content/wordData.js",
+        "content/readingDifficulty.js",
         "content/syllableParser.js",
         "content/domEngine.js",
         "gaze/gaze-core.js",

@@ -25,12 +25,17 @@ Switching it on (the pill, the panel or the toolbar popup) applies all of this t
 | Bionic cadence | Bolds the start of each word (1 letter for short words, 2 for 4 to 5 letters, about 40% beyond) and adds a small pause after commas, semicolons and periods |
 | Hover lens | Hover a word of 6+ letters to see it broken into chunks, each with the sound it makes written underneath (the stressed chunk in bold). Tap a chunk to hear just that sound, **Hear word** for the whole word, or **Sound it out** to hear each chunk in turn, lit up as it is said, then the whole word. Double-click keeps it open |
 | Look-alike words | Commonly confused words get a dotted underline; hovering shows a short meaning for each word in the group (177 groups, 380 words) |
+| Reading difficulty | The lens says how hard the word is to **read**: **Easy**, **Medium** or **Hard**, and for Medium and Hard words why (for example *4 syllables · one part is not said*). It weighs length, how common the word is, spellings that do not match the sound (silent letters, "ough", "ph", a written part that is not said, as in *vegetable*) and look-alike words. Next to it a small tag gives the word's CEFR level (**A1** most common to **C2** rarest), which says how common the word is, not how hard it is to decode. **Word difficulty** on the Glider page turns both off |
+| Meaning | **Meaning** in the lens opens the word's definition (up to two senses, with an example) from WordNet, offline. *Show the meaning straight away* opens it with the lens. With an Anthropic key saved (see Simplify), **Explain simply** asks Claude for the meaning in this sentence in plain words; only the word and its sentence are sent |
+| Word parts | Prefixes, roots and suffixes get a small badge over the syllable chips they cover (*care* BASE, *ful* SUFFIX, *ly* SUFFIX). When the parts do not line up with the syllables (*per·spec·tive* is per + spect + ive), a **Word parts** row shows them instead. Press a badge to see what the part means (*-ful: full of*); a base word shows its dictionary meaning |
 
 Switching it off puts the page back exactly as it was, with no reload.
 
 The panel also has fine-tuning for the lens: four sliders (size 100 to 160%, letters 0 to 4 px, words 0 to 10 px, lines 1.4 to 2.4), colours for b d p q, and the Atkinson Hyperlegible font. The last two are off by default.
 
 Shortcuts: `Alt L` open or minimise the dock, `Esc` minimise. It can be changed at `chrome://extensions/shortcuts`.
+
+**The dock is the logo on the side of the screen.** Five bare strokes sit on the right edge; press them to open the panel and switch the lens on there. When the lens is off the strokes draw back and go grey. Drag the mark up or down, or across to the other side.
 
 Settings and the dock position are saved in `chrome.storage.local` and follow you across tabs and reloads.
 
@@ -90,6 +95,7 @@ Use a long Wikipedia article (for example *Epistemology*) or `demo/sample-assign
 
 - [ ] The page loads with the lens on: spaced, left-aligned text, bold word starts.
 - [ ] Hover a long word: each chunk shows its sound underneath. Tap a chunk, press Hear word, then Sound it out, and listen. Hover a dotted-underlined word (their, affect, principal): the meanings appear.
+- [ ] Hover *accumulate*: the lens shows **Medium to read**, *4 syllables · a less common word (B2)*, and a **B2** tag. Press Meaning: *get or gather together*. Hover *carefully*: BASE, SUFFIX, SUFFIX badges; press SUFFIX over *ful*: *full of*. Press the bookmark, then open the Glider page from the dock's grid button: the word is under Your words with its sentence.
 - [ ] Flip the switch on the pill: everything returns exactly as it was. Flip it back.
 - [ ] Drag the pill to another corner; click it and the panel opens inward from that corner.
 - [ ] In the panel: move the four sliders (Size enlarges body text without sideways scrolling), turn on Colour b d p q.
@@ -106,6 +112,11 @@ node tests/e2e.mjs      # 65 behaviour checks on the demo page (headless Chrome)
 node tests/live.mjs     # loads the unpacked extension in Edge and runs it on Wikipedia
 node tests/shots.mjs    # screenshots of the pill, panel and hover lens 
 node tests/popup-shots.mjs     # screenshots of the popup
+node tests/words.mjs    # word difficulty, word parts and meanings in the lens (headless Chrome)
+node tests/levels.test.js      # word level list and lookup (plurals, -ed, -ing)
+node tests/difficulty.test.js  # reading difficulty on real words (vegetable, laud, photosynthesis ...)
+node tests/wordparts.test.js   # prefix/root/suffix rules and the bundled split list
+node tests/worddata.test.js    # definitions and word parts looked up from the bundled lists
 node tests/syllables.test.js   # syllable splitter accuracy on 345 words
 node tests/gaze-core.test.js   # gaze maths, baseline and tau
 node tests/gaze.mjs     # simulated camera: calibration, reading-pace baseline, planted struggles
@@ -116,6 +127,9 @@ node tests/analytics.test.js   # Reading Check metrics on simulated sessions wit
 node tests/assessment.mjs      # Reading Check dashboard in headless Chrome (demo and degraded data)
 node tests/assessment-live.mjs # the whole Reading Check with a simulated reader and fake camera
 node tools/make-demo-session.js  # regenerate assessment/demo-session.json
+node tools/make-levels.js <cefrj.csv> <octanove.csv>  # rebuild data/levels.txt from the two CSVs in openlanguageprofiles/olp-en-cefrj
+node tools/make-dictionary.js <wordnet dict/>        # rebuild data/dictionary.txt from WordNet 3.1 (wn3.1.dict.tar.gz)
+node tools/make-wordparts.js <wordnet dict/>         # rebuild data/wordparts.txt (run after the dictionary)
 ```
 
 ## Layout
@@ -126,6 +140,10 @@ glider-extension/
   popup/           toolbar popup: lens switch, dock visibility
   content/
     content.js       orchestrator, Shadow DOM dock, settings and storage sync
+    wordLevels.js    CEFR level lookup (shared with the service worker and the tests)
+    readingDifficulty.js  Easy / Medium / Hard to read, with reasons
+    wordParts.js     the prefix/root/suffix list and the careful splitter (used at build time)
+    wordData.js      definition and word-part lookups in the bundled lists
     domEngine.js     safe TreeWalker tokeniser, original-text cache, bionic, b/d/p/q, look-alike marking
     syllableParser.js  rule-based English syllable splitter
     homophones.js    confusion groups with icons and five-word meanings
@@ -136,10 +154,13 @@ glider-extension/
     frame.html/js    camera iframe running MediaPipe Face Landmarker (vendor/)
     permission.html  one-time camera permission page
   background/
-    service-worker.js  shortcut command; answers pronunciation lookups; injects into already-open tabs on install
+    service-worker.js  shortcut command; answers pronunciation, word level, meaning and word part lookups; injects into already-open tabs on install
   data/
     pronounce.txt    the sound of each chunk for about 94,700 words, built from the CMU Pronouncing Dictionary
     sounds.txt       for sounds that speech voices misread, a spelling they say correctly
+    levels.txt       CEFR level (A1 to C2) of 8,681 words, from CEFR-J and Octanove (see LICENSE-levels.txt)
+    dictionary.txt   definitions from WordNet 3.1 (see LICENSE-wordnet.txt)
+    wordparts.txt    prefixes, roots and suffixes of about 7,500 words
   fonts/           Lexend, Atkinson Hyperlegible, Instrument Serif, JetBrains Mono (SIL OFL)
 demo/              sample LMS-style assignment page
 tests/             dependency-free Chrome DevTools Protocol tests

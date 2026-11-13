@@ -60,9 +60,16 @@
     font: false,         // Atkinson Hyperlegible for body text
     gaze: false,         // webcam eye tracking: notice a hard line and help
     gazeSensitivity: 3,  // 1 (help rarely) .. 5 (help often)
+    showLevels: true,    // show how hard a word is to read (and its CEFR level) in the hover lens
+    showDefinitions: false, // open the word's meaning in the lens straight away
+    showWordParts: true, // mark prefixes, roots and suffixes in the lens
+    dockMode: 'float',   // 'float': the pill sits in a corner; 'edge': a slim tab tucked into the screen edge
   });
 
-  const BOOL_KEYS = ['on', 'dockVisible', 'mirror', 'font', 'gaze'];
+  const BOOL_KEYS = ['on', 'dockVisible', 'mirror', 'font', 'gaze', 'showLevels', 'showDefinitions', 'showWordParts'];
+  const DOCK_MODES = ['float', 'edge'];
+  const WORDS_KEY = 'glider:words';  // the reader's saved words, newest last
+  const WORDS_CAP = 2000;
   const SKINS = Object.freeze([
     { id: 'paper', name: 'Paper' },
     { id: 'flow', name: 'Flow' },
@@ -101,6 +108,7 @@
       s[key] = Number.isFinite(n) ? Math.min(r.max, Math.max(r.min, n)) : DEFAULTS[key];
     }
     s.gazeSensitivity = Math.round(s.gazeSensitivity);
+    s.dockMode = DEFAULTS.dockMode; // the edge mark is the only dock look; the tuck-into-the-side mode is off
     // One design: it is fixed, whatever was stored earlier.
     s.skin = DEFAULTS.skin;
     return s;
@@ -160,6 +168,12 @@
     steps: svg('<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>'),
     speaker: svg('<path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
     minimise: svg('<path d="m7 10 5 5 5-5"/>'),
+    bookmark: svg('<path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/>'),
+    book: svg('<path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H13v16h5.5c.8 0 1.5-.7 1.5-1.5z"/>'),
+    spark: svg('<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>'),
+    tuck: svg('<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M15 4.5v15"/><path d="m9 10 2 2-2 2"/>'),
+    float: svg('<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><rect x="11.5" y="12" width="6" height="4.5" rx="1.2"/>'),
+    home: svg('<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>'),
   };
 
   /* =====================================================================
@@ -580,7 +594,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  max-width: min(340px, calc(100vw - 16px));
+  max-width: min(380px, calc(100vw - 16px));
   padding: 11px 12px 12px;
   border-radius: min(14px, var(--radius));
   background-color: var(--surface);
@@ -1237,6 +1251,132 @@
 .ll[data-skin="sage"] button:focus-visible { box-shadow: var(--fs, 0 0 0 0 transparent), var(--halo); }
 .ll[data-skin="sage"] .ll-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 1px 2px rgba(16, 17, 21, .2), var(--halo); }
 
+/* Header icon buttons sit close together. */
+.ll-head .ll-icon-btn + .ll-icon-btn { margin-left: -8px; }
+
+/* --------------------------------------------------- hover lens: meta row */
+
+/* How hard the word is to read, then how common it is (CEFR, small), save on the right; why below. */
+.ll-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 28px; margin: -3px -3px 8px 0; }
+.ll-meta .ll-save { margin-left: auto; }
+.ll-diff {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 24px; padding: 0 10px 0 8px; border-radius: 999px;
+  background: var(--well); color: var(--ink-2);
+  font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; cursor: default;
+}
+.ll-diff::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--df, var(--line-strong)); flex: none; }
+.ll-diff b { color: var(--ink); font-size: 13px; }
+.ll-diff[data-band="easy"] { --df: #4f9a6b; }
+.ll-diff[data-band="medium"] { --df: #d29a1e; }
+.ll-diff[data-band="hard"] { --df: #c4542f; }
+.ll-level {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--line-strong, var(--line)); color: var(--ink-2);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; line-height: 1; cursor: default;
+}
+.ll-diff[hidden], .ll-level[hidden], .ll-why[hidden] { display: none; }
+.ll-why { flex-basis: 100%; margin: 0; padding-left: 2px; color: var(--ink-2); font-size: 12px; line-height: 1.3; }
+
+/* Word parts: a small badge over the chips a prefix, root or suffix covers. */
+[data-chips][data-tagged] { position: relative; padding-top: 19px; }
+.ll-tag {
+  position: absolute; top: 0; height: 16px; padding: 0 4px; min-width: 34px;
+  display: flex; align-items: flex-start; justify-content: center;
+  border-radius: 5px 5px 0 0; border-bottom: 2px solid var(--kd);
+  background: transparent; color: var(--kd);
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; line-height: 13px; cursor: pointer;
+}
+.ll-tag:hover, .ll-tag[aria-expanded="true"] { background: color-mix(in srgb, var(--kd) 14%, transparent); }
+.ll-tag:focus-visible, .ll-wpart:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+[data-kind="p"] { --kd: #2f6b9a; }
+[data-kind="r"] { --kd: #9a5bb5; }
+[data-kind="s"] { --kd: #b0571f; }
+[data-kind="w"] { --kd: #2f6b4a; }
+.ll-part[data-inpart="true"], .ll-syl[data-inpart="true"] { box-shadow: 0 0 0 2px var(--kd-on, var(--ink)); }
+/* When the parts do not line up with the syllables: a row of them instead. */
+.ll-wparts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 5px; margin-top: 8px; }
+.ll-wparts[hidden] { display: none; }
+.ll-wparts-label { margin-right: 2px; color: var(--ink-2); font-size: 11.5px; font-weight: 600; }
+.ll-wpart {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 0; padding: 3px 8px 4px; border-radius: 8px;
+  box-shadow: inset 0 0 0 1.5px var(--kd); color: var(--ink); cursor: pointer; line-height: 1.15;
+}
+.ll-wpart b { font-size: 14px; font-weight: 600; }
+.ll-wpart small { color: var(--kd); font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.ll-wpart:hover, .ll-wpart[aria-expanded="true"] { background: color-mix(in srgb, var(--kd) 14%, transparent); }
+.ll-plus { color: var(--ink-2); font-size: 12px; }
+.ll-partinfo { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--well); font-size: 13px; line-height: 1.4; }
+.ll-partinfo[hidden] { display: none; }
+.ll-pi-label { font-size: 14px; margin-right: 7px; }
+.ll-pi-kind { color: var(--kd); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.ll-partinfo p { margin: 3px 0 0; }
+
+/* The meaning (WordNet), and "Explain simply" from Claude. */
+.ll-def { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); max-height: 210px; overflow: auto; font-size: 13px; line-height: 1.45; }
+.ll-def[hidden] { display: none; }
+.ll-senses { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.ll-senses i { color: var(--ink-2); font-size: 12px; }
+.ll-senses q { display: block; margin-top: 2px; color: var(--ink-2); font-style: italic; }
+.ll-def-as, .ll-def-src, .ll-def-wait, .ll-def-none, .ll-pi-wait { margin: 0; color: var(--ink-2); font-size: 12px; }
+.ll-def-as { margin-bottom: 4px; }
+.ll-def-src { margin-top: 6px; font-size: 11px; opacity: .8; }
+.ll-explain { margin-top: 8px; }
+.ll-explain-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px 0 9px; border-radius: 999px;
+  background: var(--well); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong, var(--line));
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.ll-explain-btn svg { width: 15px; height: 15px; }
+.ll-explain-btn:disabled { opacity: .7; cursor: progress; }
+.ll-explained { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--well); }
+.ll-explained b { display: block; margin-bottom: 2px; color: var(--ink-2); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.ll-say-btn[data-act="define"] { background: var(--well); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong, var(--line)); }
+.ll-say-btn[data-act="define"][aria-expanded="true"] { background: var(--ink); color: var(--surface); box-shadow: none; }
+.ll-save {
+  display: grid; place-items: center; flex: none;
+  width: 30px; height: 30px; border-radius: 999px;
+  color: var(--ink-2); cursor: pointer;
+  transition: background-color .12s ease, color .12s ease, transform .12s var(--ease);
+}
+.ll-save svg { width: 17px; height: 17px; }
+.ll-save:hover { background: var(--well); color: var(--ink); }
+.ll-save[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.ll-save[aria-pressed="true"] svg { fill: currentColor; }
+.ll-save:active { transform: scale(.92); }
+.ll-save:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ------------------------------------------------- tucked into the edge */
+
+/* A slim tab flush with the screen edge; it brightens on hover. The lens dot
+   shows whether the reading lens is on. The panel opens from the edge. */
+.ll .ll-dock[data-mode="edge"] .ll-pill {
+  flex-direction: column; justify-content: center;
+  width: 30px; height: auto; padding: 10px 0;
+  border-radius: 14px 0 0 14px;
+  box-shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 8px 22px -10px rgba(32, 53, 42, .35);
+}
+.ll .ll-dock[data-mode="edge"][data-h="l"] .ll-pill { border-radius: 0 14px 14px 0; }
+.ll .ll-dock[data-mode="edge"][data-open="false"] .ll-pill { opacity: .55; }
+.ll .ll-dock[data-mode="edge"][data-open="false"] .ll-pill:is(:hover, :focus-within) { opacity: 1; }
+.ll .ll-dock[data-mode="edge"] .ll-pill .ll-switch { display: none; }
+.ll .ll-dock[data-mode="edge"] .ll-pill-main {
+  flex-direction: row; gap: 8px; width: 100%; height: auto; padding: 4px 0; border-radius: 10px; /* row runs down the tab in vertical writing */
+  writing-mode: vertical-rl; transform: rotate(180deg);
+}
+.ll .ll-dock[data-mode="edge"][data-h="l"] .ll-pill-main { transform: none; }
+.ll .ll-dock[data-mode="edge"] .ll-pill-name { font-size: 13px; letter-spacing: .04em; }
+.ll .ll-dock[data-mode="edge"] .ll-pill-main::after {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: var(--line-strong); box-shadow: 0 0 0 2px var(--surface);
+}
+.ll[data-lens="on"] .ll-dock[data-mode="edge"] .ll-pill-main::after { background: var(--accent); }
+.ll .ll-dock[data-mode="edge"][data-h="r"] > .ll-panel { right: 8px; }
+.ll .ll-dock[data-mode="edge"][data-h="l"] > .ll-panel { left: 8px; }
+/* Sage folds the panel back into the pill; at the edge it slides into the side instead. */
+.ll[data-skin="sage"] .ll-dock[data-mode="edge"][data-open="false"][data-h="r"] .ll-panel { clip-path: inset(0 0 0 100% round var(--radius)); }
+.ll[data-skin="sage"] .ll-dock[data-mode="edge"][data-open="false"][data-h="l"] .ll-panel { clip-path: inset(0 100% 0 0 round var(--radius)); }
+
 @media (prefers-reduced-motion: reduce) {
   .ll *, .ll *::before, .ll *::after { transition-duration: 0s !important; animation: none !important; }
 }
@@ -1352,8 +1492,9 @@
       this.bindMessages(); // before any await, so early shortcut presses are not lost
       document.addEventListener(TAKEOVER, () => this.destroy(), { once: true });
 
-      const [savedSettings, savedDock] = await Promise.all([storage.get(SETTINGS_KEY), storage.get(DOCK_KEY)]);
+      const [savedSettings, savedDock, savedWords] = await Promise.all([storage.get(SETTINGS_KEY), storage.get(DOCK_KEY), storage.get(WORDS_KEY)]);
       this.state = sanitize(savedSettings);
+      this.setWords(savedWords);
       if (savedDock && typeof savedDock === 'object') {
         this.dockPos = {
           h: savedDock.h === 'l' ? 'l' : 'r',
@@ -1382,6 +1523,11 @@
         if (JSON.stringify(next) === JSON.stringify(this.state)) return;
         this.state = next;
         this.apply();
+      });
+      storage.onChange(WORDS_KEY, (value) => {
+        if (this.dead) return;
+        this.setWords(value);
+        this.renderSaveButton();
       });
       storage.onChange(DOCK_KEY, (value) => {
         if (this.dead || !value || this.drag) return;
@@ -1591,6 +1737,12 @@
 
       this.tipEl.addEventListener('mouseenter', () => clearTimeout(this.tip.hideTimer));
       this.tipEl.addEventListener('click', (event) => {
+        if (event.target.closest('[data-save]')) { this.toggleSaveWord(); return; }
+        const tag = event.target.closest('[data-tag]');
+        if (tag) { this.tip.pinned = true; this.showPartInfo(Number(tag.dataset.tag)); return; }
+        if (event.target.closest('[data-act="define"]')) { this.tip.pinned = true; this.toggleDefinition(); return; }
+        const explain = event.target.closest('[data-act="explain"]');
+        if (explain) { this.explainWord(explain); return; }
         const part = event.target.closest('[data-part]');
         if (part) { this.sayPart(Number(part.dataset.part)); return; }
         const button = event.target.closest('[data-say]');
@@ -1620,6 +1772,11 @@
         this.keepInView();
       } else if (el.dataset.action === 'collapse') {
         this.setOpen(false, event.detail === 0);
+      } else if (el.dataset.action === 'dock-mode') {
+        const edge = !this.edge;
+        this.setOpen(false, event.detail === 0);
+        this.update({ dockMode: edge ? 'edge' : 'float' });
+        this.toast(edge ? 'Tucked into the side. Click the tab to open' : 'Floating in the corner again');
       } else if (el.dataset.action === 'undo-ease') {
         this.undoEase();
       } else if (el.dataset.action === 'gaze-calibrate') {
@@ -1651,6 +1808,20 @@
     renderDock() {
       const s = this.state;
       this.root.dataset.skin = s.skin;
+      this.root.dataset.lens = s.on ? 'on' : 'off';
+
+      if (this.dock.dataset.mode !== s.dockMode) { // floating pill <-> edge tab
+        this.placeDock();
+        requestAnimationFrame(() => this.keepInView());
+      }
+      const modeBtn = this.$('[data-action="dock-mode"]');
+      const edge = s.dockMode === 'edge';
+      if (modeBtn && modeBtn.dataset.edge !== String(edge)) {
+        modeBtn.dataset.edge = String(edge);
+        modeBtn.innerHTML = edge ? ICON.float : ICON.tuck;
+        modeBtn.title = edge ? 'Float in the corner' : 'Tuck into the side';
+        modeBtn.setAttribute('aria-label', edge ? 'Float Glider in the corner of the screen' : 'Tuck Glider into the side of the screen');
+      }
 
       for (const btn of this.$$('[data-toggle]')) btn.setAttribute('aria-checked', String(!!s[btn.dataset.toggle]));
       for (const btn of this.$$('[data-skin-pick]')) btn.setAttribute('aria-checked', String(btn.dataset.skinPick === s.skin));
@@ -1679,7 +1850,8 @@
       clearTimeout(this.toastTimer);
       this.toastEl.textContent = message;
       // Sit beside the dock, on its side of the screen, clear of the pill / panel.
-      const { h, v, x, y } = this.dockPos;
+      const { h, v, y } = this.dockPos;
+      const x = this.edge ? 8 : this.dockPos.x;
       const clear = Math.max(8, Math.min(y + this.activeBox().offsetHeight + 10, window.innerHeight - 48));
       const style = this.toastEl.style;
       this.toastEl.dataset.h = h;
@@ -1693,12 +1865,19 @@
 
     /* ---------------------------------------------------- dock position */
 
+    /** Tucked into the screen edge as a slim tab (the floating x is kept for later). */
+    get edge() {
+      return this.state.dockMode === 'edge';
+    }
+
     placeDock() {
-      const { h, v, x, y } = this.dockPos;
+      const { h, v, y } = this.dockPos;
+      const x = this.edge ? 0 : this.dockPos.x;
       this.syncGazeCorner();
       const style = this.dock.style;
       this.dock.dataset.h = h;
       this.dock.dataset.v = v;
+      this.dock.dataset.mode = this.state.dockMode;
       style.left = h === 'l' ? `${x}px` : 'auto';
       style.right = h === 'r' ? `${x}px` : 'auto';
       style.top = v === 't' ? `${y}px` : 'auto';
@@ -1718,7 +1897,8 @@
       if (!width || !height) return;
       const maxX = Math.max(8, window.innerWidth - width - 8);
       const maxY = Math.max(8, window.innerHeight - height - 8);
-      const x = Math.min(maxX, Math.max(8, this.dockPos.x));
+      // At the edge only the height along the edge matters; the floating x is left for later.
+      const x = this.edge ? this.dockPos.x : Math.min(maxX, Math.max(8, this.dockPos.x));
       const y = Math.min(maxY, Math.max(8, this.dockPos.y));
       if (x !== this.dockPos.x || y !== this.dockPos.y) {
         this.dockPos.x = x;
@@ -1756,7 +1936,12 @@
       const top = Math.min(window.innerHeight - height - 8, Math.max(8, drag.rect.top + dy));
       drag.left = left;
       drag.top = top;
-      this.dockPos.x = this.dockPos.h === 'l' ? left : window.innerWidth - left - width;
+      if (this.edge) {
+        // The tab slides along the edge, and hops to the other edge past the middle.
+        this.dockPos.h = event.clientX > window.innerWidth / 2 ? 'r' : 'l';
+      } else {
+        this.dockPos.x = this.dockPos.h === 'l' ? left : window.innerWidth - left - width;
+      }
       this.dockPos.y = this.dockPos.v === 't' ? top : window.innerHeight - top - height;
       this.placeDock();
     }
@@ -1772,12 +1957,12 @@
       // Anchor to the nearest corner so the panel always opens inward and
       // the dock keeps its place when the window is resized.
       const { width, height } = drag.rect;
-      const h = drag.left + width / 2 > window.innerWidth / 2 ? 'r' : 'l';
+      const h = this.edge ? this.dockPos.h : drag.left + width / 2 > window.innerWidth / 2 ? 'r' : 'l';
       const v = drag.top + height / 2 > window.innerHeight / 2 ? 'b' : 't';
       this.dockPos = {
         h,
         v,
-        x: Math.round(h === 'l' ? drag.left : window.innerWidth - drag.left - width),
+        x: this.edge ? this.dockPos.x : Math.round(h === 'l' ? drag.left : window.innerWidth - drag.left - width),
         y: Math.round(v === 't' ? drag.top : window.innerHeight - drag.top - height),
       };
       this.placeDock();
@@ -2169,17 +2354,26 @@
       const group = token.classList.contains('glider-homophone') ? LL.lookupHomophone(word) : null;
       if (!showSyllables && !group) return;
 
-      let html = '';
+      const s = this.state;
+      let html = `<div class="ll-meta">` +
+        `<span class="ll-diff" hidden></span>` +
+        `<span class="ll-level" hidden></span>` +
+        `<p class="ll-why" hidden></p>` +
+        `</div>`;
       if (showSyllables) {
-        html += `<div class="ll-syls">${this.syllableMarkup(word)}</div>`;
+        html += `<div class="ll-syls" data-chips>${this.syllableMarkup(word)}</div>`;
       } else {
         html += `<div class="ll-word">${esc(word)}</div>`;
       }
       html += `<div class="ll-parts" hidden></div>`;
+      html += `<div class="ll-wparts" hidden></div>`;
+      html += `<div class="ll-partinfo" role="status" hidden></div>`;
       html += `<div class="ll-say">` +
         `<button type="button" class="ll-say-btn" data-say="word" aria-label="Hear ${esc(word)}">${ICON.speaker}<span>Hear word</span></button>` +
         `<button type="button" class="ll-say-btn" data-say="slow" aria-label="Sound out ${esc(word)}, one part at a time" hidden>${ICON.steps}<span>Sound it out</span></button>` +
+        `<button type="button" class="ll-say-btn" data-act="define" aria-expanded="false" aria-label="Meaning of ${esc(word)}">${ICON.book}<span>Meaning</span></button>` +
         `</div>`;
+      html += `<div class="ll-def" hidden></div>`;
       if (group) {
         const current = word.toLowerCase().replace(/’/g, "'");
         const kind = group.kind === 'look-alike' ? 'Looks alike' : 'Sounds alike';
@@ -2204,16 +2398,41 @@
       this.positionTip();
       requestAnimationFrame(() => { tip.dataset.show = 'true'; });
 
-      // The sounds arrive a moment later. Each written chunk gets the sound it
-      // makes underneath; the stressed part is bold.
+      // Everything below arrives a moment later from the bundled lists (held by the service worker).
       this.tip.word = word;
+      this.tip.say = null;
       this.tip.parts = null;
-      lookupSay(word).then((found) => {
-        if (!found || this.tip.token !== token) return;
+      this.tip.level = null;
+      this.tip.difficulty = null;
+      this.tip.wordParts = null;
+      this.tip.definition = undefined;
+      const current = () => this.tip.token === token;
+      const levelP = lookupLevel(word);
+      const sayP = lookupSay(word);
+      const partsP = s.showWordParts && showSyllables ? lookupParts(word) : Promise.resolve(null);
+
+      // How hard the word is to read (Easy / Medium / Hard, with why), and its CEFR level as a small tag.
+      Promise.all([levelP, sayP]).then(([level, say]) => {
+        if (!current()) return;
+        this.tip.level = level;
+        const D = globalThis.GliderDifficulty;
+        if (D) {
+          this.tip.difficulty = D.rate({
+            word, level: level ? level.level : null, say: say ? say.say : null,
+            syllables: LL.Syllables ? LL.Syllables.split(word) : null, lookalike: !!group,
+          });
+        }
+        if (this.state.showLevels) this.renderDifficulty(word);
+      });
+
+      // The sounds: each written chunk gets the sound it makes underneath; the stressed part is bold.
+      sayP.then((found) => {
+        if (!found || !current()) return;
         const sounds = found.say.split('-');
         const letters = showSyllables && LL.Syllables ? LL.Syllables.split(word) : [];
         const paired = letters.length === sounds.length;
         this.tip.parts = found.speak;
+        this.tip.say = found.say;
         const partsHtml = sounds.map((sound, i) => {
           const stress = sound === sound.toUpperCase() && sounds.length > 1;
           const label = paired ? `${letters[i]}, sounds like ${sound.toLowerCase()}` : `Sounds like ${sound.toLowerCase()}`;
@@ -2226,11 +2445,280 @@
         holder.innerHTML = partsHtml;
         holder.hidden = false;
         const syls = tip.querySelector('.ll-syls');
-        if (syls && paired) syls.remove();
+        if (syls && paired) {
+          syls.remove();
+          holder.setAttribute('data-chips', '');   // the sound chips now carry the letters
+        }
         const slow = tip.querySelector('[data-say="slow"]');
         if (slow && sounds.length > 1) slow.hidden = false;
+        this.renderWordParts();
         this.positionTip();
       });
+
+      // Prefixes, roots and suffixes. Placed once the chips they sit on are final.
+      Promise.all([partsP, sayP]).then(([parts]) => {
+        if (!current() || !parts) return;
+        this.tip.wordParts = parts;
+        this.renderWordParts();
+      });
+
+      if (s.showDefinitions) this.toggleDefinition(true);
+    }
+
+    /* ------------------------------------------------- difficulty, parts, meaning */
+
+    /** The "Medium to read" chip, why, and the CEFR level as a secondary tag. */
+    renderDifficulty(word) {
+      const tip = this.tipEl;
+      const d = this.tip.difficulty;
+      const chip = tip.querySelector('.ll-diff');
+      const why = tip.querySelector('.ll-why');
+      const tag = tip.querySelector('.ll-level');
+      if (!chip || !why || !tag) return;
+      const D = globalThis.GliderDifficulty;
+      if (d && D) {
+        const band = D.BANDS[d.band];
+        chip.dataset.band = d.band;
+        chip.innerHTML = `<b>${esc(band.short)}</b> to read`;
+        chip.title = 'How hard this word is to read: its length, how common it is, and spellings that do not match the sound';
+        chip.setAttribute('aria-label', `${band.name}${d.reasons.length ? ': ' + d.reasons.join(', ') : ''}`);
+        chip.hidden = false;
+        // Why, only when it is not easy: "4 syllables · one part is not said".
+        why.textContent = d.band === 'easy' ? '' : d.reasons.join(' · ');
+        why.hidden = d.band === 'easy' || !d.reasons.length;
+      }
+      const level = this.tip.level;
+      if (level) {
+        const info = (globalThis.GliderLevels && globalThis.GliderLevels.INFO[level.level]) || { name: '', text: '' };
+        const of = level.base !== String(word).toLowerCase() ? ` (as ${level.base})` : '';
+        tag.dataset.level = level.level;
+        tag.textContent = level.level;
+        tag.title = `How common: CEFR level ${level.level}, ${info.name}${of}. ${info.text}. Levels run from A1 (most common) to C2 (rarest)`;
+        tag.setAttribute('aria-label', `How common: level ${level.level}, ${info.name}${of}`);
+        tag.hidden = false;
+      }
+      this.positionTip();
+    }
+
+    /** Badges over the syllable chips a word part covers; when the parts do not line up with
+        the syllables (bi·ol·o·gy is bio + logy), a "Word parts" row instead. */
+    renderWordParts() {
+      const tip = this.tipEl;
+      const parts = this.tip.wordParts;
+      const row = tip.querySelector('.ll-wparts');
+      const holder = tip.querySelector('[data-chips]');
+      for (const old of tip.querySelectorAll('.ll-tag')) old.remove();
+      if (holder) holder.removeAttribute('data-tagged');
+      if (!parts || !parts.length || !row || !this.state.showWordParts) return;
+      const word = String(this.tip.word || '');
+      const chips = holder ? Array.from(holder.querySelectorAll('.ll-part, .ll-syl')) : [];
+      const letters = chips.map((c) => (c.querySelector('.ll-part-letters') || c).textContent);
+      const short = { prefix: 'prefix', root: 'root', suffix: 'suffix', 'base word': 'base' };
+
+      // Where each chip starts and ends in the word.
+      const spans = [];
+      let at = 0;
+      for (const l of letters) { spans.push([at, at + l.length]); at += l.length; }
+      const lined = chips.length && at === word.length && letters.join('').toLowerCase() === word.toLowerCase();
+      const groups = lined ? parts.map((p) => {
+        const first = spans.findIndex((sp) => sp[0] === p.start);
+        const last = spans.findIndex((sp) => sp[1] === p.end);
+        return first >= 0 && last >= first ? [first, last] : null;
+      }) : [];
+      const sameLine = (g) => chips[g[0]].offsetTop === chips[g[1]].offsetTop;
+      const onChips = lined && groups.every((g) => g && sameLine(g));
+
+      if (onChips) {
+        row.hidden = true;
+        holder.setAttribute('data-tagged', '');
+        parts.forEach((p, i) => {
+          const [a, b] = groups[i];
+          const tag = document.createElement('button');
+          tag.type = 'button';
+          tag.className = 'll-tag';
+          tag.dataset.tag = String(i);
+          tag.dataset.kind = p.type;
+          tag.textContent = short[p.kind] || p.kind;
+          tag.setAttribute('aria-label', `${word.slice(p.start, p.end)}: ${p.kind}. Show what it means`);
+          tag.setAttribute('aria-expanded', 'false');
+          tag.style.left = `${chips[a].offsetLeft}px`;
+          tag.style.width = `${chips[b].offsetLeft + chips[b].offsetWidth - chips[a].offsetLeft}px`;
+          holder.appendChild(tag);
+        });
+      } else {
+        row.innerHTML = `<span class="ll-wparts-label">Word parts</span>` + parts.map((p, i) =>
+          `<button type="button" class="ll-wpart" data-tag="${i}" data-kind="${p.type}" aria-expanded="false" aria-label="${esc(word.slice(p.start, p.end))}: ${esc(p.kind)}. Show what it means">` +
+          `<b>${esc(word.slice(p.start, p.end))}</b><small>${esc(short[p.kind] || p.kind)}</small></button>`).join('<span class="ll-plus" aria-hidden="true">+</span>');
+        row.hidden = false;
+      }
+      this.positionTip();
+    }
+
+    /** A part's badge was pressed: say what the part means (a base word gets its dictionary meaning). */
+    showPartInfo(index) {
+      const tip = this.tipEl;
+      const box = tip.querySelector('.ll-partinfo');
+      const p = this.tip.wordParts && this.tip.wordParts[index];
+      if (!box || !p) return;
+      const open = box.dataset.index === String(index) && !box.hidden;
+      for (const b of tip.querySelectorAll('[data-tag]')) b.setAttribute('aria-expanded', String(!open && b.dataset.tag === String(index)));
+      const holder = tip.querySelector('[data-chips]');
+      for (const c of tip.querySelectorAll('.ll-part, .ll-syl')) delete c.dataset.inpart;
+      if (open) { box.hidden = true; delete box.dataset.index; this.positionTip(); return; }
+      box.dataset.index = String(index);
+      const written = String(this.tip.word || '').slice(p.start, p.end);
+      if (holder && holder.hasAttribute('data-tagged')) {
+        let at = 0;
+        for (const c of holder.querySelectorAll('.ll-part, .ll-syl')) {
+          const len = (c.querySelector('.ll-part-letters') || c).textContent.length;
+          if (at >= p.start && at + len <= p.end) c.dataset.inpart = 'true';
+          at += len;
+        }
+      }
+      const head = `<b class="ll-pi-label">${esc(p.label)}</b><span class="ll-pi-kind" data-kind="${p.type}">${esc(p.kind)}</span>`;
+      if (p.type !== 'w') {
+        const as = p.example && p.example.toLowerCase() !== String(this.tip.word).toLowerCase() ? ` As in <i>${esc(p.example)}</i>.` : '';
+        box.innerHTML = `${head}<p>Means <b>${esc(p.meaning)}</b>.${as}</p>`;
+      } else {
+        box.innerHTML = `${head}<p class="ll-pi-wait">Looking up “${esc(p.base || written)}”…</p>`;
+        lookupDefine(p.base || written).then((d) => {
+          if (box.dataset.index !== String(index) || !this.tip.wordParts) return;
+          const sense = d && d.senses[0];
+          box.innerHTML = `${head}<p>${sense ? `${sense.posName ? `<i>${esc(sense.posName)}</i> ` : ''}${esc(sense.def)}` : 'The word this one is built on.'}</p>`;
+          this.positionTip();
+        });
+      }
+      box.hidden = false;
+      this.positionTip();
+    }
+
+    /** Open or close the word's meaning (WordNet), with "Explain simply" when Claude is set up. */
+    toggleDefinition(force) {
+      const tip = this.tipEl;
+      const box = tip.querySelector('.ll-def');
+      const button = tip.querySelector('[data-act="define"]');
+      if (!box || !button || !this.tip.word) return;
+      const open = typeof force === 'boolean' ? force : box.hidden;
+      button.setAttribute('aria-expanded', String(open));
+      box.hidden = !open;
+      if (!open) { this.positionTip(); return; }
+      const word = this.tip.word;
+      const token = this.tip.token;
+      if (this.tip.definition === undefined) {
+        box.innerHTML = '<p class="ll-def-wait">Looking it up…</p>';
+        Promise.all([lookupDefine(word), claudeReady()]).then(([d, canExplain]) => {
+          if (this.tip.token !== token) return;
+          this.tip.definition = d;
+          const senses = d ? d.senses.slice(0, 2) : [];
+          const as = d && d.word !== word.toLowerCase() ? `<p class="ll-def-as">From “${esc(d.word)}”</p>` : '';
+          box.innerHTML = as + (senses.length
+            ? `<ol class="ll-senses">${senses.map((x) => `<li>${x.posName ? `<i>${esc(x.posName)}</i> ` : ''}${esc(x.def)}${x.example ? `<q>${esc(x.example)}</q>` : ''}</li>`).join('')}</ol>`
+            : '<p class="ll-def-none">This word is not in Glider’s dictionary.</p>') +
+            (canExplain ? `<div class="ll-explain"><button type="button" class="ll-explain-btn" data-act="explain" title="Sends this word and its sentence to Anthropic">${ICON.spark}<span>Explain simply</span></button></div>` : '') +
+            '<p class="ll-def-src">Dictionary: WordNet</p>';
+          this.positionTip();
+        });
+      }
+      this.positionTip();
+    }
+
+    /** "Explain simply": Claude says what the word means in this sentence, in plain words. */
+    explainWord(button) {
+      const token = this.tip.token;
+      const word = this.tip.word;
+      if (!token || !word || !IN_EXTENSION) return;
+      const holder = button.closest('.ll-explain');
+      button.disabled = true;
+      button.querySelector('span').textContent = 'Asking Claude…';
+      const context = this.contextOf(token, word);
+      chrome.runtime.sendMessage({ type: 'glider:explain', word, context }).then((reply) => {
+        if (this.tip.token !== token || !holder.isConnected) return;
+        holder.innerHTML = reply && reply.ok
+          ? `<p class="ll-explained"><b>In plain words</b>${esc(reply.text)}</p>`
+          : `<p class="ll-def-none">Claude could not explain it just now.</p>`;
+        this.positionTip();
+      }, () => {
+        if (holder.isConnected) holder.innerHTML = '<p class="ll-def-none">Claude could not be reached.</p>';
+      });
+    }
+
+    /* -------------------------------------------------------- saved words */
+
+    setWords(value) {
+      this.words = Array.isArray(value) ? value.filter((w) => w && typeof w.word === 'string') : [];
+      this.savedKeys = new Set(this.words.map((w) => w.word.toLowerCase()));
+    }
+
+    isSaved(word) {
+      return !!this.savedKeys && this.savedKeys.has(String(word).toLowerCase());
+    }
+
+    /** The sentence around a word, for remembering where it was met. */
+    contextOf(token, word) {
+      const block = token.closest('p, li, blockquote, dd, dt, td, th, figcaption, h1, h2, h3, h4, h5, h6') || token.parentElement;
+      const text = String((block && block.textContent) || '').replace(/\s+/g, ' ').trim();
+      if (!text) return '';
+      const sentences = text.match(/[^.!?]+[.!?]*["”’)]?/g) || [text];
+      const lower = word.toLowerCase();
+      const hit = sentences.find((s) => s.toLowerCase().includes(lower)) || text;
+      const s = hit.trim();
+      return s.length > 220 ? s.slice(0, 217).trimEnd() + '…' : s;
+    }
+
+    /** Save the lens's word to the reader's list, or take it off again. */
+    toggleSaveWord() {
+      const token = this.tip.token;
+      const word = this.tip.word;
+      if (!token || !word) return;
+      const key = word.toLowerCase();
+      let list = (this.words || []).slice();
+      const had = list.some((w) => w.word.toLowerCase() === key);
+      if (had) {
+        list = list.filter((w) => w.word.toLowerCase() !== key);
+      } else {
+        list.push({
+          word: key,
+          level: this.tip.level ? this.tip.level.level : null,
+          base: this.tip.level ? this.tip.level.base : null,
+          say: this.tip.say || null,
+          syllables: LL.Syllables ? LL.Syllables.split(word) : [word],
+          context: this.contextOf(token, word),
+          url: location.href.split('#')[0].slice(0, 500),
+          title: String(document.title || location.hostname).slice(0, 140),
+          difficulty: this.tip.difficulty ? { band: this.tip.difficulty.band, reasons: this.tip.difficulty.reasons } : null,
+          definition: this.tip.definition ? this.firstSense(this.tip.definition) : null,
+          parts: this.tip.wordParts ? this.tip.wordParts.map((p) => ({ type: p.type, label: p.label, kind: p.kind, meaning: p.meaning || '', text: word.slice(p.start, p.end) })) : null,
+          savedAt: Date.now(),
+        });
+        if (list.length > WORDS_CAP) list = list.slice(-WORDS_CAP);
+      }
+      this.setWords(list);
+      storage.set(WORDS_KEY, list);
+      this.renderSaveButton();
+      this.toast(had ? `Removed “${key}” from your words` : `Saved “${key}” to your words`);
+      // Keep the meaning with the word, even if the lens never showed it.
+      if (!had && this.tip.definition === undefined) {
+        lookupDefine(word).then((d) => {
+          if (!d || this.dead) return;
+          const next = (this.words || []).map((w) => (w.word === key && !w.definition ? { ...w, definition: this.firstSense(d) } : w));
+          this.setWords(next);
+          storage.set(WORDS_KEY, next);
+        });
+      }
+    }
+
+    firstSense(d) {
+      const s = d && d.senses && d.senses[0];
+      return s ? { word: d.word, pos: s.posName || '', def: s.def, example: s.example || '' } : null;
+    }
+
+    renderSaveButton() {
+      const button = this.tipEl && this.tipEl.querySelector('[data-save]');
+      if (!button || !this.tip.word) return;
+      const saved = this.isSaved(this.tip.word);
+      button.setAttribute('aria-pressed', String(saved));
+      button.setAttribute('aria-label', `${saved ? 'Remove' : 'Save'} ${this.tip.word} ${saved ? 'from' : 'to'} your words`);
+      button.title = saved ? 'Saved to your words. Click to remove' : 'Save to your words';
     }
 
     /** Stop any speech this lens started and clear its highlights. */
@@ -2289,13 +2777,21 @@
       const rect = token.getClientRects()[0] || token.getBoundingClientRect();
       if (rect.bottom < 0 || rect.top > window.innerHeight) { this.hideTip(true); return; }
 
+      // Measure at the left edge, so a lens near the right edge is not squeezed narrow.
+      tip.style.left = '0px';
+      tip.style.top = '0px';
       const width = tip.offsetWidth;
       const height = tip.offsetHeight;
       const centre = rect.left + rect.width / 2;
       const left = Math.min(window.innerWidth - width - 8, Math.max(8, centre - width / 2));
+      // Above the word when it fits; else below; else whichever side has more room, kept on screen.
+      const roomAbove = rect.top - 18, roomBelow = window.innerHeight - rect.bottom - 18;
       let top = rect.top - height - 10;
       let side = 'above';
-      if (top < 8) { top = rect.bottom + 10; side = 'below'; }
+      if (height > roomAbove) {
+        if (height <= roomBelow || roomBelow > roomAbove) { top = rect.bottom + 10; side = 'below'; }
+        top = Math.max(8, Math.min(top, window.innerHeight - height - 8));
+      }
       tip.dataset.side = side;
       tip.style.setProperty('--ox', `${Math.round(Math.min(width, Math.max(0, centre - left)))}px`); // it grows out of the word
       tip.style.left = `${Math.round(left)}px`;
@@ -2325,6 +2821,7 @@
   /* =====================================================================
    * Helpers
    * ===================================================================== */
+
 
 
   /** True when the key press belongs to a form field, editor or our own dock. */
@@ -2381,6 +2878,77 @@
     })();
     sayCache.set(word, pending);
     return pending;
+  }
+
+  /* ---- word levels -------------------------------------------------------
+     CEFR levels (A1..C2) from data/levels.txt. Inside the extension the
+     service worker holds the list; on a plain page it is fetched here. */
+  const levelCache = new Map();
+  let levelTable = null;
+
+  /** Resolves to { level: 'B1', base: 'study' } or null when the word is not listed. */
+  function lookupLevel(rawWord) {
+    const word = String(rawWord).toLowerCase().replace(/’/g, "'");
+    if (levelCache.has(word)) return levelCache.get(word);
+    const pending = (async () => {
+      try {
+        if (IN_EXTENSION) {
+          const reply = await chrome.runtime.sendMessage({ type: 'glider:level', word });
+          return reply && reply.level ? { level: reply.level, base: reply.base || word } : null;
+        }
+        const L = globalThis.GliderLevels;
+        if (!L) return null;
+        if (!levelTable) levelTable = fetch(assetURL('data/levels.txt')).then((r) => (r.ok ? r.text() : '')).then((t) => L.parse(t));
+        return L.lookup(await levelTable, word);
+      } catch (_) {
+        return null;
+      }
+    })();
+    levelCache.set(word, pending);
+    return pending;
+  }
+
+  /* ---- meanings and word parts --------------------------------------------
+     Definitions (WordNet) and prefixes/roots/suffixes. Inside the extension the
+     service worker holds the lists; on a plain page they are fetched here. */
+  const lookups = { define: new Map(), parts: new Map() };
+  const localLists = {};
+
+  function lookupWordData(kind, rawWord) {
+    const word = String(rawWord).toLowerCase().replace(/’/g, "'");
+    const cache = lookups[kind];
+    if (cache.has(word)) return cache.get(word);
+    const pending = (async () => {
+      try {
+        if (IN_EXTENSION) return (await chrome.runtime.sendMessage({ type: 'glider:' + kind, word })) || null;
+        const W = globalThis.GliderWordData;
+        if (!W) return null;
+        const file = kind === 'define' ? 'data/dictionary.txt' : 'data/wordparts.txt';
+        if (!localLists[file]) localLists[file] = fetch(assetURL(file)).then((r) => (r.ok ? r.text() : '')).then((t) => W.prepare(t));
+        const list = await localLists[file];
+        return kind === 'define' ? W.define(list, word) : W.partsOf(list, word);
+      } catch (_) {
+        return null;
+      }
+    })();
+    if (cache.size > 500) cache.clear();
+    cache.set(word, pending);
+    return pending;
+  }
+  const lookupDefine = (word) => lookupWordData('define', word);
+  const lookupParts = (word) => lookupWordData('parts', word);
+
+  /** True when an Anthropic key is saved, so "Explain simply" can be offered. Asked once a minute at most. */
+  let claudeAsked = { at: 0, ready: Promise.resolve(false) };
+  function claudeReady() {
+    if (!IN_EXTENSION) return Promise.resolve(false);
+    if (Date.now() - claudeAsked.at > 60000) {
+      claudeAsked = {
+        at: Date.now(),
+        ready: chrome.runtime.sendMessage({ type: 'glider:simplify:status' }).then((r) => !!(r && r.hasKey), () => false),
+      };
+    }
+    return claudeAsked.ready;
   }
 
   /** Speak with the browser's own voice. Returns false if it cannot. */

@@ -23,6 +23,10 @@
     font: false,
     gaze: false,
     gazeSensitivity: 3,
+    showLevels: true,
+    showDefinitions: false,
+    showWordParts: true,
+    dockMode: 'float',
   });
 
   /* Light normalisation only; the content script does the strict sanitising. */
@@ -30,7 +34,8 @@
     const src = raw && typeof raw === 'object' ? raw : {};
     const s = {};
     for (const key of Object.keys(DEFAULTS)) s[key] = key in src ? src[key] : DEFAULTS[key];
-    for (const key of ['on', 'dockVisible', 'mirror', 'font', 'gaze']) s[key] = !!s[key];
+    for (const key of ['on', 'dockVisible', 'mirror', 'font', 'gaze', 'showLevels', 'showDefinitions', 'showWordParts']) s[key] = !!s[key];
+    if (s.dockMode !== 'edge') s.dockMode = 'float';
     s.skin = DEFAULTS.skin;
     return s;
   }
