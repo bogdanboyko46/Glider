@@ -10,7 +10,7 @@ import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const EXTENSION = process.env.LEXILENS_EXTENSION || join(REPO, 'lexilens-extension');
+export const EXTENSION = process.env.GLIDER_EXTENSION || join(REPO, 'glider-extension');
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 // Branded Chrome no longer honours --load-extension; Edge still does, so the
@@ -40,7 +40,7 @@ export function serve(root = REPO) {
 }
 
 export async function launch({ width = 1280, height = 800, extension = false, headless = true } = {}) {
-  const profile = await mkdtemp(join(tmpdir(), 'lexilens-chrome-'));
+  const profile = await mkdtemp(join(tmpdir(), 'glider-chrome-'));
   const args = [
     `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--no-first-run', '--no-default-browser-check',
     '--disable-background-networking', '--disable-sync', '--mute-audio', `--window-size=${width},${height}`,
@@ -191,7 +191,7 @@ function connect(url) {
 /** Helpers evaluated in the page to reach into the dock's shadow root. */
 export const IN_PAGE = `
   window.__ll = {
-    root() { return document.querySelector('#lexilens-root').shadowRoot; },
+    root() { return document.querySelector('#glider-root').shadowRoot; },
     q(sel) { return this.root().querySelector(sel); },
     rect(sel) {
       const el = typeof sel === 'string' ? (this.q(sel) || document.querySelector(sel)) : sel;
@@ -200,7 +200,7 @@ export const IN_PAGE = `
       return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
     },
     token(word, nth = 0) {
-      const all = [...document.querySelectorAll('.lexilens-token')].filter((t) => t.textContent.toLowerCase() === word.toLowerCase());
+      const all = [...document.querySelectorAll('.glider-token')].filter((t) => t.textContent.toLowerCase() === word.toLowerCase());
       return all[nth] || null;
     },
   };

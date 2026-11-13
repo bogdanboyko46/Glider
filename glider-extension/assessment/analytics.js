@@ -14,7 +14,8 @@
  *   gaze:   [{ t, x, y }],                    t = ms since the read began; x/y = rawX/rawY
  *   frames: [{ t, face, blink, head }],       head = { cx, cy, s } or null; may be [] if the tracker has no 'frame' event
  *   answers: [{ q, chosen, correct }],        chosen = option index or null
- *   durationMs: number, lowQuality: bool, demo: bool
+ *   durationMs: number, lowQuality: bool, demo: bool,
+ *   trackingPausedMs: number                  optional: time the tracker was paused (head moved off the calibration pose)
  * }
  *
  * ANALYSIS = RCAnalytics.analyze(session):
@@ -212,8 +213,10 @@
       fixN[f.line]++;
     });
     const lineWords = lineRects.map((l, i) => num(l.words) || (session.wordBoxes || []).filter((w) => w.line === i).length || 1);
+    // The reader's own pace is the median line (ms per word), so one hard line does not raise its own bar.
     const totalDwell = dwell.reduce((s, v) => s + v, 0);
-    const msPerWord = totalDwell / Math.max(1, lineWords.reduce((s, v) => s + v, 0));
+    const paced = dwell.map((d, i) => (lineWords[i] >= 3 && d > 0 ? d / lineWords[i] : null)).filter((v) => v !== null);
+    const msPerWord = paced.length >= 3 ? median(paced) : totalDwell / Math.max(1, lineWords.reduce((s, v) => s + v, 0));
     const lines = lineRects.map((l, i) => {
       const expectedMs = lineWords[i] * msPerWord;
       return {
@@ -225,7 +228,7 @@
     if (candidates.length) {
       const slow = candidates.reduce((a, b) => (b.ratio > a.ratio ? b : a));
       slow.slowest = true;
-      for (const l of candidates) l.flagged = l.ratio >= 1.4;
+      for (const l of candidates) l.flagged = l.ratio >= 1.5;
     }
 
     // --- blinks, head, tracking
@@ -257,7 +260,18 @@
     const BIN = 50, FROM = 100, TO = 800;
     const bins = [];
     for (let b = FROM; b <= TO; b += BIN) bins.push({ from: b, to: b === TO ? Infinity : b + BIN, count: 0 });
-    for (const d of durs) bins[clamp(Math.floor((d - FROM) / BIN), 0, bins.length - 1)].count++;
+    // A duration is only known to within a camera frame at each end, and 33 ms frames alias badly
+    // against 50 ms bins, so each fixation is spread evenly over [dur - frame, dur + frame].
+    const gdt = [];
+    for (let i = 1; i < gaze.length && i < 400; i++) gdt.push(gaze[i].t - gaze[i - 1].t);
+    const frameMs = clamp(median(gdt) || 33, 8, 80), SUB = 8;
+    for (const d of durs) {
+      for (let k = 0; k < SUB; k++) {
+        const v = d - frameMs + (2 * frameMs * (k + 0.5)) / SUB;
+        bins[clamp(Math.floor((v - FROM) / BIN), 0, bins.length - 1)].count += 1 / SUB;
+      }
+    }
+    for (const b of bins) b.count = round(b.count, 1);
 
     // --- first half vs second half
     const splitMs = t0 + readSpan / 2;
@@ -319,6 +333,11 @@
     else if (faceLostPct > Q.faceLostPoorPct) { score -= 35; notes.push(`The face was out of view for ${Math.round(faceLostPct)}% of the time.`); }
     else if (faceLostPct > Q.faceLostFairPct) { score -= 15; notes.push(`The face was briefly out of view (${Math.round(faceLostPct)}% of the time).`); }
     if (session.lowQuality) { score = Math.min(score, 45); notes.push('The reader continued after a low-accuracy calibration.'); }
+    const pausedMs = num(session.trackingPausedMs);
+    if (readMs && pausedMs > 0.1 * readMs) {
+      score -= pausedMs > 0.3 * readMs ? 40 : 20;
+      notes.push(`Tracking paused for ${(pausedMs / 1000).toFixed(1)} s because the head moved away from where it was during calibration.`);
+    }
     if (readMs && readMs < 6000) { score -= 20; notes.push('The read was very short.'); }
     score = clamp(score, 0, 100);
     return {
@@ -364,7 +383,7 @@
       add({
         id: 'slow-line', tone: 'info', icon: 'line',
         title: `Line ${slow.index + 1} took ${slow.ratio}× longer than your own pace`,
-        text: `“${slow.text}” held your eyes for ${(slow.timeMs / 1000).toFixed(1)} s, against about ${(slow.expectedMs / 1000).toFixed(1)} s expected from the rest of your read. Eye tracking in TextTuner can notice a line like this and offer help on the spot.`,
+        text: `“${slow.text}” held your eyes for ${(slow.timeMs / 1000).toFixed(1)} s, against about ${(slow.expectedMs / 1000).toFixed(1)} s expected from the rest of your read. Eye tracking in Glider can notice a line like this and offer help on the spot.`,
         settings: { on: true, gaze: true }, settingLabel: 'Turn on eye-tracking help',
       });
     }

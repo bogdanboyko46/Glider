@@ -16,7 +16,7 @@ try {
   const page = await chrome.page();
   await page.goto(URL_, 1000);
   // Start with the lens off so the untouched page can be recorded.
-  await page.eval(`localStorage.clear(); localStorage.setItem('lexilens:settings:v2', JSON.stringify({ on: false })); 0`);
+  await page.eval(`localStorage.clear(); localStorage.setItem('glider:settings:v2', JSON.stringify({ on: false })); 0`);
   await page.goto(URL_, 1200);
   await page.eval(IN_PAGE);
 
@@ -27,17 +27,17 @@ try {
     await page.click(r.cx, r.cy);
     await page.sleep(wait);
   };
-  const state = () => page.eval('JSON.parse(JSON.stringify(LexiLens.app.state))');
-  const set = async (patch, wait = 500) => { await page.eval(`LexiLens.app.update(${JSON.stringify(patch)})`); await page.sleep(wait); };
+  const state = () => page.eval('JSON.parse(JSON.stringify(Glider.app.state))');
+  const set = async (patch, wait = 500) => { await page.eval(`Glider.app.update(${JSON.stringify(patch)})`); await page.sleep(wait); };
   const count = (sel) => page.eval(`document.querySelectorAll(${JSON.stringify(sel)}).length`);
   const htmlHas = (cls) => page.eval(`document.documentElement.classList.contains(${JSON.stringify(cls)})`);
 
   /* ---- boot, lens off -------------------------------------------------- */
-  check('dock is mounted in a shadow root', await page.eval(`!!document.querySelector('#lexilens-root').shadowRoot.querySelector('.ll-pill')`));
-  check('lens off: page is untouched', (await count('.lexilens-wrap')) === 0 && !(await page.eval(`[...document.documentElement.classList].some((c) => c.startsWith('lexilens-'))`)));
+  check('dock is mounted in a shadow root', await page.eval(`!!document.querySelector('#glider-root').shadowRoot.querySelector('.ll-pill')`));
+  check('lens off: page is untouched', (await count('.glider-wrap')) === 0 && !(await page.eval(`[...document.documentElement.classList].some((c) => c.startsWith('glider-'))`)));
   const baseline = await page.eval('document.body.innerHTML');
   const baselineText = await page.eval(`document.querySelector('article').textContent`);
-  check('no voice code is loaded', await page.eval(`typeof LexiLens.TTSEngine === 'undefined' && !__ll.root().querySelector('[data-say], [data-action="play"]')`));
+  check('no voice code is loaded', await page.eval(`typeof Glider.TTSEngine === 'undefined' && !__ll.root().querySelector('[data-say], [data-action="play"]')`));
   check('no profiles or tabs: one panel', await page.eval(`!__ll.root().querySelector('[data-profile], [role="tab"]')`));
 
   /* ---- pill / panel, every design -------------------------------------- */
@@ -55,23 +55,23 @@ try {
   await clickSel('.ll-head [data-toggle="on"]', 900);
   const s1 = await state();
   check('the header switch turns the lens on', s1.on === true && await page.eval(`__ll.q('.ll-head [data-toggle="on"]').getAttribute('aria-checked') === 'true'`));
-  const classes = await page.eval(`['lexilens-spacing','lexilens-bionic','lexilens-syllables'].every((c) => document.documentElement.classList.contains(c))`);
+  const classes = await page.eval(`['glider-spacing','glider-bionic','glider-syllables'].every((c) => document.documentElement.classList.contains(c))`);
   check('one switch: spacing, bionic and hover lens all on', classes);
-  check('tokens created', (await count('.lexilens-token')) > 200, String(await count('.lexilens-token')));
-  const fix = await page.eval(`(() => { const out = {}; for (const w of ['is','that','knowledge','Epistemology']) { const t = __ll.token(w); out[w] = t ? t.querySelector('.lexilens-fix').textContent : null; } return out; })()`);
+  check('tokens created', (await count('.glider-token')) > 200, String(await count('.glider-token')));
+  const fix = await page.eval(`(() => { const out = {}; for (const w of ['is','that','knowledge','Epistemology']) { const t = __ll.token(w); out[w] = t ? t.querySelector('.glider-fix').textContent : null; } return out; })()`);
   check('bionic: fixation lengths (1 / 2 / 40%)', fix.is === 'i' && fix.that === 'th' && fix.knowledge === 'know' && fix.Epistemology === 'Epist', JSON.stringify(fix));
   check('text content unchanged', (await page.eval(`document.querySelector('article').textContent`)) === baselineText);
-  const skipped = await page.eval(`['pre','code','textarea','[contenteditable]','input','button','script','style'].map((s) => document.querySelectorAll(s + ' .lexilens-token').length).reduce((a, b) => a + b, 0)`);
+  const skipped = await page.eval(`['pre','code','textarea','[contenteditable]','input','button','script','style'].map((s) => document.querySelectorAll(s + ' .glider-token').length).reduce((a, b) => a + b, 0)`);
   check('skips code, form fields, editable regions and buttons', skipped === 0, String(skipped));
-  check('dock itself is never tokenised', await page.eval(`__ll.root().querySelectorAll('.lexilens-token').length === 0`));
-  const margin = await page.eval(`getComputedStyle(document.querySelector('.lexilens-punct')).marginRight`);
+  check('dock itself is never tokenised', await page.eval(`__ll.root().querySelectorAll('.glider-token').length === 0`));
+  const margin = await page.eval(`getComputedStyle(document.querySelector('.glider-punct')).marginRight`);
   check('prosody: punctuation gets 0.35em pause', parseFloat(margin) > 3, margin);
-  const homo = await page.eval(`['principal','affect','effect','Their','thorough'].map((w) => { const t = __ll.token(w); return !!t && t.classList.contains('lexilens-homophone'); })`);
+  const homo = await page.eval(`['principal','affect','effect','Their','thorough'].map((w) => { const t = __ll.token(w); return !!t && t.classList.contains('glider-homophone'); })`);
   check('look-alike words underlined', homo.every(Boolean), JSON.stringify(homo));
-  check('ordinary words not underlined', await page.eval(`!__ll.token('philosophy').classList.contains('lexilens-homophone')`));
+  check('ordinary words not underlined', await page.eval(`!__ll.token('philosophy').classList.contains('glider-homophone')`));
   const para = await page.eval(`(() => { const cs = getComputedStyle(document.querySelector('.reading p')); return { align: cs.textAlign, ls: cs.letterSpacing, ws: cs.wordSpacing, lh: parseFloat(cs.lineHeight) / parseFloat(cs.fontSize) }; })()`);
   check('spacing guard on at its defaults', para.align === 'left' && para.ls === '1px' && para.ws === '3px' && Math.abs(para.lh - 1.8) < 0.02, JSON.stringify(para));
-  check('no page tint is applied', await page.eval(`!document.getElementById('lexilens-tint') && !document.documentElement.classList.contains('lexilens-invert')`));
+  check('no page tint is applied', await page.eval(`!document.getElementById('glider-tint') && !document.documentElement.classList.contains('glider-invert')`));
   check('fine-tuning is live only while the lens is on', await page.eval(`!__ll.q('.ll-body').hasAttribute('inert')`));
 
   /* ---- hover lens ------------------------------------------------------- */
@@ -97,7 +97,7 @@ try {
   await page.sleep(3200);
   const slow1 = await page.eval('window.__spoken.join(",") + " / " + window.__lit.join(",")');
   check('Sound it out says each part in turn, then the word, lighting each part', slow1 === 'eh@7,pihss@7,tuh@7,maal@7,uh@7,jie@7,Epistemology@8 / 0,1,2,3,4,5,012345', slow1);
-  check('no ruler and no ruler control', await page.eval(`!document.getElementById('lexilens-ruler') && !__ll.root().querySelector('[data-toggle="ruler"], [data-lines]')`));
+  check('no ruler and no ruler control', await page.eval(`!document.getElementById('glider-ruler') && !__ll.root().querySelector('[data-toggle="ruler"], [data-lines]')`));
   const tipBox = await rect('.ll-tip');
   check('lens sits above the word, on screen', tipBox.y >= 0 && tipBox.y + tipBox.h <= r.y + 2 && tipBox.x >= 0, JSON.stringify(tipBox));
   await page.move(tipBox.cx, tipBox.cy);
@@ -106,7 +106,7 @@ try {
   await page.move(40, 700);
   await page.sleep(700);
   check('lens hides after leaving', await page.eval(`__ll.q('.ll-tip').hidden`));
-  check('short words do not open the lens', await page.eval(`!__ll.token('that').classList.contains('lexilens-long')`));
+  check('short words do not open the lens', await page.eval(`!__ll.token('that').classList.contains('glider-long')`));
   r = await page.eval(`__ll.rect(__ll.token('principal'))`);
   await page.move(r.cx, r.cy);
   await page.sleep(500);
@@ -116,7 +116,7 @@ try {
   await page.sleep(600);
   await page.eval(`__ll.token('Justification').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); 0`);
   await page.sleep(900);
-  check('double-click pins the lens open', await page.eval(`!__ll.q('.ll-tip').hidden && LexiLens.app.tip.pinned`));
+  check('double-click pins the lens open', await page.eval(`!__ll.q('.ll-tip').hidden && Glider.app.tip.pinned`));
   await page.click(40, 700);
   await page.sleep(300);
   check('clicking elsewhere closes a pinned lens', await page.eval(`__ll.q('.ll-tip').hidden`));
@@ -127,16 +127,16 @@ try {
   check('spacing sliders change the page', para2.ls === '2px' && para2.ws === '6px' && Math.abs(para2.lh - 2.2) < 0.02, JSON.stringify(para2));
   await clickSel('.ll-pill-main');
   await clickSel('[data-toggle="mirror"]', 600);
-  check('b d p q colours: letters marked', (await count('.lexilens-m-b')) > 10 && (await count('.lexilens-m-q')) > 0);
-  check('b d p q colours work inside the bold part', (await count('.lexilens-fix .lexilens-m')) > 5);
+  check('b d p q colours: letters marked', (await count('.glider-m-b')) > 10 && (await count('.glider-m-q')) > 0);
+  check('b d p q colours work inside the bold part', (await count('.glider-fix .glider-m')) > 5);
   await clickSel('[data-toggle="mirror"]', 600);
-  check('b d p q colours off again, bionic kept', (await count('.lexilens-m')) === 0 && (await count('.lexilens-fix')) > 200);
+  check('b d p q colours off again, bionic kept', (await count('.glider-m')) === 0 && (await count('.glider-fix')) > 200);
   await clickSel('[data-toggle="font"]', 500);
-  check('hyperlegible font applied and loaded', await page.eval(`getComputedStyle(document.querySelector('.reading p')).fontFamily.includes('LexiLens Atkinson') && document.fonts.check('16px "LexiLens Atkinson"')`));
+  check('hyperlegible font applied and loaded', await page.eval(`getComputedStyle(document.querySelector('.reading p')).fontFamily.includes('Glider Atkinson') && document.fonts.check('16px "Glider Atkinson"')`));
   await clickSel('[data-toggle="font"]', 300);
   const sizeOf = () => page.eval(`(() => { const p = document.querySelector('.reading p'); const li = document.querySelector('.reading li p, .reading blockquote p'); return { z: p.currentCSSZoom, nested: li ? li.currentCSSZoom : null, h: p.getBoundingClientRect().height, w: p.getBoundingClientRect().width, sx: document.documentElement.scrollWidth - innerWidth }; })()`);
   const size0 = await sizeOf();
-  check('text size starts at the page size', size0.z === 1 && !(await htmlHas('lexilens-size')), JSON.stringify(size0));
+  check('text size starts at the page size', size0.z === 1 && !(await htmlHas('glider-size')), JSON.stringify(size0));
   await page.eval(`(() => { const r = __ll.q('[data-range="fontSize"]'); r.value = '130'; r.dispatchEvent(new Event('input', { bubbles: true })); })()`);
   await page.sleep(400);
   const size1 = await sizeOf();
@@ -145,7 +145,7 @@ try {
   check('nested text is not enlarged twice', size1.nested === null || Math.abs(size1.nested - 1.3) < 0.01, String(size1.nested));
   check('the size value is shown', await page.eval(`__ll.q('[data-value="fontSize"]').textContent === '130%'`));
   await set({ fontSize: 100 }, 300);
-  check('back to 100% removes the scaling', (await sizeOf()).z === 1 && !(await htmlHas('lexilens-size')));
+  check('back to 100% removes the scaling', (await sizeOf()).z === 1 && !(await htmlHas('glider-size')));
   check('text content still unchanged', (await page.eval(`document.querySelector('article').textContent`)) === baselineText);
 
   /* ---- shortcut --------------------------------------------------------- */
@@ -159,17 +159,17 @@ try {
   await clickSel('.ll-head [data-toggle="on"]', 900);
   const after = await page.eval('document.body.innerHTML');
   check('switching off returns the exact original DOM', after === baseline, `len ${baseline.length} vs ${after.length}`);
-  check('switching off clears html classes and variables', await page.eval(`![...document.documentElement.classList].some((c) => c.startsWith('lexilens-')) && document.documentElement.getAttribute('style') in { '': 1, null: 1 }`), await page.eval(`document.documentElement.className + ' | ' + document.documentElement.getAttribute('style')`));
+  check('switching off clears html classes and variables', await page.eval(`![...document.documentElement.classList].some((c) => c.startsWith('glider-')) && document.documentElement.getAttribute('style') in { '': 1, null: 1 }`), await page.eval(`document.documentElement.className + ' | ' + document.documentElement.getAttribute('style')`));
   check('fine-tuning is inert while off', await page.eval(`__ll.q('.ll-body').hasAttribute('inert')`));
   await clickSel('.ll-head [data-toggle="on"]', 900);
 
   /* ---- content added later (single-page apps) ------------------------- */
   await page.eval(`document.getElementById('load-more').click()`);
   await page.sleep(600);
-  check('off-screen content waits (lazy)', (await count('#late-content .lexilens-token')) === 0);
+  check('off-screen content waits (lazy)', (await count('#late-content .glider-token')) === 0);
   await page.eval(`document.getElementById('late-content').scrollIntoView()`);
   await page.sleep(900);
-  check('content added after load is tokenised once near the viewport', (await count('#late-content .lexilens-token')) > 10, String(await count('#late-content .lexilens-token')));
+  check('content added after load is tokenised once near the viewport', (await count('#late-content .glider-token')) > 10, String(await count('#late-content .glider-token')));
   await page.eval(`scrollTo(0, 0)`);
   await page.sleep(300);
 
@@ -182,9 +182,9 @@ try {
   check('pill can be dragged', Math.abs(p1.cx - 200) < 60 && Math.abs(p1.cy - 150) < 30, JSON.stringify(p1));
   check('dragging does not open the panel', await page.eval(`__ll.q('.ll-dock').dataset.open === 'false'`));
   await clickSel('.ll-pill .ll-switch', 700);
-  check('the pill switch turns the lens off without opening', (await state()).on === false && (await count('.lexilens-wrap')) === 0 && await page.eval(`__ll.q('.ll-dock').dataset.open === 'false'`));
+  check('the pill switch turns the lens off without opening', (await state()).on === false && (await count('.glider-wrap')) === 0 && await page.eval(`__ll.q('.ll-dock').dataset.open === 'false'`));
   await clickSel('.ll-pill .ll-switch', 700);
-  check('and on again', (await state()).on === true && (await count('.lexilens-token')) > 200);
+  check('and on again', (await state()).on === true && (await count('.glider-token')) > 200);
   await clickSel('.ll-pill-main');
   const moved = await rect('.ll-panel');
   check('panel opens inward from the new corner, on screen', moved.x >= 0 && moved.y >= 0 && moved.x + moved.w <= 1280 && moved.y + moved.h <= 800, JSON.stringify(moved));
@@ -197,13 +197,13 @@ try {
   /* ---- persistence ------------------------------------------------------ */
   await set({ fontSize: 120 }, 300);
   await clickSel('[data-toggle="mirror"]', 300);
-  const posBefore = await page.eval('JSON.stringify(LexiLens.app.dockPos)');
+  const posBefore = await page.eval('JSON.stringify(Glider.app.dockPos)');
   await page.goto(URL_, 1500);
   await page.eval(IN_PAGE);
   const s2 = await state();
   check('settings survive a reload', s2.on === true && s2.fontSize === 120 && s2.mirror === true);
-  check('the lens re-applies after reload', (await count('.lexilens-homophone')) > 5 && await htmlHas('lexilens-bionic'));
-  const posAfter = await page.eval('JSON.stringify(LexiLens.app.dockPos)');
+  check('the lens re-applies after reload', (await count('.glider-homophone')) > 5 && await htmlHas('glider-bionic'));
+  const posAfter = await page.eval('JSON.stringify(Glider.app.dockPos)');
   check('dock position survives a reload', posBefore === posAfter && JSON.parse(posAfter).x !== 20, `${posBefore} vs ${posAfter}`);
 
   check('no page errors or warnings', page.errors.length === 0, page.errors.slice(0, 5).join(' || '));

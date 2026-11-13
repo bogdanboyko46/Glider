@@ -176,7 +176,10 @@
     });
   }
 
-  const api = { makeSession, makeHistory, makeMinuteLog, layout };
+  /* The shipped demo: ~20% regressions, a stuck line late in the passage, two line re-reads, one missed answer. */
+  const DEMO_OPTIONS = { seed: 29, regressionProb: 0.2, stuckLine: 6, stuckFactor: 2.3, rereadAfterLines: [3, 7], fatigue: 0.2, answers: [1, 2] };
+
+  const api = { makeSession, makeHistory, makeMinuteLog, layout, DEMO_OPTIONS };
   if (isNode) module.exports = api;
   else root.RCDemo = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

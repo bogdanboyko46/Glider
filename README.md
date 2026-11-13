@@ -1,4 +1,4 @@
-# TextTuner
+# Glider
 
 A Chrome extension (Manifest V3) that makes dense web reading easier for students with dyslexia and visual-processing fatigue. It adds a small draggable dock to any page. Everything runs on the device: no accounts, no API keys, no network calls, no build step.
 
@@ -8,9 +8,9 @@ There is one reading lens and one switch. No modes.
 
 1. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`).
 2. Turn on **Developer mode** (top right).
-3. Click **Load unpacked** and choose the `lexilens-extension` folder. If an older copy is already loaded, press its reload arrow instead.
-4. Pin TextTuner from the puzzle-piece menu. It has no logo, so Chrome shows a plain letter tile in the toolbar.
-5. Open any article. The lens is already on and the TextTuner pill sits bottom right. Tabs that were already open work straight away; if one does not, reload it.
+3. Click **Load unpacked** and choose the `glider-extension` folder. If an older copy is already loaded, press its reload arrow instead.
+4. Pin Glider from the puzzle-piece menu. It has no logo, so Chrome shows a plain letter tile in the toolbar.
+5. Open any article. The lens is already on and the Glider pill sits bottom right. Tabs that were already open work straight away; if one does not, reload it.
 
 To try it on a local file such as `demo/sample-assignment.html`, also switch on **Allow access to file URLs** on the extension's details page.
 
@@ -54,15 +54,25 @@ From the baseline comes **tau (τ)**, the personal threshold: a reader is treate
 
 Struggle signals, all relative to the baseline: **stuck-line** (time on a line above `max(2 s, τ × expected)`), **rereading** (two jumps back within 15 s, three for habitual re-readers), **slow-paragraph** (unfinished paragraph above `1.1 × τ × expected`). The state ends when the reader moves to another line at normal pace, changes paragraph, or 15 s pass.
 
-What TextTuner does: highlights the line and offers to read it aloud; on a stuck line it opens the syllable lens on the hardest word of that line; on rereading or a slow paragraph it widens that paragraph's spacing. Switching the lens or eye tracking off undoes all of it.
+What Glider does: highlights the line and offers to read it aloud; on a stuck line it opens the syllable lens on the hardest word of that line; on rereading or a slow paragraph it widens that paragraph's spacing. Switching the lens or eye tracking off undoes all of it.
 
 Shortcuts: `Alt Shift E` on or off, `Alt Shift C` recalibrate, `Alt Shift G` debug overlay (gaze dot, decoded line, pace, τ and the struggling state).
 
 The pure maths is in `gaze/gaze-core.js` (`summarizeBaseline`, `tauFromCv`, `struggleDecision`); the tuning constants are there and in `checkStruggle` in `gaze/gaze-reader.js`.
 
+## Reading Check (analytics dashboard)
+
+Press **Open** next to *Reading check* in the toolbar popup. In about two minutes it calibrates the eye tracker, shows one short passage for the chosen age band, asks two comprehension questions and then opens a dashboard of the read: speed, comprehension, fixations, regressions and line re-reads, a scanpath replay with heatmap, time per line, a fixation histogram, a five-score reading profile, and fatigue and focus signals (blinks, gaze stability, head movement, first half against second half). Findings are written in plain language and link to Glider settings, which **Apply recommended settings** writes for you.
+
+It is **not a diagnosis**. A webcam resolves lines, not words, and the typical ranges in `assessment/norms.js` are approximate values from lab eye-tracking studies that have not been validated for webcams. Everything is computed on the device; no video or images are stored, only numbers, and **Delete my data** removes them.
+
+- `assessment/assessment.html?demo=1` shows the full dashboard from a simulated reader, with no camera. `?demo=sparse`, `?demo=noframes` and `?demo=poor` show how it degrades.
+- `assessment/assessment.html?last=1` reopens the most recent saved check.
+- While eye tracking is on during normal reading, `assessment/session-logger.js` stores one row a minute (blinks, mean fixation, regression rate) for the dashboard's "Over time" chart.
+
 ## Design
 
-The dock and popup use the Sage design. Nine other designs are still defined in `DOCK_CSS` in `content/content.js` but there is no picker; `skin` in `DEFAULTS` selects one. The visible name is `APP_NAME` in the same file; internal ids, the folder and storage keys keep the `lexilens` prefix so saved settings carry over.
+The dock and popup use the Sage design. Nine other designs are still defined in `DOCK_CSS` in `content/content.js` but there is no picker; `skin` in `DEFAULTS` selects one. The visible name is `APP_NAME` in the same file; internal ids, the folder and storage keys use the `glider` prefix.
 
 ## Test checklist
 
@@ -89,12 +99,16 @@ node tests/popup-shots.mjs     # screenshots of the popup
 node tests/syllables.test.js   # syllable splitter accuracy on 345 words
 node tests/gaze-core.test.js   # gaze maths, baseline and tau
 node tests/gaze.mjs     # simulated camera: calibration, reading-pace baseline, planted struggles
+node tests/analytics.test.js   # Reading Check metrics on simulated sessions with planted answers
+node tests/assessment.mjs      # Reading Check dashboard in headless Chrome (demo and degraded data)
+node tests/assessment-live.mjs # the whole Reading Check with a simulated reader and fake camera
+node tools/make-demo-session.js  # regenerate assessment/demo-session.json
 ```
 
 ## Layout
 
 ```text
-lexilens-extension/
+glider-extension/
   manifest.json
   popup/           toolbar popup: lens switch, dock visibility
   content/

@@ -112,45 +112,79 @@
 
   // ---------------------------------------------------------------------- UI
   const CSS = `
+    /* Sage, the same design as the Glider dock: pale green surfaces, dark
+       green ink, one green accent, round shapes, Atkinson Hyperlegible. */
     :host { all: initial; }
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    * { box-sizing: border-box; font-family: "Glider Atkinson", "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif; }
     canvas { position: fixed; inset: 0; pointer-events: none; }
-    #cam { position: fixed; left: 14px; bottom: 14px; width: 208px; border-radius: 12px; overflow: hidden;
-           background: #111; box-shadow: 0 6px 24px rgba(0,0,0,.25); pointer-events: auto; transition: width .2s; }
-    #cam.min { width: 112px; }
-    #bar { display: flex; align-items: center; gap: 6px; padding: 5px 8px; color: #eee; font-size: 12px; background: #1b1b1b; }
+
+    /* camera widget: bottom-left, or bottom-right when the dock sits bottom-left */
+    #cam { position: fixed; left: 14px; bottom: 14px; width: 208px; padding: 0 6px 6px; border-radius: 22px; overflow: hidden;
+           background: #eef2ea; color: #20352a; pointer-events: auto; transition: width .2s;
+           box-shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 18px 40px -14px rgba(32, 53, 42, .34); }
+    :host([data-dock="lb"]) #cam { left: auto; right: 14px; }
+    #cam.min { width: 124px; }
+    #bar { display: flex; align-items: center; gap: 4px; padding: 7px 4px 6px 8px; color: #20352a; font-size: 12.5px; font-weight: 700; }
     #bar span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #bar button { all: unset; cursor: pointer; color: #bbb; padding: 0 4px; font-size: 14px; }
+    #bar span::first-letter { text-transform: uppercase; }
+    #bar button { all: unset; cursor: pointer; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+                  color: #566b5c; font-size: 15px; line-height: 1; }
+    #bar button:hover { background: #e0e8d9; color: #20352a; }
+    #bar button:focus-visible { outline: 2px solid #2f6b4a; outline-offset: 1px; }
+    #slot { border-radius: 16px; overflow: hidden; background: #20352a; }
     #slot iframe { display: block; width: 100%; aspect-ratio: 4 / 3; border: 0; }
-    #toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); max-width: 560px; padding: 10px 14px;
-             border-radius: 10px; background: #1f2430; color: #fff; font-size: 14px; line-height: 1.4;
-             box-shadow: 0 8px 28px rgba(0,0,0,.3); pointer-events: auto; display: none; }
-    #toast button, .card button { margin-left: 10px; padding: 5px 10px; border-radius: 6px; border: 0; cursor: pointer;
-             background: #3f6b4f; color: #fff; font-size: 13px; }
-    #bread { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, 88vw); color: #1d241f;
-             cursor: default; display: none; }
-    #bhint { font-size: 14px; color: #5b665e; margin: 0 0 18px; }
-    #btext { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 24px; line-height: 60px; text-align: left; }
-    #bread button { margin-top: 22px; padding: 7px 14px; border-radius: 6px; border: 0; cursor: pointer; background: #3f6b4f;
-             color: #fff; font-size: 14px; }
-    #calib { position: fixed; inset: 0; background: #faf9f6; pointer-events: auto; display: none; cursor: none; }
+
+    #toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); width: max-content; max-width: min(560px, calc(100vw - 32px));
+             padding: 11px 12px 11px 18px; border-radius: 22px; background: #20352a; color: #eef2ea; font-size: 14.5px; line-height: 1.45;
+             box-shadow: 0 18px 40px -14px rgba(32, 53, 42, .5); pointer-events: auto; display: none; }
+    #toast button { margin-left: 12px; padding: 6px 13px; border-radius: 999px; border: 0; cursor: pointer;
+             background: #d3e8d2; color: #20352a; font-size: 13px; font-weight: 700; }
+    #toast button:hover { background: #eef2ea; }
+
+    button:focus-visible { outline: 2px solid #2f6b4a; outline-offset: 2px; }
+    #toast button:focus-visible { outline-color: #eef2ea; }
+
+    /* calibration and reading-pace screens */
+    #calib { position: fixed; inset: 0; background: #eef2ea; pointer-events: auto; display: none; cursor: none; }
     #calib.show { display: block; }
-    #cdot { position: fixed; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: #e0393e;
-            transition: left .35s ease, top .35s ease; display: none; }
-    #cdot::after { content: ''; position: absolute; left: 9px; top: 9px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+    #cdot { position: fixed; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: #2f6b4a;
+            box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); transition: left .35s ease, top .35s ease; display: none; }
+    #cdot::after { content: ''; position: absolute; left: 10px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
     #cdot.pulse { animation: shrink var(--dur, 1s) linear forwards; }
     @keyframes shrink { from { transform: scale(1.25); } to { transform: scale(.55); } }
-    #instr { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; color: #222;
-             font-size: 18px; line-height: 1.5; max-width: 560px; cursor: default; }
-    .card { background: #fff; border-radius: 14px; padding: 22px 26px; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
-    .card h3 { margin: 0 0 8px; font-size: 20px; }
-    .card .big { font-size: 28px; font-weight: 700; margin: 6px 0; }
-    .card small { color: #666; }
-    .hl { position: fixed; border-radius: 6px; background: rgba(255, 210, 0, .30); pointer-events: none;
-          box-shadow: 0 0 0 2px rgba(255, 190, 0, .35); transition: top .1s, left .1s, width .1s; }
+    #instr { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px));
+             text-align: left; color: #20352a; font-size: 18px; line-height: 1.6; letter-spacing: .01em; cursor: default; }
+    .card { background: #f8faf5; border-radius: 30px; padding: 26px 28px 24px;
+            box-shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 22px 50px -14px rgba(32, 53, 42, .3); }
+    .card h3 { margin: 0 0 12px; font-size: 22px; line-height: 1.25; font-weight: 700; }
+    .card p { margin: 0 0 10px; }
+    .card ol { margin: 0 0 12px; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 10px; }
+    .card li { counter-increment: step; position: relative; padding-left: 42px; min-height: 30px; }
+    .card li::before { content: counter(step); position: absolute; left: 0; top: -1px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+                       background: #c4dfc0; font-size: 15px; font-weight: 700; }
+    .card .big { margin: 2px 0 8px; font-size: 30px; line-height: 1.2; font-weight: 700; color: #2f6b4a; }
+    .card small, .card .quiet { display: block; font-size: 14.5px; line-height: 1.5; color: #566b5c; }
+    .card .go { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; margin-top: 18px; }
+    .card button, #bread button { padding: 0 22px; height: 44px; border-radius: 999px; border: 0; cursor: pointer;
+            background: #2f6b4a; color: #fff; font-size: 16px; font-weight: 700; }
+    .card button:hover, #bread button:hover { background: #28593e; }
+    kbd { display: inline-block; padding: 1px 7px; border-radius: 7px; background: #e0e8d9; color: #20352a; font: inherit; font-size: 13px; font-weight: 700; }
+
+    #bread { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(720px, 88vw); color: #20352a;
+             cursor: default; display: none; }
+    #bhint { font-size: 16px; line-height: 1.5; color: #566b5c; margin: 0 0 20px; }
+    #btext { margin: 0; font-size: 24px; line-height: 60px; text-align: left; letter-spacing: .02em; word-spacing: .14em; }
+    #bread button { margin-top: 26px; }
+
+    /* help on the page: the line being read, and the read-aloud pill */
+    .hl { position: fixed; border-radius: 8px; background: rgba(244, 223, 166, .5); pointer-events: none;
+          box-shadow: 0 0 0 2px rgba(214, 178, 84, .55); transition: top .1s, left .1s, width .1s; }
     .pill { position: fixed; display: flex; gap: 6px; pointer-events: auto; }
-    .pill button { all: unset; cursor: pointer; padding: 4px 10px; border-radius: 999px; background: #1f2430; color: #fff;
-                   font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
+    .pill button { all: unset; cursor: pointer; padding: 6px 13px; border-radius: 999px; background: #2f6b4a; color: #fff;
+                   font-size: 13.5px; font-weight: 700; box-shadow: 0 8px 18px -8px rgba(32, 53, 42, .5); }
+    .pill button:hover { background: #28593e; }
+
+    @media (prefers-reduced-motion: reduce) { #cam, .hl { transition: none; } }
   `;
 
   function ensureUI() {
@@ -161,12 +195,12 @@
     S.root = S.host.attachShadow({ mode: 'closed' });
     S.root.innerHTML = `<style>${CSS}</style>
       <canvas id="hud"></canvas><div id="hlayer"></div>
-      <div id="cam"><div id="bar"><span id="camlabel">Reading assist</span>
-        <button id="bmin" title="Shrink">–</button><button id="bx" title="Turn off">×</button></div><div id="slot"></div></div>
+      <div id="cam"><div id="bar"><span id="camlabel">Eye tracking</span>
+        <button id="bmin" title="Make the camera smaller" aria-label="Make the camera smaller">–</button><button id="bx" title="Turn eye tracking off" aria-label="Turn eye tracking off">×</button></div><div id="slot"></div></div>
       <div id="toast"></div>
       <div id="calib"><div id="cdot"></div><div id="instr"></div>
-        <div id="bread"><p id="bhint">Read this the way you normally read. Press Space when you reach the end.</p>
-          <p id="btext"></p><button>Done (Space)</button></div></div>`;
+        <div id="bread"><p id="bhint">Read this the way you normally read. Press <kbd>Space</kbd> when you reach the end.</p>
+          <p id="btext"></p><button>I have finished</button></div></div>`;
     document.documentElement.appendChild(S.host);
     const $ = (id) => S.root.getElementById(id);
     $('bmin').onclick = () => $('cam').classList.toggle('min');
@@ -556,9 +590,10 @@
     setStatus('baseline');
     instr.style.display = 'block';
     instr.innerHTML = `<div class="card"><h3>Find your reading pace</h3>
-      Next comes a short passage. Read it once, silently, the way you normally read. There is no need to hurry.<br>
-      Press Space as soon as you reach the end.<br><br>
-      <button>Show the passage (Space)</button> <small>&nbsp;Esc to skip</small></div>`;
+      <ol><li>A short passage comes next.</li>
+      <li>Read it once, silently, the way you normally read. Take your time.</li>
+      <li>Press <kbd>Space</kbd> when you reach the end.</li></ol>
+      <div class="go"><button>Show the passage</button> <span class="quiet"><kbd>Space</kbd> to show it, <kbd>Esc</kbd> to skip</span></div></div>`;
     await waitForStart(instr);
     const text = opts.baselineText || BASELINE_TEXT;
     const totalWords = (text.match(/\S+/g) || []).length;
@@ -585,8 +620,8 @@
       instr.style.display = 'block';
       if (clockMs < totalWords * 75) {   // faster than 800 words a minute: not a real read
         instr.innerHTML = `<div class="card"><h3>That was too quick to measure</h3>
-          Read the passage through once at your usual pace, then press Space.<br><br>
-          <button>Try again (Space)</button> <small>&nbsp;Esc to skip</small></div>`;
+          <p>Read the passage through once at your usual speed. Then press <kbd>Space</kbd>.</p>
+          <div class="go"><button>Try again</button> <span class="quiet"><kbd>Space</kbd> to try again, <kbd>Esc</kbd> to skip</span></div></div>`;
         await waitForStart(instr);
         continue;
       }
@@ -603,9 +638,9 @@
       emit('status', getState());
       instr.innerHTML = `<div class="card"><h3>Your reading pace</h3>
         <div class="big">${b.wpm} words a minute</div>
-        Help will appear when a line takes about <b>${tau().toFixed(1)}×</b> longer than is usual for you.<br>
-        <small>You can make that sooner or later in the TextTuner panel.</small><br><br>
-        <button>Start reading (Space)</button></div>`;
+        <p>Help appears when a line takes you about <b>${tau().toFixed(1)} times</b> longer than usual.</p>
+        <small>You can make help come sooner or later in the Glider panel.</small>
+        <div class="go"><button>Start reading</button> <span class="quiet">or press <kbd>Space</kbd></span></div></div>`;
       await waitForStart(instr).catch(() => {});
       return b;
     }
@@ -783,12 +818,14 @@
       try {
         instr.style.display = 'block';
         instr.innerHTML = `<div class="card"><h3>Calibrate eye tracking</h3>
-          Sit the way you'll read, about an arm's length away, and keep your head still.<br>
-          Follow the red dot with your <b>eyes</b> until it shrinks. About 30 seconds${withBaseline ? ', then a short passage to read' : ''}.<br><br>
-          <button>Start (Space)</button> <small>&nbsp;Esc to cancel</small></div>`;
+          <ol><li>Sit the way you will read, about an arm's length from the screen.</li>
+          <li>Keep your head still.</li>
+          <li>Follow the green dot with your <b>eyes</b>. It moves to a new spot, then shrinks.</li></ol>
+          <small>This takes about 30 seconds${withBaseline ? '. After that there is one short passage to read' : ''}.</small>
+          <div class="go"><button>Start</button> <span class="quiet"><kbd>Space</kbd> to start, <kbd>Esc</kbd> to cancel</span></div></div>`;
         await waitForStart(instr);
         while (!(S.latest && S.latest.face)) {
-          instr.innerHTML = '<div class="card">Looking for your face… check lighting and that the camera can see you.</div>';
+          instr.innerHTML = '<div class="card"><h3>Looking for your face</h3><p>Check that the room is bright and the camera can see you.</p></div>';
           await sleep(300);
           if (escaped) throw new Error('cancelled');
         }
@@ -838,11 +875,14 @@
         saveCalibration();
 
         instr.style.display = 'block';
-        const quality = acc.effY < 45 ? 'Great — line-level tracking' : acc.effY < 80 ? 'Good — line-level with wider spacing' : 'Rough — paragraph-level only; try better light / less head motion';
+        const quality = acc.effY < 45 ? ['Great', 'Glider can follow you line by line.']
+          : acc.effY < 80 ? ['Good', 'Glider can follow you line by line when the lines are spaced out.']
+            : ['Rough', 'Glider can only tell which paragraph you are on. A brighter room and a still head will help.'];
         instr.innerHTML = `<div class="card"><h3>Calibration done</h3>
-          <div class="big">±${Math.round(acc.effX)}px × ±${Math.round(acc.effY)}px</div>
-          ${quality}<br><small>Recommended line spacing: ${acc.recommendedLinePitchPx}px</small><br><br>
-          <button>${withBaseline ? 'Continue (Space)' : 'Start reading (Space)'}</button></div>`;
+          <div class="big">${quality[0]}</div>
+          <p>${quality[1]}</p>
+          <small>Accuracy: ±${Math.round(acc.effX)}px across, ±${Math.round(acc.effY)}px up and down. Best line spacing: ${acc.recommendedLinePitchPx}px.</small>
+          <div class="go"><button>${withBaseline ? 'Continue' : 'Start reading'}</button> <span class="quiet">or press <kbd>Space</kbd></span></div></div>`;
         emit('accuracy', acc);
         let skipped = false;
         await waitForStart(instr).catch(() => { skipped = true; });
@@ -1016,8 +1056,8 @@
   };
   S.wpm = opts.baselineWpm;
 
-  // Standalone use starts itself; inside TextTuner (managed) the host decides.
+  // Standalone use starts itself; inside Glider (managed) the host decides.
   if (window.top === window) {
-    chrome.storage.local.get('grEnabled').then(({ grEnabled }) => { if (grEnabled && !opts.managed) start(); });
+    chrome.storage.local.get('grEnabled').then(({ grEnabled }) => { if (grEnabled && !opts.managed && location.protocol !== 'chrome-extension:') start(); });
   }
 })();

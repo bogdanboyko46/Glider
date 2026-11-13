@@ -1,0 +1,307 @@
+/*
+ * flow.css — the live Reading Check flow (intro, calibrate, read, questions).
+ * Uses the --rc-* tokens and .rc-btn / .rc-card from assessment.css; every
+ * class here is prefixed rcf-. Fallback values keep it readable on its own.
+ */
+
+.rcf-wrap {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+  font-family: var(--rc-font, 'Atkinson Hyperlegible', system-ui, sans-serif);
+  color: var(--rc-ink, #20352a);
+}
+.rcf-wrap *,
+.rcf-read * { box-sizing: border-box; }
+
+/* ------------------------------------------------------- step indicator */
+.rcf-steps { margin: 0 0 20px; }
+.rcf-steps__list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rcf-steps__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--rc-ink-2, #566b5c);
+}
+.rcf-steps__num {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--rc-line-strong, #93a593);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+}
+.rcf-steps__item[data-state='current'] { color: var(--rc-ink, #20352a); font-weight: 700; }
+.rcf-steps__item[data-state='current'] .rcf-steps__num {
+  border-color: var(--rc-accent, #2f6b4a);
+  background: var(--rc-accent, #2f6b4a);
+  color: var(--rc-accent-ink, #fff);
+}
+.rcf-steps__item[data-state='done'] .rcf-steps__num {
+  border-color: var(--rc-accent, #2f6b4a);
+  color: var(--rc-accent, #2f6b4a);
+}
+
+/* ------------------------------------------------------------------ card */
+.rcf-card {
+  background: var(--rc-surface, #fff);
+  border: 1px solid var(--rc-line, #d6dfce);
+  border-radius: var(--rc-radius, 18px);
+  padding: 36px 36px 32px;
+}
+.rcf-card--warn { border-top: 6px solid var(--rc-warn, #8a5a00); }
+.rcf-kicker {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rc-ink-2, #566b5c);
+}
+.rcf-title {
+  margin: 0 0 16px;
+  font-family: var(--rc-display, 'Lexend', system-ui, sans-serif);
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--rc-ink, #20352a);
+  text-wrap: balance;
+}
+.rcf-title:focus { outline: none; }
+.rcf-text {
+  margin: 0 0 14px;
+  max-width: 58ch;
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--rc-ink, #20352a);
+}
+.rcf-text--soft { font-size: 17px; color: var(--rc-ink-2, #566b5c); }
+.rcf-detail {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--rc-warn-bg, #fdf1d3);
+  color: var(--rc-warn, #8a5a00);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.rcf-note {
+  margin: 20px 0;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: var(--rc-well, #e0e8d9);
+}
+.rcf-note__line { margin: 0; font-size: 17px; line-height: 1.55; color: var(--rc-ink, #20352a); }
+.rcf-note__line--strong { margin-top: 4px; font-weight: 700; }
+
+.rcf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+  margin-top: 26px;
+}
+.rcf-btn { min-height: 48px; font-size: 18px; }
+.rcf-btn--lg { min-height: 56px; padding-inline: 34px; font-size: 20px; }
+.rcf-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.rcf-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 10px 6px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--rc-accent, #2f6b4a);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.rcf-link:hover { text-decoration-thickness: 2px; }
+.rcf-link:focus-visible,
+.rcf-btn:focus-visible,
+.rcf-read__done:focus-visible {
+  outline: 3px solid var(--rc-accent, #2f6b4a);
+  outline-offset: 3px;
+}
+
+/* -------------------------------------------------------- age band radios */
+.rcf-bands { margin: 22px 0 0; padding: 0; border: 0; min-width: 0; }
+.rcf-bands__legend { padding: 0; margin: 0 0 10px; font-size: 17px; font-weight: 700; color: var(--rc-ink, #20352a); }
+.rcf-bands__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.rcf-band__body { white-space: nowrap; padding-left: 12px; padding-right: 12px; gap: 9px; }
+.rcf-band,
+.rcf-opt { position: relative; display: block; cursor: pointer; }
+.rcf-band__input,
+.rcf-opt__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.rcf-band__body,
+.rcf-opt__body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 16px;
+  border: 2px solid var(--rc-line-strong, #93a593);
+  border-radius: 14px;
+  background: var(--rc-surface, #fff);
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--rc-ink, #20352a);
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+/* The radio dot: selection never depends on colour alone. */
+.rcf-band__body::before,
+.rcf-opt__body::before {
+  content: '';
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--rc-line-strong, #93a593);
+  background: var(--rc-surface, #fff);
+}
+.rcf-band:hover .rcf-band__body,
+.rcf-opt:hover .rcf-opt__body { background: var(--rc-bg, #eef2ea); }
+.rcf-band__input:checked + .rcf-band__body,
+.rcf-opt__input:checked + .rcf-opt__body {
+  border-color: var(--rc-accent, #2f6b4a);
+  background: var(--rc-well, #e0e8d9);
+  font-weight: 700;
+}
+.rcf-band__input:checked + .rcf-band__body::before,
+.rcf-opt__input:checked + .rcf-opt__body::before {
+  border-color: var(--rc-accent, #2f6b4a);
+  background: var(--rc-accent, #2f6b4a);
+  box-shadow: inset 0 0 0 4px var(--rc-surface, #fff);
+}
+.rcf-band__input:focus-visible + .rcf-band__body,
+.rcf-opt__input:focus-visible + .rcf-opt__body {
+  outline: 3px solid var(--rc-accent, #2f6b4a);
+  outline-offset: 3px;
+}
+
+/* -------------------------------------------------------------- questions */
+.rcf-opts { display: grid; gap: 12px; margin-top: 6px; }
+.rcf-opt__body { min-height: 64px; padding: 14px 20px; font-size: 21px; }
+
+/* ------------------------------------------------------------------- read */
+/* Nothing on screen but the passage and one instruction line. */
+.rcf-read {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 32px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #fbfaf5;
+  color: var(--rc-ink, #20352a);
+  font-family: var(--rc-font, 'Atkinson Hyperlegible', system-ui, sans-serif);
+}
+/* Auto margins centre vertically, and fall back to the top when the passage is taller than the window. */
+.rcf-read__inner {
+  margin: auto 0;
+  max-width: 100%;
+  visibility: hidden;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+.rcf-read--live .rcf-read__inner { visibility: visible; }
+.rcf-read--fade .rcf-read__inner { opacity: 0; }
+.rcf-read__hint {
+  margin: 0 0 22px;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--rc-ink-2, #566b5c);
+}
+.rcf-read__text {
+  width: 30em; /* about 60 characters of this font; 'ch' is the wide zero and gave ~80 */
+  max-width: 100%;
+  margin: 0;
+  font-family: var(--rc-font, 'Atkinson Hyperlegible', system-ui, sans-serif);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: var(--rcf-pitch, 60px);
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: left;
+  hyphens: manual;
+  color: var(--rc-ink, #20352a);
+}
+.rcf-read__ready {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  max-width: 80vw;
+  text-align: center;
+  font-family: var(--rc-display, 'Lexend', system-ui, sans-serif);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--rc-ink, #20352a);
+}
+.rcf-read__done {
+  position: fixed;
+  right: 24px;
+  bottom: 20px;
+  appearance: none;
+  min-height: 40px;
+  padding: 8px 18px;
+  border: 1px solid var(--rc-line, #d6dfce);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  color: var(--rc-line-strong, #93a593);
+  cursor: pointer;
+}
+.rcf-read__done:hover,
+.rcf-read__done:focus-visible { color: var(--rc-ink, #20352a); border-color: var(--rc-line-strong, #93a593); }
+.rcf-read [hidden] { display: none; }
+
+@media (max-width: 560px) {
+  .rcf-card { padding: 26px 20px 24px; }
+  .rcf-title { font-size: 27px; }
+  .rcf-steps__name { font-size: 14px; }
+  .rcf-actions .rcf-btn { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rcf-read__inner,
+  .rcf-band__body,
+  .rcf-opt__body { transition: none; }
+}
+
+@media print {
+  .rcf-read { display: none; }
+}

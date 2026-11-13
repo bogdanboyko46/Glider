@@ -7,7 +7,7 @@ const _as = Element.prototype.attachShadow; Element.prototype.attachShadow = fun
 const _store = {};
 window.chrome = {
   runtime: {
-    getURL: (p) => location.origin + (p === "gaze/frame.html" ? "/tests/gaze-site/fake-frame.html" : "/lexilens-extension/" + p),
+    getURL: (p) => location.origin + (p === "gaze/frame.html" ? "/tests/gaze-site/fake-frame.html" : "/glider-extension/" + p),
     onMessage: { addListener() {} },
   },
   storage: {
@@ -22,16 +22,16 @@ window.chrome = {
     },
   },
 };
-</script><link rel="stylesheet" href="/lexilens-extension/content/content.css"></head>
+</script><link rel="stylesheet" href="/glider-extension/content/content.css"></head>
 <body>
 <h1>Photosynthesis</h1>
 <p id="p1">Photosynthesis is the process plants use to turn light into chemical energy. Inside the chloroplast, chlorophyll absorbs mostly red and blue light and reflects green, which is why leaves look green to us. The energy captured from light splits water molecules, releasing oxygen as a by-product.</p>
 <p id="p2">The light-independent reactions, often called the Calvin cycle, use that stored energy to fix carbon dioxide into sugars. The enzyme responsible for the first step, ribulose-1,5-bisphosphate carboxylase-oxygenase, is probably the most abundant protein on Earth, and it is famously slow and inefficient at its job.</p>
 <p id="p3">Plants in hot, dry climates evolved workarounds such as C4 and CAM photosynthesis that concentrate carbon dioxide around the enzyme and limit water loss.</p>
-<script src="/lexilens-extension/content/homophones.js"></script>
-<script src="/lexilens-extension/content/syllableParser.js"></script>
-<script src="/lexilens-extension/content/domEngine.js"></script>
-<script src="/lexilens-extension/gaze/gaze-core.js"></script>
-<script src="/lexilens-extension/gaze/gaze-reader.js"></script>
-<script src="/lexilens-extension/content/content.js"></script>
+<script src="/glider-extension/content/homophones.js"></script>
+<script src="/glider-extension/content/syllableParser.js"></script>
+<script src="/glider-extension/content/domEngine.js"></script>
+<script src="/glider-extension/gaze/gaze-core.js"></script>
+<script src="/glider-extension/gaze/gaze-reader.js"></script>
+<script src="/glider-extension/content/content.js"></script>
 </body></html>

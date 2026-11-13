@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TextTuner</title>
+  <title>Glider</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -11,13 +11,13 @@
 
     <header class="head">
       <div class="head-text">
-        <h1 class="title">TextTuner</h1>
+        <h1 class="title">Glider</h1>
         <p class="status" id="status" aria-live="polite"></p>
       </div>
       <button type="button" class="switch" role="switch" aria-checked="false" data-toggle="on" aria-label="Reading lens" title="Turn the reading lens on or off"></button>
     </header>
 
-    <p class="note" id="note" hidden>TextTuner cannot run on this page. Open an article or a course page and it will be there.</p>
+    <p class="note" id="note" hidden>Glider cannot run on this page. Open an article or a course page and it will be there.</p>
 
     <div class="rows">
       <div class="row">
@@ -28,6 +28,10 @@
         <span class="name" id="n-gaze">Eye tracking</span>
         <button type="button" class="text-btn" id="gaze-calibrate" hidden>Calibrate</button>
         <button type="button" class="switch" role="switch" aria-checked="false" data-toggle="gaze" aria-labelledby="n-gaze"></button>
+      </div>
+      <div class="row">
+        <span class="name" id="n-check">Reading check</span>
+        <button type="button" class="text-btn" id="reading-check" aria-describedby="n-check" title="A two-minute check of your reading pattern, with a dashboard">Open</button>
       </div>
     </div>
 

@@ -1,5 +1,5 @@
 /*
- * LexiLens confusion-pair dictionary.
+ * Glider confusion-pair dictionary.
  *
  * Classic script (not an ES module). No dependencies, no DOM access.
  * Loads in a content script and in Node.
@@ -16,7 +16,7 @@
 (function () {
   'use strict';
 
-  const LL = (globalThis.LexiLens = globalThis.LexiLens || {});
+  const LL = (globalThis.Glider = globalThis.Glider || {});
 
   LL.HOMOPHONES = [
     // ---------------------------------------------------------------

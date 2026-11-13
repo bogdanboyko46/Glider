@@ -1,5 +1,5 @@
 /*
- * LexiLens — English syllable splitter.
+ * Glider — English syllable splitter.
  *
  * Rule-based, no dictionary download, runs in well under a millisecond per
  * word. Used by the syllable tooltip to show a long word as readable chunks.
@@ -19,7 +19,7 @@
 (() => {
   'use strict';
 
-  const LL = (globalThis.LexiLens = globalThis.LexiLens || {});
+  const LL = (globalThis.Glider = globalThis.Glider || {});
 
   /* ------------------------------------------------------------ exceptions */
 

@@ -1,5 +1,5 @@
 /*
- * LexiLens — reading ruler and focus spotlight.
+ * Glider — reading ruler and focus spotlight.
  *
  * A translucent band follows the pointer (or the Up/Down arrow keys) and dims
  * the page above and below a 2 to 4 line reading window. It is three fixed
@@ -8,7 +8,7 @@
 (() => {
   'use strict';
 
-  const LL = (globalThis.LexiLens = globalThis.LexiLens || {});
+  const LL = (globalThis.Glider = globalThis.Glider || {});
 
   const DEFAULT_LINE_PX = 28;
   const EDGE_PAD = 12;
@@ -89,16 +89,16 @@
     mount() {
       if (this.root && this.root.isConnected) return;
       const root = document.createElement('div');
-      root.id = 'lexilens-ruler';
+      root.id = 'glider-ruler';
       root.setAttribute('aria-hidden', 'true');
       for (const edge of ['top', 'bottom']) {
         const shade = document.createElement('div');
-        shade.className = 'lexilens-ruler-shade';
+        shade.className = 'glider-ruler-shade';
         shade.dataset.edge = edge;
         root.appendChild(shade);
       }
       const band = document.createElement('div');
-      band.className = 'lexilens-ruler-band';
+      band.className = 'glider-ruler-band';
       root.appendChild(band);
       document.documentElement.appendChild(root);
       this.root = root;
@@ -116,8 +116,8 @@
     apply(immediate) {
       if (!this.root) return;
       if (immediate) this.y = this.targetY = this.clampY(this.targetY);
-      this.root.style.setProperty('--lexilens-ruler-h', this.height + 'px');
-      this.root.style.setProperty('--lexilens-ruler-y', this.y.toFixed(1) + 'px');
+      this.root.style.setProperty('--glider-ruler-h', this.height + 'px');
+      this.root.style.setProperty('--glider-ruler-y', this.y.toFixed(1) + 'px');
     }
 
     moveTo(y) {
@@ -149,7 +149,7 @@
       if (now - this.lastSample < SAMPLE_EVERY_MS) return;
       this.lastSample = now;
       const el = document.elementFromPoint(x, y);
-      if (!el || el.id === 'lexilens-root' || el === document.documentElement || el === document.body) return;
+      if (!el || el.id === 'glider-root' || el === document.documentElement || el === document.body) return;
       const style = getComputedStyle(el);
       let px = parseFloat(style.lineHeight);
       if (!Number.isFinite(px)) px = parseFloat(style.fontSize) * 1.5;
@@ -158,7 +158,7 @@
       px = Math.min(96, Math.max(18, px));
       if (Math.abs(px - this.linePx) > 1) {
         this.linePx = px;
-        this.root.style.setProperty('--lexilens-ruler-h', this.height + 'px');
+        this.root.style.setProperty('--glider-ruler-h', this.height + 'px');
       }
     }
 
@@ -202,7 +202,7 @@
     const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
     const el = path[0];
     if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
-    if (path.some((node) => node && node.id === 'lexilens-root')) return true;
+    if (path.some((node) => node && node.id === 'glider-root')) return true;
     if (el.isContentEditable) return true;
     const tag = el.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.getAttribute('role') === 'textbox' ||

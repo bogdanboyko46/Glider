@@ -1,5 +1,5 @@
 /*
- * LexiLens — background service worker.
+ * Glider — background service worker.
  *
  * Three small jobs:
  *  1. Forward the keyboard shortcut (Alt+L) to the content script in the
@@ -7,7 +7,7 @@
  *  3. Answer "how do you say this word" from the bundled pronunciation
  *     list, loaded once here on first use instead of once per tab.
  *  2. On install or update, inject the content scripts into tabs that are
- *     already open, so LexiLens works without reloading them.
+ *     already open, so Glider works without reloading them.
  *
  * Settings are not handled here: the popup and the content scripts read and
  * write chrome.storage.local directly and react to its change events.
@@ -19,6 +19,7 @@ const CONTENT_JS = [
   'content/domEngine.js',
   'gaze/gaze-core.js',
   'gaze/gaze-reader.js',
+  'assessment/session-logger.js',
   'content/content.js',
 ];
 const CONTENT_CSS = ['content/content.css'];
@@ -34,7 +35,7 @@ function isInjectable(url) {
 
 async function sendCommand(tabId, command) {
   try {
-    await chrome.tabs.sendMessage(tabId, { type: 'lexilens:command', command });
+    await chrome.tabs.sendMessage(tabId, { type: 'glider:command', command });
     return true;
   } catch (_) {
     return false; // no content script in this tab yet
@@ -87,7 +88,7 @@ function findSay(list, word) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || message.type !== 'lexilens:say' || typeof message.word !== 'string') return undefined;
+  if (!message || message.type !== 'glider:say' || typeof message.word !== 'string') return undefined;
   const word = message.word.slice(0, 60);
   loadSayList()
     .then(([list, sounds]) => {

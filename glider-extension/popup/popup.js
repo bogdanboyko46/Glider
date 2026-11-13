@@ -1,4 +1,4 @@
-/* LexiLens toolbar popup.
+/* Glider toolbar popup.
  *
  * A small companion to the in-page dock. It never talks to the page about
  * settings: it rewrites the one settings object in chrome.storage.local and
@@ -9,7 +9,7 @@
 
   /* ---- These mirror content/content.js. Keep in sync. ---- */
 
-  const SETTINGS_KEY = 'lexilens:settings:v2';
+  const SETTINGS_KEY = 'glider:settings:v2';
 
   const DEFAULTS = Object.freeze({
     on: true,
@@ -74,7 +74,7 @@
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab || typeof tab.id !== 'number') return false;
-      const reply = await chrome.tabs.sendMessage(tab.id, { type: 'lexilens:ping' });
+      const reply = await chrome.tabs.sendMessage(tab.id, { type: 'glider:ping' });
       return !!(reply && reply.ok);
     } catch (_) {
       return false; // chrome:// pages, the Web Store, or a tab opened before install
@@ -122,6 +122,16 @@
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab && typeof tab.id === 'number') await chrome.tabs.sendMessage(tab.id, { type: 'gaze:calibrate' });
     } catch (_) { /* the page cannot be reached: nothing to calibrate */ }
+    window.close();
+  });
+
+  /* The Reading Check is its own extension page: a two-minute read and a dashboard. */
+  $('#reading-check').addEventListener('click', () => {
+    const page = 'assessment/assessment.html';
+    try {
+      const url = chrome.runtime.getURL(page);
+      if (hasTabs && chrome.tabs.create) chrome.tabs.create({ url }); else window.open(url, '_blank');
+    } catch (_) { window.open('../' + page, '_blank'); }
     window.close();
   });
 

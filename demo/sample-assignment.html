@@ -131,7 +131,7 @@
   // Harness mode (?harness): load the content scripts straight from the
   // repository so the dock can be tested without installing the extension.
   if (/[?&]harness\b/.test(location.search)) {
-    var base = '../lexilens-extension/';
+    var base = '../glider-extension/';
     window.chrome = window.chrome || {};
     window.chrome.runtime = window.chrome.runtime || { getURL: function (p) { return base + p; } };
     var css = document.createElement('link');

@@ -1,7 +1,7 @@
 /*
- * LexiLens — DOM engine.
+ * Glider — DOM engine.
  *
- * Wraps the words of a page in <span class="lexilens-token"> elements so the
+ * Wraps the words of a page in <span class="glider-token"> elements so the
  * visual decoders (bionic cadence, b/d/p/q guard, look-alike lens, syllable
  * hover, read-aloud highlight) have something to hold on to — and puts the
  * page back exactly as it was when they are switched off.
@@ -21,7 +21,7 @@
 (() => {
   'use strict';
 
-  const LL = (globalThis.LexiLens = globalThis.LexiLens || {});
+  const LL = (globalThis.Glider = globalThis.Glider || {});
 
   /* Subtrees that are never tokenised. */
   const SKIP_SELECTOR = [
@@ -31,18 +31,18 @@
     'svg', 'math', 'canvas', 'video', 'audio', 'iframe', 'object', 'embed',
     '[contenteditable]:not([contenteditable="false"])',
     '[role="textbox"]', '.CodeMirror', '.monaco-editor', '.ace_editor',
-    '[data-lexilens-ignore]',
-    '.lexilens-wrap', '#lexilens-root', '#lexilens-ruler', '#lexilens-tint',
+    '[data-glider-ignore]',
+    '.glider-wrap', '#glider-root', '#glider-ruler', '#glider-tint',
   ].join(',');
 
   const CLS = {
-    wrap: 'lexilens-wrap',
-    token: 'lexilens-token',
-    punct: 'lexilens-punct',
-    fix: 'lexilens-fix',
-    mirror: 'lexilens-m',
-    homophone: 'lexilens-homophone',
-    long: 'lexilens-long',
+    wrap: 'glider-wrap',
+    token: 'glider-token',
+    punct: 'glider-punct',
+    fix: 'glider-fix',
+    mirror: 'glider-m',
+    homophone: 'glider-homophone',
+    long: 'glider-long',
   };
 
   /* A word: letters (any script), with inner apostrophes kept ("they're"). */
@@ -301,7 +301,7 @@
         if (target.nodeType === Node.ELEMENT_NODE && target.closest('.' + CLS.wrap)) continue;
         for (const node of record.addedNodes) {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            if (node.classList.contains(CLS.wrap) || node.id === 'lexilens-root') continue;
+            if (node.classList.contains(CLS.wrap) || node.id === 'glider-root') continue;
             this.pendingRoots.add(node);
           } else if (node.nodeType === Node.TEXT_NODE) {
             this.pendingRoots.add(node);

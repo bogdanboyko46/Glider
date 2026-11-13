@@ -1,5 +1,5 @@
 /*
- * LexiLens — main orchestrator.
+ * Glider — main orchestrator.
  *
  * Owns the settings (chrome.storage.local, synced live across tabs), builds
  * the floating dock inside a Shadow DOM so host-page CSS and ours never meet,
@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const LL = (globalThis.LexiLens = globalThis.LexiLens || {});
+  const LL = (globalThis.Glider = globalThis.Glider || {});
   if (LL.booted) return; // injected twice (e.g. on install) — keep the first copy
   if (!document.documentElement || !/html/i.test(document.contentType || 'text/html')) return;
   LL.booted = true;
@@ -17,13 +17,13 @@
   /* After an extension update Chrome injects a fresh copy next to the old,
      now-orphaned one. The newcomer asks older copies to stand down and clears
      anything they left in the page. */
-  const TAKEOVER = 'lexilens:takeover';
+  const TAKEOVER = 'glider:takeover';
   document.dispatchEvent(new CustomEvent(TAKEOVER));
-  for (const id of ['lexilens-root', 'lexilens-ruler', 'lexilens-tint']) { // ruler and tint: left by older builds
+  for (const id of ['glider-root', 'glider-ruler', 'glider-tint']) { // ruler and tint: left by older builds
     const stale = document.getElementById(id);
     if (stale) stale.remove();
   }
-  for (const wrap of Array.from(document.getElementsByClassName('lexilens-wrap'))) {
+  for (const wrap of Array.from(document.getElementsByClassName('glider-wrap'))) {
     wrap.replaceWith(document.createTextNode(wrap.textContent));
   }
 
@@ -39,14 +39,14 @@
    * Settings
    * ===================================================================== */
 
-  const SETTINGS_KEY = 'lexilens:settings:v2';
-  const DOCK_KEY = 'lexilens:dock';
+  const SETTINGS_KEY = 'glider:settings:v2';
+  const DOCK_KEY = 'glider:dock';
 
   /* There is one lens. When it is on, every aid works together: the spacing
      guard, bionic cadence, the look-alike underlines, and the hover lens that
      splits a long word into syllables. The rest of the settings only tune it. */
-  /* The name people see. Internal ids keep the lexilens- prefix. */
-  const APP_NAME = 'TextTuner';
+  /* The name people see. Internal ids use the glider- prefix. */
+  const APP_NAME = 'Glider';
 
   const DEFAULTS = Object.freeze({
     on: true,            // the lens itself
@@ -173,10 +173,10 @@
 :host { all: initial; }
 
 .ll {
-  --lexend: "LexiLens Lexend", "Lexend", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --atkinson: "LexiLens Atkinson", "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --serif: "LexiLens Serif", "Instrument Serif", "Iowan Old Style", Georgia, serif;
-  --mono: "LexiLens Mono", "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --lexend: "Glider Lexend", "Lexend", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --atkinson: "Glider Atkinson", "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --serif: "Glider Serif", "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --mono: "Glider Mono", "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --system: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --ease: cubic-bezier(.2, .8, .2, 1);
 
@@ -513,8 +513,8 @@
 .ll-range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* eye tracking */
-.ll-gaze-line { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 0 0 6px; }
-.ll-gaze-status { flex: 1; min-width: 0; margin: 0; font-size: 11.5px; line-height: 1.35; color: var(--ink-2); }
+.ll-gaze-line { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 2px 0 8px; }
+.ll-gaze-status { flex: 1; min-width: 0; margin: 0; font-size: 12px; line-height: 1.4; color: var(--ink-2); }
 .ll-btn {
   flex: none;
   height: 28px;
@@ -530,7 +530,7 @@
   transition: opacity .12s ease;
 }
 .ll-btn:hover { opacity: .88; }
-.ll-gaze .ll-sliders { grid-template-columns: auto 1fr 56px; padding: 0 0 7px; }
+.ll-gaze .ll-sliders { grid-template-columns: auto 1fr 60px; padding: 0 0 8px; }
 
 /* segmented (ruler lines) */
 .ll-seg { display: inline-grid; flex: none; grid-auto-flow: column; grid-auto-columns: 28px; gap: 2px; padding: 3px; border-radius: var(--radius-ctl); background: var(--well); box-shadow: inset 0 0 0 var(--bw) var(--line); }
@@ -1285,11 +1285,11 @@
       try {
         chrome.runtime.onMessage.addListener((message, _sender, respond) => {
           if (this.dead || !message || typeof message.type !== 'string') return;
-          if (message.type === 'lexilens:command') {
+          if (message.type === 'glider:command') {
             if (this.ready) this.command(message.command);
             else this.queuedCommands.push(message.command);
             respond({ ok: true });
-          } else if (message.type === 'lexilens:ping') {
+          } else if (message.type === 'glider:ping') {
             respond({ ok: true });
           } else if (message.type === 'gaze:calibrate') { // the popup's Calibrate button
             if (this.ready) this.calibrateGaze();
@@ -1321,26 +1321,26 @@
       const html = document.documentElement;
 
       const classes = {
-        'lexilens-spacing': on,
-        'lexilens-bionic': on,
-        'lexilens-syllables': on,
-        'lexilens-font': on && s.font,
-        'lexilens-size': on && s.fontSize !== 100,
+        'glider-spacing': on,
+        'glider-bionic': on,
+        'glider-syllables': on,
+        'glider-font': on && s.font,
+        'glider-size': on && s.fontSize !== 100,
       };
       for (const [name, wanted] of Object.entries(classes)) html.classList.toggle(name, wanted);
       this.wantedClasses = Object.keys(classes).filter((name) => classes[name]);
 
-      if (on && s.fontSize !== 100) html.style.setProperty('--lexilens-font-scale', String(s.fontSize / 100));
-      else html.style.removeProperty('--lexilens-font-scale');
+      if (on && s.fontSize !== 100) html.style.setProperty('--glider-font-scale', String(s.fontSize / 100));
+      else html.style.removeProperty('--glider-font-scale');
 
       if (on) {
-        html.style.setProperty('--lexilens-letter-spacing', `${s.letterSpacing}px`);
-        html.style.setProperty('--lexilens-word-spacing', `${s.wordSpacing}px`);
-        html.style.setProperty('--lexilens-line-height', String(s.lineHeight));
+        html.style.setProperty('--glider-letter-spacing', `${s.letterSpacing}px`);
+        html.style.setProperty('--glider-word-spacing', `${s.wordSpacing}px`);
+        html.style.setProperty('--glider-line-height', String(s.lineHeight));
       } else {
-        html.style.removeProperty('--lexilens-letter-spacing');
-        html.style.removeProperty('--lexilens-word-spacing');
-        html.style.removeProperty('--lexilens-line-height');
+        html.style.removeProperty('--glider-letter-spacing');
+        html.style.removeProperty('--glider-word-spacing');
+        html.style.removeProperty('--glider-line-height');
       }
 
       // With every feature off the engine puts the original text nodes back.
@@ -1356,13 +1356,13 @@
     loadFonts() {
       if (typeof FontFace !== 'function' || !document.fonts) return;
       const faces = [
-        ['LexiLens Lexend', 'fonts/Lexend-Variable.woff2', { weight: '100 900', style: 'normal' }],
-        ['LexiLens Atkinson', 'fonts/AtkinsonHyperlegible-Regular.woff2', { weight: '400', style: 'normal' }],
-        ['LexiLens Atkinson', 'fonts/AtkinsonHyperlegible-Bold.woff2', { weight: '700', style: 'normal' }],
-        ['LexiLens Atkinson', 'fonts/AtkinsonHyperlegible-Italic.woff2', { weight: '400', style: 'italic' }],
-        ['LexiLens Serif', 'fonts/InstrumentSerif-Regular.woff2', { weight: '400', style: 'normal' }],
-        ['LexiLens Serif', 'fonts/InstrumentSerif-Italic.woff2', { weight: '400', style: 'italic' }],
-        ['LexiLens Mono', 'fonts/JetBrainsMono-Variable.woff2', { weight: '100 800', style: 'normal' }],
+        ['Glider Lexend', 'fonts/Lexend-Variable.woff2', { weight: '100 900', style: 'normal' }],
+        ['Glider Atkinson', 'fonts/AtkinsonHyperlegible-Regular.woff2', { weight: '400', style: 'normal' }],
+        ['Glider Atkinson', 'fonts/AtkinsonHyperlegible-Bold.woff2', { weight: '700', style: 'normal' }],
+        ['Glider Atkinson', 'fonts/AtkinsonHyperlegible-Italic.woff2', { weight: '400', style: 'italic' }],
+        ['Glider Serif', 'fonts/InstrumentSerif-Regular.woff2', { weight: '400', style: 'normal' }],
+        ['Glider Serif', 'fonts/InstrumentSerif-Italic.woff2', { weight: '400', style: 'italic' }],
+        ['Glider Mono', 'fonts/JetBrainsMono-Variable.woff2', { weight: '100 800', style: 'normal' }],
       ];
       for (const [family, path, descriptors] of faces) {
         try {
@@ -1376,8 +1376,8 @@
 
     buildDock() {
       const host = document.createElement('div');
-      host.id = 'lexilens-root';
-      host.setAttribute('data-lexilens-ignore', '');
+      host.id = 'glider-root';
+      host.setAttribute('data-glider-ignore', '');
       host.style.cssText = 'all:initial;position:fixed;inset:0;z-index:2147483647;pointer-events:none;';
       const shadow = host.attachShadow({ mode: 'open' });
 
@@ -1553,6 +1553,7 @@
 
     placeDock() {
       const { h, v, x, y } = this.dockPos;
+      this.syncGazeCorner();
       const style = this.dock.style;
       this.dock.dataset.h = h;
       this.dock.dataset.v = v;
@@ -1662,13 +1663,13 @@
     tokenFrom(event) {
       const target = event.target;
       if (!target || target.nodeType !== Node.ELEMENT_NODE) return null;
-      return target.closest('.lexilens-token');
+      return target.closest('.glider-token');
     }
 
     /** Does hovering this word open the lens? Long words and look-alikes do. */
     wantsLens(token) {
       if (!token || !this.state.on) return false;
-      return token.classList.contains('lexilens-long') || token.classList.contains('lexilens-homophone');
+      return token.classList.contains('glider-long') || token.classList.contains('glider-homophone');
     }
 
     onPageHover(event) {
@@ -1783,23 +1784,32 @@
       const baseline = g.baseline && Number.isFinite(Number(g.baseline.wpm)) ? g.baseline : null;
       switch (g.status) {
         case 'starting': return 'Starting the camera';
-        case 'needs-permission': return 'Camera access needed';
-        case 'ready': return g.calibrated ? 'Ready' : 'Calibrate to begin';
+        case 'needs-permission': return 'Allow the camera to begin';
+        case 'ready': return g.calibrated ? 'Ready to follow your reading' : 'Calibrate to begin';
         case 'calibrating':
-        case 'baseline': return 'Calibrating';
+        case 'baseline': return 'Calibrating. Follow the steps on screen';
         case 'tracking': {
-          if (!baseline) return 'Tracking. Reading pace not measured yet';
+          if (!baseline) return 'Following your reading. Pace not measured yet';
           const pace = `Your pace: ${Math.round(Number(baseline.wpm))} words a minute`;
           const tau = Number(g.tau);
-          return Number.isFinite(tau) && tau > 0 ? `${pace}. Help at ${tau.toFixed(1)}× slower` : pace;
+          return Number.isFinite(tau) && tau > 0 ? `${pace}. Help when a line takes ${tau.toFixed(1)} times longer` : pace;
         }
-        case 'error': return 'Eye tracking could not start';
+        case 'error': return 'Eye tracking could not start. Switch it off and on again';
         default: return '';
       }
     }
 
+    /** Tell the eye tracker which corner the dock is in, so its camera
+        widget (bottom-left by default) moves aside instead of overlapping. */
+    syncGazeCorner() {
+      const host = document.querySelector('[data-gaze-reader]');
+      const corner = this.dockPos.h + this.dockPos.v;
+      if (host && host.getAttribute('data-dock') !== corner) host.setAttribute('data-dock', corner);
+    }
+
     /** Sync the eye tracking part of the dock. `g` is a GazeReader state. */
     renderGaze(g) {
+      this.syncGazeCorner();
       const box = this.$('.ll-gaze');
       if (!box) return;
       box.hidden = !this.gaze;
@@ -1866,7 +1876,7 @@
         }
         return best;
       };
-      return pick('.lexilens-token.lexilens-long') || pick('.lexilens-token.lexilens-homophone');
+      return pick('.glider-token.glider-long') || pick('.glider-token.glider-homophone');
     }
 
     /** Keep a lens the eye tracker opened for a while, then let it go. */
@@ -1886,7 +1896,7 @@
     easeBlock(el) {
       if (this.gazeEased.has(el)) return;
       const before = el.getAttribute('class');
-      el.classList.add('lexilens-ease');
+      el.classList.add('glider-ease');
       this.gazeEased.set(el, { before, after: el.getAttribute('class') });
     }
 
@@ -1904,7 +1914,7 @@
           if (was.before === null) el.removeAttribute('class');
           else el.setAttribute('class', was.before);
         } else {
-          el.classList.remove('lexilens-ease');
+          el.classList.remove('glider-ease');
         }
       }
       this.gazeEased.clear();
@@ -1922,8 +1932,8 @@
     showTip(token, pinned) {
       if (!token.isConnected || !this.wantsLens(token)) return;
       const word = this.engine.wordOf(token);
-      const showSyllables = token.classList.contains('lexilens-long');
-      const group = token.classList.contains('lexilens-homophone') ? LL.lookupHomophone(word) : null;
+      const showSyllables = token.classList.contains('glider-long');
+      const group = token.classList.contains('glider-homophone') ? LL.lookupHomophone(word) : null;
       if (!showSyllables && !group) return;
 
       let html = '';
@@ -1950,10 +1960,10 @@
         }).join('') + '</ul>';
       }
 
-      if (this.tip.token && this.tip.token !== token) this.tip.token.classList.remove('lexilens-lensed');
+      if (this.tip.token && this.tip.token !== token) this.tip.token.classList.remove('glider-lensed');
       this.tip.token = token;
       this.tip.pinned = pinned;
-      token.classList.add('lexilens-lensed');
+      token.classList.add('glider-lensed');
 
       const tip = this.tipEl;
       tip.innerHTML = html;
@@ -2066,7 +2076,7 @@
     hideTip(immediate) {
       clearTimeout(this.tip.showTimer);
       clearTimeout(this.tip.hideTimer);
-      if (this.tip.token) this.tip.token.classList.remove('lexilens-lensed');
+      if (this.tip.token) this.tip.token.classList.remove('glider-lensed');
       if (this.tip.token && this.tipEl) this.stopSpeaking();
       this.tip.token = null;
       this.tip.pinned = false;
@@ -2088,7 +2098,7 @@
     const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
     const el = path[0];
     if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
-    if (path.some((node) => node && node.id === 'lexilens-root')) return true;
+    if (path.some((node) => node && node.id === 'glider-root')) return true;
     if (el.isContentEditable) return true;
     const tag = el.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.getAttribute('role') === 'textbox' ||
@@ -2119,7 +2129,7 @@
     const pending = (async () => {
       try {
         if (IN_EXTENSION) {
-          const reply = await chrome.runtime.sendMessage({ type: 'lexilens:say', word });
+          const reply = await chrome.runtime.sendMessage({ type: 'glider:say', word });
           return reply && reply.say ? { say: reply.say, speak: reply.speak || reply.say.toLowerCase().split('-') } : null;
         }
         if (!sayList) sayList = fetch(assetURL('data/pronounce.txt')).then((r) => (r.ok ? r.text() : '')).then((t) => '\n' + t);
@@ -2165,7 +2175,7 @@
 
   const app = new App();
   LL.app = app;
-  const boot = () => app.init().catch((error) => console.warn('[LexiLens] failed to start', error));
+  const boot = () => app.init().catch((error) => console.warn('[Glider] failed to start', error));
   if (document.body) boot();
   else document.addEventListener('DOMContentLoaded', boot, { once: true });
 })();

@@ -23,27 +23,27 @@ try {
     speechSynthesis.speak = (u) => { const orig = u.onboundary; u.onboundary = (e) => { window.__b += 1; if (orig) orig(e); }; speak(u); }; })()`);
 
   await page.eval(`(() => { const p = document.querySelectorAll('.reading p')[1]; const r = document.createRange(); r.selectNodeContents(p); const s = getSelection(); s.removeAllRanges(); s.addRange(r); })()`);
-  await page.eval('LexiLens.app.toggleReading()');
+  await page.eval('Glider.app.toggleReading()');
 
   const seen = [];
   for (let i = 0; i < 24; i += 1) {
     await page.sleep(250);
-    seen.push(await page.eval(`(() => { const t = document.querySelector('.lexilens-speaking'); return t ? t.textContent : ''; })()`));
+    seen.push(await page.eval(`(() => { const t = document.querySelector('.glider-speaking'); return t ? t.textContent : ''; })()`));
   }
   const distinct = [...new Set(seen.filter(Boolean))];
   const boundaries = await page.eval('window.__b');
   console.log('highlighted over 6s:', distinct.join(' '));
   console.log('real boundary events:', boundaries, boundaries ? '(voice-driven highlight)' : '(estimated-pace fallback in use)');
-  check('speech started', (await page.eval('LexiLens.app.tts.state')) === 'playing');
+  check('speech started', (await page.eval('Glider.app.tts.state')) === 'playing');
   check('highlight advances through the words in order', distinct.length >= 6 && distinct[0].toLowerCase() === 'most', distinct.slice(0, 8).join(' '));
 
-  await page.eval('LexiLens.app.update({ ttsRate: 1.5 })');
+  await page.eval('Glider.app.update({ ttsRate: 1.5 })');
   await page.sleep(1500);
-  check('changing speed mid-sentence keeps reading', (await page.eval('LexiLens.app.tts.state')) === 'playing' && !!(await page.eval(`!!document.querySelector('.lexilens-speaking')`)));
+  check('changing speed mid-sentence keeps reading', (await page.eval('Glider.app.tts.state')) === 'playing' && !!(await page.eval(`!!document.querySelector('.glider-speaking')`)));
 
-  await page.eval('LexiLens.app.tts.stop()');
+  await page.eval('Glider.app.tts.stop()');
   await page.sleep(300);
-  check('stop clears the highlight and restores the page', (await page.eval(`document.querySelectorAll('.lexilens-speaking, .lexilens-wrap').length`)) === 0);
+  check('stop clears the highlight and restores the page', (await page.eval(`document.querySelectorAll('.glider-speaking, .glider-wrap').length`)) === 0);
   check('no page errors', page.errors.length === 0, page.errors.join(' || '));
 } catch (error) {
   failed += 1;

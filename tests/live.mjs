@@ -22,17 +22,17 @@ try {
   const clickSel = async (sel, wait = 400) => { const r = await rect(sel); if (!r) throw new Error('missing ' + sel); await page.click(r.cx, r.cy); await page.sleep(wait); };
   const count = (sel) => page.eval(`document.querySelectorAll(${JSON.stringify(sel)}).length`);
 
-  check('extension injected the dock', await page.eval(`!!document.querySelector('#lexilens-root') && !!document.querySelector('#lexilens-root').shadowRoot`));
+  check('extension injected the dock', await page.eval(`!!document.querySelector('#glider-root') && !!document.querySelector('#glider-root').shadowRoot`));
   const words = await page.eval(`document.body.innerText.split(/\\s+/).length`);
   console.log('page words:', words);
   await page.shot(join(out, 'live-00-pill.png'));
 
-  check('dock font loaded from the extension', await page.eval(`document.fonts.check('13px "LexiLens Atkinson"')`));
+  check('dock font loaded from the extension', await page.eval(`document.fonts.check('13px "Glider Atkinson"')`));
   check('no voice code in the extension build', await page.eval(`!__ll.root().querySelector('[data-say], [data-action="play"]')`));
 
   // The lens is on by default: everything applies without a click.
   await page.sleep(800);
-  const t1 = await count('.lexilens-token');
+  const t1 = await count('.glider-token');
   check('lens on by default: tokens near the viewport only (lazy)', t1 > 100 && t1 < words * 0.6, `${t1} tokens of ~${words} words`);
   await page.move(700, 420);
   await page.sleep(500);
@@ -41,13 +41,13 @@ try {
 
   await page.eval(`window.__long.length = 0; scrollTo({ top: 6000 }); 0`);
   await page.sleep(1200);
-  const t2 = await count('.lexilens-token');
+  const t2 = await count('.glider-token');
   check('scrolling tokenises more text', t2 > t1, `${t1} -> ${t2}`);
   console.log('long tasks while scrolling (ms):', await page.eval('JSON.stringify(window.__long)'));
   await page.eval(`scrollTo({ top: 0 }); 0`);
   await page.sleep(500);
 
-  const tok = await page.eval(`(() => { const t = [...document.querySelectorAll('.lexilens-long')].find((el) => { const r = el.getBoundingClientRect(); return r.top > 220 && r.top < 560 && r.left > 60 && r.left < 800 && el.textContent.length > 9; }); return t ? __ll.rect(t) : null; })()`);
+  const tok = await page.eval(`(() => { const t = [...document.querySelectorAll('.glider-long')].find((el) => { const r = el.getBoundingClientRect(); return r.top > 220 && r.top < 560 && r.left > 60 && r.left < 800 && el.textContent.length > 9; }); return t ? __ll.rect(t) : null; })()`);
   if (tok) { await page.move(tok.cx, tok.cy); await page.sleep(700); }
   check('hover lens appears on a live page', await page.eval(`!__ll.q('.ll-tip').hidden && __ll.q('.ll-tip').querySelectorAll('.ll-syl, .ll-part').length > 1`));
   await page.sleep(900);
@@ -60,18 +60,18 @@ try {
 
   await clickSel('.ll-pill-main');
 
-  const before = await count('.lexilens-wrap');
+  const before = await count('.glider-wrap');
   await page.eval(`window.__long.length = 0; 0`);
   await clickSel('.ll-head [data-toggle="on"]', 1200);
-  check('switching off removes every wrapper on a live page', (await count('.lexilens-wrap')) === 0 && (await count('.lexilens-token')) === 0, `had ${before}`);
-  check('switching off clears page classes', await page.eval(`![...document.documentElement.classList].some((c) => c.startsWith('lexilens-'))`));
+  check('switching off removes every wrapper on a live page', (await count('.glider-wrap')) === 0 && (await count('.glider-token')) === 0, `had ${before}`);
+  check('switching off clears page classes', await page.eval(`![...document.documentElement.classList].some((c) => c.startsWith('glider-'))`));
   await page.shot(join(out, 'live-04-off.png'));
   await clickSel('.ll-head [data-toggle="on"]', 1200);
-  check('switching on again re-applies', (await count('.lexilens-token')) > 100);
+  check('switching on again re-applies', (await count('.glider-token')) > 100);
   console.log('long tasks for off + on (ms):', await page.eval('JSON.stringify(window.__long)'));
 
-  const errs = page.errors.filter((e) => /lexilens/i.test(e));
-  check('no LexiLens errors in the page console', errs.length === 0, errs.join(' || '));
+  const errs = page.errors.filter((e) => /glider/i.test(e));
+  check('no Glider errors in the page console', errs.length === 0, errs.join(' || '));
   console.log('all console issues on page (site + extension):', page.errors.length);
 } catch (error) {
   failed += 1;

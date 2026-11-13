@@ -22,7 +22,7 @@ try {
     const r = await rect(sel);
     return { x: Math.max(0, r.x - pad), y: Math.max(0, r.y - pad), width: r.w + pad * 2, height: r.h + pad * 2, scale: 2 };
   };
-  const set = async (patch) => { await page.eval(`LexiLens.app.update(${JSON.stringify(patch)})`); await page.sleep(350); };
+  const set = async (patch) => { await page.eval(`Glider.app.update(${JSON.stringify(patch)})`); await page.sleep(350); };
   const hover = async (word) => {
     const tok = await page.eval(`(() => { const t = __ll.token(${JSON.stringify(word)}); return t ? __ll.rect(t) : null; })()`);
     if (!tok) throw new Error('no token ' + word);
@@ -32,21 +32,21 @@ try {
 
   for (const skin of skins) {
     await set({ skin });
-    await page.eval(`LexiLens.app.setOpen(false)`);
+    await page.eval(`Glider.app.setOpen(false)`);
     await page.sleep(300);
     await page.move(760, 150);
     await page.shot(join(out, `${skin}-pill.png`), await clip('.ll-pill', 26));
     await hover('epistemology');
     await page.shot(join(out, `${skin}-tip.png`), await clip('.ll-tip', 30));
     await page.move(760, 150);
-    await page.eval(`LexiLens.app.setOpen(true)`);
+    await page.eval(`Glider.app.setOpen(true)`);
     await page.sleep(400);
     await page.shot(join(out, `${skin}-panel.png`), await clip('.ll-panel'));
   }
 
   // Whole-page views in the default design.
   await set({ skin: skins[0] });
-  await page.eval(`LexiLens.app.setOpen(false)`);
+  await page.eval(`Glider.app.setOpen(false)`);
   await hover('epistemology');
   await page.shot(join(out, 'page-hover.png'));
   await hover('principal');

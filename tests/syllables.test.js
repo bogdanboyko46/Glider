@@ -1,6 +1,6 @@
 // Accuracy check for the syllable splitter.  node tests/syllables.test.js
 const path = require('node:path');
-const S = require(path.join(__dirname, '..', 'lexilens-extension', 'content', 'syllableParser.js'));
+const S = require(path.join(__dirname, '..', 'glider-extension', 'content', 'syllableParser.js'));
 
 // word:expected syllable count
 const LIST = `

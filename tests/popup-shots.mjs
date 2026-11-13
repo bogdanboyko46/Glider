@@ -10,7 +10,7 @@ const chrome = await launch({ width: 420, height: 520 });
 try {
   const page = await chrome.page();
   for (const skin of skins) {
-    await page.goto(`${origin}/lexilens-extension/popup/popup.html?skin=${skin}`, 700);
+    await page.goto(`${origin}/glider-extension/popup/popup.html?skin=${skin}`, 700);
     const r = await page.eval(`(() => { const b = document.querySelector('.pop').getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; })()`);
     await page.shot(join(out, `popup-${skin}.png`), { ...r, scale: 2 });
   }

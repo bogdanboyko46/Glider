@@ -1,5 +1,5 @@
 // The whole content-script stack (lens + dock + eye tracking) on one page, with a
-// fake camera frame. Checks the dock's eye-tracking controls and what TextTuner
+// fake camera frame. Checks the dock's eye-tracking controls and what Glider
 // does when the tracker reports a struggle.
 //   node tests/gaze-full.mjs
 import { join } from 'node:path';
@@ -17,12 +17,12 @@ try {
   const page = await chrome.page();
   const URL_ = `${origin}/tests/gaze-site/full.html`;
   await page.goto(URL_, 800);
-  await page.eval(`localStorage.clear(); localStorage.setItem('lexilens:settings:v2', JSON.stringify({ on: false })); 0`);
+  await page.eval(`localStorage.clear(); localStorage.setItem('glider:settings:v2', JSON.stringify({ on: false })); 0`);
   await page.goto(URL_, 1200);
   await page.eval(IN_PAGE);
   const baseline = await page.eval('document.body.innerHTML');
-  const state = () => page.eval('JSON.parse(JSON.stringify(LexiLens.app.state))');
-  const set = async (patch, wait = 600) => { await page.eval(`LexiLens.app.update(${JSON.stringify(patch)})`); await page.sleep(wait); };
+  const state = () => page.eval('JSON.parse(JSON.stringify(Glider.app.state))');
+  const set = async (patch, wait = 600) => { await page.eval(`Glider.app.update(${JSON.stringify(patch)})`); await page.sleep(wait); };
   const gaze = () => page.eval('GazeReader.getState()');
   const widget = () => page.eval(`!!document.querySelector('[data-gaze-reader]')`);
 
@@ -61,13 +61,13 @@ try {
 
   // A struggle report, as GazeReader would send it, for the second line of p2.
   const detail = `(() => { const el = document.getElementById('p2'); const r = document.createRange(); r.selectNodeContents(el); const lines = GazeCore.mergeLineRects(r.getClientRects()); return { element: el, lineIndex: 1, lineRect: lines[1], lineText: '', paragraphText: el.textContent, severity: 0.5, metrics: {} }; })()`;
-  await page.eval(`LexiLens.app.onStruggle({ ...${detail}, reason: 'stuck-line' }); 0`);
+  await page.eval(`Glider.app.onStruggle({ ...${detail}, reason: 'stuck-line' }); 0`);
   await page.sleep(500);
-  const tip = await page.eval(`(() => { const t = __ll.q('.ll-tip'); const tok = LexiLens.app.tip.token; const line = ${detail}.lineRect; const r = tok && tok.getClientRects()[0]; return { hidden: t.hidden, syls: t.querySelectorAll('.ll-syl, .ll-part').length, word: tok && tok.textContent, onLine: !!r && (r.top + r.bottom) / 2 >= line.top - 4 && (r.top + r.bottom) / 2 <= line.bottom + 4, help: LexiLens.app.gazeHelp }; })()`);
+  const tip = await page.eval(`(() => { const t = __ll.q('.ll-tip'); const tok = Glider.app.tip.token; const line = ${detail}.lineRect; const r = tok && tok.getClientRects()[0]; return { hidden: t.hidden, syls: t.querySelectorAll('.ll-syl, .ll-part').length, word: tok && tok.textContent, onLine: !!r && (r.top + r.bottom) / 2 >= line.top - 4 && (r.top + r.bottom) / 2 <= line.bottom + 4, help: Glider.app.gazeHelp }; })()`);
   check('stuck line: the syllable lens opens on the hardest word of that line', !tip.hidden && tip.syls > 1 && tip.onLine && tip.help.count === 1, JSON.stringify(tip));
-  await page.eval(`LexiLens.app.onStruggle({ ...${detail}, reason: 'rereading' }); 0`);
+  await page.eval(`Glider.app.onStruggle({ ...${detail}, reason: 'rereading' }); 0`);
   await page.sleep(500);
-  const eased = await page.eval(`(() => { const a = getComputedStyle(document.getElementById('p2')), b = getComputedStyle(document.getElementById('p1')); return { cls: document.getElementById('p2').classList.contains('lexilens-ease'), ws: [a.wordSpacing, b.wordSpacing], lh: [a.lineHeight, b.lineHeight] }; })()`);
+  const eased = await page.eval(`(() => { const a = getComputedStyle(document.getElementById('p2')), b = getComputedStyle(document.getElementById('p1')); return { cls: document.getElementById('p2').classList.contains('glider-ease'), ws: [a.wordSpacing, b.wordSpacing], lh: [a.lineHeight, b.lineHeight] }; })()`);
   check('re-reading: that paragraph gets wider spacing', eased.cls && parseFloat(eased.ws[0]) > parseFloat(eased.ws[1]) && parseFloat(eased.lh[0]) > parseFloat(eased.lh[1]), JSON.stringify(eased));
 
   await set({ on: false }, 900);

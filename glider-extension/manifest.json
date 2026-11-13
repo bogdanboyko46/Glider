@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "TextTuner: Dyslexia Reading Lens",
-  "short_name": "TextTuner",
+  "name": "Glider: Dyslexia Reading Lens",
+  "short_name": "Glider",
   "version": "1.4.0",
   "description": "One reading lens for dyslexia and visual fatigue: larger text, wider spacing, bionic cadence, syllables with how to say them, and optional eye tracking that notices a hard line. Runs entirely on your device.",
   "minimum_chrome_version": "120",
   "action": {
-    "default_title": "TextTuner",
+    "default_title": "Glider",
     "default_popup": "popup/popup.html"
   },
   "permissions": [
@@ -33,6 +33,7 @@
         "content/domEngine.js",
         "gaze/gaze-core.js",
         "gaze/gaze-reader.js",
+        "assessment/session-logger.js",
         "content/content.js"
       ],
       "run_at": "document_idle",
@@ -66,7 +67,7 @@
       "suggested_key": {
         "default": "Alt+L"
       },
-      "description": "Open or minimise the TextTuner dock"
+      "description": "Open or minimise the Glider dock"
     }
   }
 }

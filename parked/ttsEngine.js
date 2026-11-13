@@ -1,5 +1,5 @@
 /*
- * LexiLens — read-aloud engine.
+ * Glider — read-aloud engine.
  *
  * Speaks a selection (or the main content of the page) with the browser's
  * built-in speechSynthesis voices — offline, free, no keys — and highlights
@@ -17,10 +17,10 @@
 (() => {
   'use strict';
 
-  const LL = (globalThis.LexiLens = globalThis.LexiLens || {});
+  const LL = (globalThis.Glider = globalThis.Glider || {});
 
   const HOLD = 'tts';
-  const SPEAKING_CLASS = 'lexilens-speaking';
+  const SPEAKING_CLASS = 'glider-speaking';
   const MAX_CHUNK_CHARS = 240;
   const BATCH_ENTRIES = 60; // text nodes prepared per step while reading
 
@@ -425,7 +425,7 @@
         const parent = node.parentElement;
         if (!parent) continue;
 
-        const wrap = parent.closest('.lexilens-wrap');
+        const wrap = parent.closest('.glider-wrap');
         if (wrap) {
           if (!wrap.parentElement || !usable(wrap.parentElement)) continue;
           const offset = offsetWithin(wrap, node);
@@ -483,7 +483,7 @@
           const from = Math.max(entry.start, offset);
           const to = Math.min(entry.end, offset + text.length);
           if (from < to) {
-            const isToken = child.nodeType === Node.ELEMENT_NODE && child.classList.contains('lexilens-token');
+            const isToken = child.nodeType === Node.ELEMENT_NODE && child.classList.contains('glider-token');
             if (isToken) items.push({ text, token: child });
             else items.push({ text: text.slice(from - offset, to - offset), token: null });
           }

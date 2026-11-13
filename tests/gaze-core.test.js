@@ -1,6 +1,6 @@
-// node tests/gaze-core.test.js — sanity + simulation tests for lexilens-extension/gaze/gaze-core.js
+// node tests/gaze-core.test.js — sanity + simulation tests for glider-extension/gaze/gaze-core.js
 const path = require('node:path');
-const C = require(path.join(__dirname, '..', 'lexilens-extension', 'gaze', 'gaze-core.js'));
+const C = require(path.join(__dirname, '..', 'glider-extension', 'gaze', 'gaze-core.js'));
 let seed = 7;
 const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
 const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
