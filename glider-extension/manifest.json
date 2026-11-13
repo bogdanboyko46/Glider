@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Glider: Dyslexia Reading Lens",
+  "name": "Glider",
   "short_name": "Glider",
   "version": "1.4.0",
   "description": "One reading lens for dyslexia and visual fatigue: larger text, wider spacing, bionic cadence, syllables with how to say them, and optional eye tracking that notices a hard line. Runs entirely on your device.",
