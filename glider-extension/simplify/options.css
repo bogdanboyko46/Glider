@@ -23,6 +23,3 @@
 .so-out p { font-size: 19px; line-height: 1.8; }
 .so-status[data-tone="bad"] { color: #8f3d05; font-weight: 700; }
 .so-status[data-tone="good"] { color: #1d4a32; font-weight: 700; }
-.so-adv summary { cursor: pointer; font-weight: 700; color: var(--rc-accent); }
-.so-adv .so-key { margin-top: 12px; }
-.so-key label { font-size: 15px; color: var(--rc-ink-2); }
