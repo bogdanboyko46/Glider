@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "TextTuner: Dyslexia Reading Lens",
+  "short_name": "TextTuner",
+  "version": "1.4.0",
+  "description": "One reading lens for dyslexia and visual fatigue: larger text, wider spacing, bionic cadence, syllables with how to say them, and optional eye tracking that notices a hard line. Runs entirely on your device.",
+  "minimum_chrome_version": "120",
+  "action": {
+    "default_title": "TextTuner",
+    "default_popup": "popup/popup.html"
+  },
+  "permissions": [
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "css": [
+        "content/content.css"
+      ],
+      "js": [
+        "content/homophones.js",
+        "content/syllableParser.js",
+        "content/domEngine.js",
+        "gaze/gaze-core.js",
+        "gaze/gaze-reader.js",
+        "content/content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "fonts/*.woff2",
+        "gaze/frame.html",
+        "gaze/frame.js",
+        "gaze/gaze-core.js",
+        "gaze/permission.html",
+        "gaze/permission.js",
+        "gaze/vendor/vision_bundle.js",
+        "gaze/vendor/face_landmarker.task",
+        "gaze/vendor/wasm/vision_wasm_internal.js",
+        "gaze/vendor/wasm/vision_wasm_internal.wasm"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "commands": {
+    "toggle-dock": {
+      "suggested_key": {
+        "default": "Alt+L"
+      },
+      "description": "Open or minimise the TextTuner dock"
+    }
+  }
+}

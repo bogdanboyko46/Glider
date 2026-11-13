@@ -1,0 +1,59 @@
+Bundled fonts
+=============
+
+The font files in this directory are redistributed unmodified (latin subsets,
+WOFF2) under the SIL Open Font License, Version 1.1.
+
+Full license text: https://openfontlicense.org
+
+
+Lexend
+------
+File: Lexend-Variable.woff2 (variable font, weight axis 100-900)
+
+Copyright 2018 The Lexend Project Authors
+(https://github.com/googlefonts/lexend), with Reserved Font Name "Lexend".
+
+Licensed under the SIL Open Font License, Version 1.1.
+
+
+Atkinson Hyperlegible
+---------------------
+Files: AtkinsonHyperlegible-Regular.woff2 (400)
+       AtkinsonHyperlegible-Bold.woff2 (700)
+       AtkinsonHyperlegible-Italic.woff2 (400 italic)
+
+Copyright 2020 Braille Institute of America, Inc.
+(https://www.brailleinstitute.org), with Reserved Font Name
+"Atkinson Hyperlegible".
+
+Licensed under the SIL Open Font License, Version 1.1.
+
+
+Both fonts are licensed under the SIL Open Font License, Version 1.1. This
+license is available with a FAQ at: https://openfontlicense.org
+
+The fonts may be used, studied, modified and redistributed freely as long as
+they are not sold by themselves. The Reserved Font Names above may not be used
+for modified versions without permission from the copyright holders.
+
+
+Instrument Serif
+----------------
+Files: InstrumentSerif-Regular.woff2 (400)
+       InstrumentSerif-Italic.woff2 (400 italic)
+
+Copyright 2022 The Instrument Serif Project Authors
+(https://github.com/Instrument/instrument-serif).
+
+Licensed under the SIL Open Font License, Version 1.1.
+
+
+JetBrains Mono
+--------------
+File: JetBrainsMono-Variable.woff2 (variable font, weight axis 100-800)
+
+Copyright 2020 The JetBrains Mono Project Authors
+(https://github.com/JetBrains/JetBrainsMono).
+
+Licensed under the SIL Open Font License, Version 1.1.

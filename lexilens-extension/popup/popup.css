@@ -1,0 +1,231 @@
+/* LexiLens toolbar popup. It wears the same design as the dock: the tokens
+   below are a compact copy of the dock's, one block per design. */
+
+@font-face { font-family: "Lexend"; src: url("../fonts/Lexend-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+@font-face { font-family: "Atkinson"; src: url("../fonts/AtkinsonHyperlegible-Regular.woff2") format("woff2"); font-weight: 400; font-display: block; }
+@font-face { font-family: "Atkinson"; src: url("../fonts/AtkinsonHyperlegible-Bold.woff2") format("woff2"); font-weight: 700; font-display: block; }
+@font-face { font-family: "LL Serif"; src: url("../fonts/InstrumentSerif-Regular.woff2") format("woff2"); font-weight: 400; font-display: block; }
+@font-face { font-family: "LL Serif"; src: url("../fonts/InstrumentSerif-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+@font-face { font-family: "LL Mono"; src: url("../fonts/JetBrainsMono-Variable.woff2") format("woff2"); font-weight: 100 800; font-display: block; }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; padding: 0; }
+body { width: 312px; }
+
+.pop {
+  --lexend: "Lexend", "Segoe UI", system-ui, sans-serif;
+  --font: var(--lexend);
+  --font-display: var(--font);
+  --title-size: 16px;
+  --title-weight: 600;
+  --title-style: normal;
+  --surface: #ffffff;
+  --well: #f1f3f9;
+  --ink: #141b34;
+  --ink-2: #55607f;
+  --line: #e1e5f0;
+  --line-strong: #8a93b2;
+  --accent: #ffd84d;
+  --accent-ink: #141b34;
+  --accent-edge: #141b34;
+  --track: #dfe3ee;
+  --thumb: #ffffff;
+  --focus: #141b34;
+  --hero-bg: #fff6cf;
+  --hero-ink: #141b34;
+  --hero-ink-2: #5c5a3c;
+  --hero-edge: transparent;
+  --hero-sw: var(--accent);
+  --hero-sw-thumb: var(--accent-ink);
+  --mark-bg: #141b34;
+  --mark-hi: #ffd84d;
+  --mark-ink: #141b34;
+  --mark-dim: rgba(255, 255, 255, .34);
+  --tint-edge: rgba(20, 27, 52, .28);
+  --radius: 12px;
+  --sw-radius: 999px;
+  --sw-thumb-radius: 50%;
+  --bw: 1px;
+  --pad: 16px;
+
+  display: grid;
+  gap: 12px;
+  padding: var(--pad);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; color: inherit; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; text-align: inherit; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.head { display: flex; align-items: center; gap: 10px; }
+.mark { flex: none; width: 30px; height: 30px; }
+.m-bg { fill: var(--mark-bg); }
+.m-hi { fill: var(--mark-hi); }
+.m-ink { fill: var(--mark-ink); }
+.m-dim { fill: var(--mark-dim); }
+.head-text { flex: 1; min-width: 0; }
+.title { margin: 0; font-family: var(--font-display); font-size: var(--title-size); font-weight: var(--title-weight); font-style: var(--title-style); line-height: 1.15; letter-spacing: -.01em; }
+.status { margin: 0; font-size: 12px; color: var(--ink-2); }
+
+.switch {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: var(--sw-radius);
+  background: var(--track);
+  box-shadow: inset 0 0 0 var(--bw) var(--line-strong);
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sw-thumb-radius);
+  background: var(--thumb);
+  box-shadow: 0 1px 3px rgba(16, 17, 21, .3), 0 0 0 var(--bw) var(--line-strong);
+}
+.switch[aria-checked="true"], [aria-checked="true"] > .switch { background: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent-edge); }
+.switch[aria-checked="true"]::after, [aria-checked="true"] > .switch::after { transform: translateX(18px); background: var(--accent-ink); box-shadow: none; }
+.pop[data-ready="true"] .switch, .pop[data-ready="true"] .hero { transition: background-color .15s ease, box-shadow .15s ease, color .15s ease; }
+.pop[data-ready="true"] .switch::after { transition: transform .15s cubic-bezier(.2, .8, .2, 1), background-color .15s ease; }
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: var(--radius);
+  background: var(--well);
+  box-shadow: inset 0 0 0 var(--bw) var(--line);
+}
+.hero[aria-checked="true"] { background: var(--hero-bg); color: var(--hero-ink); box-shadow: inset 0 0 0 var(--bw) var(--hero-edge); }
+.hero-text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.hero-title { font-size: 14.5px; font-weight: 600; }
+.hero-hint { font-size: 12px; color: var(--ink-2); }
+.hero[aria-checked="true"] .hero-hint { color: var(--hero-ink-2); }
+.hero[aria-checked="true"] > .switch { background: var(--hero-sw); }
+.hero[aria-checked="true"] > .switch::after { background: var(--hero-sw-thumb); }
+
+.note { margin: 0; padding: 9px 11px; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 var(--bw) var(--line); font-size: 12px; color: var(--ink-2); }
+
+.rows { display: grid; }
+.pop[data-skin="sage"] .rows { gap: 6px; }
+.pop[data-skin="sage"] .row { padding: 0 12px 0 14px; border: 0; border-radius: 18px; background: #e4ebdd; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; }
+.row + .row { border-top: var(--bw) solid var(--line); }
+.name { font-size: 13px; font-weight: 500; }
+.text-btn { flex: none; margin-left: auto; padding: 4px 6px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--accent); }
+.text-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.design { display: grid; gap: 9px; padding-top: 12px; border-top: var(--bw) solid var(--line); }
+.design-head { display: flex; align-items: baseline; justify-content: space-between; }
+.skin-name { font-size: 12px; color: var(--ink-2); }
+.skins { display: flex; justify-content: space-between; }
+.skin {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--a) 50%, var(--b) 50%);
+  box-shadow: inset 0 0 0 1px var(--tint-edge);
+}
+.skin[aria-checked="true"] { box-shadow: inset 0 0 0 1px var(--tint-edge), 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink); }
+
+.foot { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--ink-2); }
+kbd { display: inline-block; padding: 0 5px; border-radius: 5px; box-shadow: inset 0 0 0 var(--bw) var(--line-strong); font: inherit; font-size: 10.5px; line-height: 16px; }
+
+/* ---------------------------------------------------------------- designs */
+
+.pop[data-skin="flow"] {
+  --font-display: "LL Serif", Georgia, serif; --title-size: 24px; --title-weight: 400;
+  --surface: #fbfaf4; --well: #f1efe5; --ink: #17160f; --ink-2: #6a675a; --line: #e7e4d8; --line-strong: #b9b5a4;
+  --accent: #17160f; --accent-ink: #fbfaf4; --accent-edge: transparent; --track: #e4e1d4; --focus: #6b46e5;
+  --hero-bg: #e6dcff; --hero-ink: #1f1640; --hero-ink-2: #564a80; --hero-sw: #1f1640; --hero-sw-thumb: #ffffff;
+  --mark-bg: #17160f; --mark-hi: #dccbff; --mark-ink: #17160f; --radius: 16px;
+}
+.pop[data-skin="frost"] {
+  --font: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --surface: #f3f6fb; --well: #ffffff; --ink: #0e1a2b; --ink-2: #4a5a70; --line: #dde4ee; --line-strong: #a4b0c2;
+  --accent: #1f6feb; --accent-ink: #ffffff; --accent-edge: transparent; --track: #d7dfea; --focus: #1f6feb;
+  --hero-bg: #dbe8fd; --hero-ink: #0b2a5c; --hero-ink-2: #3a5687; --hero-edge: #b4cdf8;
+  --mark-bg: #1f6feb; --mark-hi: #ffffff; --mark-ink: #1f6feb; --mark-dim: rgba(255, 255, 255, .45); --radius: 14px;
+}
+.pop[data-skin="graphite"] {
+  --title-weight: 500;
+  --surface: #18191d; --well: #212329; --ink: #edeef2; --ink-2: #9a9ca8; --line: #2b2d35; --line-strong: #555866;
+  --accent: #a5b4ff; --accent-ink: #14162b; --accent-edge: transparent; --track: #32343d; --thumb: #edeef2; --focus: #a5b4ff;
+  --hero-bg: #22253a; --hero-ink: #edeef2; --hero-ink-2: #a9aed0; --hero-edge: #3c4270;
+  --mark-bg: #a5b4ff; --mark-hi: #14162b; --mark-ink: #a5b4ff; --mark-dim: rgba(20, 22, 43, .32);
+  --tint-edge: rgba(255, 255, 255, .34); --radius: 8px;
+}
+.pop[data-skin="sage"] {
+  --font: "Atkinson", "Segoe UI", system-ui, sans-serif; --title-size: 18px; --title-weight: 700;
+  --surface: #eef2ea; --well: #e0e8d9; --ink: #20352a; --ink-2: #566b5c; --line: #d6dfce; --line-strong: #93a593;
+  --accent: #2f6b4a; --accent-ink: #ffffff; --accent-edge: transparent; --track: #cfd9c7; --focus: #2f6b4a;
+  --hero-bg: #2f6b4a; --hero-ink: #ffffff; --hero-ink-2: #cfe5d4; --hero-sw: #d3e8d2; --hero-sw-thumb: #2f6b4a;
+  --mark-bg: #2f6b4a; --mark-hi: #eef2ea; --mark-ink: #2f6b4a; --mark-dim: rgba(255, 255, 255, .4); --radius: 22px;
+}
+.pop[data-skin="blueprint"] {
+  --font: "LL Mono", ui-monospace, Consolas, monospace; --title-size: 15px;
+  --surface: #0f2a52; --well: rgba(143, 220, 255, .08); --ink: #e6f4ff; --ink-2: #9cc3e6; --line: rgba(143, 220, 255, .3); --line-strong: rgba(143, 220, 255, .7);
+  --accent: #8fdcff; --accent-ink: #082040; --accent-edge: transparent; --track: rgba(143, 220, 255, .16); --thumb: #e6f4ff; --focus: #ffffff;
+  --hero-bg: rgba(143, 220, 255, .1); --hero-ink: #e6f4ff; --hero-ink-2: #9cc3e6; --hero-edge: #8fdcff;
+  --mark-bg: transparent; --mark-hi: #8fdcff; --mark-ink: #0f2a52; --mark-dim: rgba(143, 220, 255, .5);
+  --tint-edge: rgba(255, 255, 255, .5); --radius: 2px; --sw-radius: 2px; --sw-thumb-radius: 1px;
+  font-size: 12px;
+  background-image: linear-gradient(rgba(143, 220, 255, .07) 1px, transparent 1px), linear-gradient(90deg, rgba(143, 220, 255, .07) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.pop[data-skin="blueprint"] .name { font-size: 12px; }
+.pop[data-skin="blueprint"] .skin { border-radius: 2px; }
+.pop[data-skin="pop"] {
+  --title-size: 19px; --title-weight: 800;
+  --surface: #ffffff; --well: #ffffff; --ink: #111111; --ink-2: #4d4d4d; --line: #111111; --line-strong: #111111;
+  --accent: #ff7ab6; --accent-ink: #111111; --accent-edge: #111111; --track: #ffffff; --focus: #2d5bff;
+  --hero-bg: #ff7ab6; --hero-ink: #111111; --hero-ink-2: #4a1230; --hero-edge: #111111; --hero-sw: #111111; --hero-sw-thumb: #ffe45c;
+  --mark-bg: #111111; --mark-hi: #ff7ab6; --mark-ink: #111111; --mark-dim: rgba(255, 255, 255, .5);
+  --tint-edge: #111111; --radius: 10px; --bw: 2px;
+}
+.pop[data-skin="pop"] .hero { box-shadow: inset 0 0 0 2px #111111, 4px 4px 0 #111111; margin: 0 4px 4px 0; }
+.pop[data-skin="pop"] .name { font-weight: 600; }
+.pop[data-skin="marigold"] {
+  --title-weight: 700;
+  --surface: #ffc93c; --well: rgba(27, 22, 0, .09); --ink: #1b1600; --ink-2: #5c4a00; --line: rgba(27, 22, 0, .16); --line-strong: rgba(27, 22, 0, .5);
+  --accent: #1b1600; --accent-ink: #ffc93c; --accent-edge: transparent; --track: rgba(27, 22, 0, .18); --thumb: #fff8dc; --focus: #1b1600;
+  --hero-bg: #1b1600; --hero-ink: #ffc93c; --hero-ink-2: #d9b35a; --hero-sw: #ffc93c; --hero-sw-thumb: #1b1600;
+  --mark-bg: #1b1600; --mark-hi: #ffc93c; --mark-ink: #1b1600; --mark-dim: rgba(255, 201, 60, .4);
+  --tint-edge: rgba(27, 22, 0, .55); --radius: 14px;
+}
+.pop[data-skin="plum"] {
+  --font-display: "LL Serif", Georgia, serif; --title-size: 24px; --title-weight: 400; --title-style: italic;
+  --surface: #2a1f5c; --well: rgba(255, 255, 255, .07); --ink: #f4efff; --ink-2: #b9addf; --line: rgba(255, 255, 255, .12); --line-strong: rgba(255, 255, 255, .4);
+  --accent: #ffb59e; --accent-ink: #3a1420; --accent-edge: transparent; --track: rgba(255, 255, 255, .16); --thumb: #f4efff; --focus: #ffb59e;
+  --hero-bg: #3b2c7d; --hero-ink: #f4efff; --hero-ink-2: #c4b8ea; --hero-edge: rgba(255, 181, 158, .5);
+  --mark-bg: #ffb59e; --mark-hi: #2a1f5c; --mark-ink: #ffb59e; --mark-dim: rgba(42, 31, 92, .3);
+  --tint-edge: rgba(255, 255, 255, .4); --radius: 14px;
+}
+.pop[data-skin="contrast"] {
+  --font: "Atkinson", "Segoe UI", system-ui, sans-serif; --title-size: 18px; --title-weight: 700;
+  --surface: #000000; --well: #000000; --ink: #ffffff; --ink-2: #ffffff; --line: #ffffff; --line-strong: #ffffff;
+  --accent: #ffe600; --accent-ink: #000000; --accent-edge: #ffe600; --track: #000000; --focus: #ffe600;
+  --hero-bg: #000000; --hero-ink: #ffe600; --hero-ink-2: #ffffff; --hero-edge: #ffe600;
+  --mark-bg: #ffe600; --mark-hi: #000000; --mark-ink: #ffe600; --mark-dim: rgba(0, 0, 0, .45);
+  --tint-edge: #ffffff; --radius: 5px; --bw: 2px;
+  font-size: 14px;
+}
+.pop[data-skin="contrast"] .name { font-size: 14px; font-weight: 700; }
+.pop[data-skin="contrast"] .status, .pop[data-skin="contrast"] .hero-hint, .pop[data-skin="contrast"] .foot, .pop[data-skin="contrast"] .skin-name, .pop[data-skin="contrast"] .note { font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pop *, .pop *::before, .pop *::after { transition-duration: 0s !important; }
+}

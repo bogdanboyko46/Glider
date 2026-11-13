@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TextTuner</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="pop" data-skin="sage">
+
+    <header class="head">
+      <div class="head-text">
+        <h1 class="title">TextTuner</h1>
+        <p class="status" id="status" aria-live="polite"></p>
+      </div>
+      <button type="button" class="switch" role="switch" aria-checked="false" data-toggle="on" aria-label="Reading lens" title="Turn the reading lens on or off"></button>
+    </header>
+
+    <p class="note" id="note" hidden>TextTuner cannot run on this page. Open an article or a course page and it will be there.</p>
+
+    <div class="rows">
+      <div class="row">
+        <span class="name" id="n-dock">Show the dock on pages</span>
+        <button type="button" class="switch" role="switch" aria-checked="false" data-toggle="dockVisible" aria-labelledby="n-dock"></button>
+      </div>
+      <div class="row">
+        <span class="name" id="n-gaze">Eye tracking</span>
+        <button type="button" class="text-btn" id="gaze-calibrate" hidden>Calibrate</button>
+        <button type="button" class="switch" role="switch" aria-checked="false" data-toggle="gaze" aria-labelledby="n-gaze"></button>
+      </div>
+    </div>
+
+    <footer class="foot">
+      <span><kbd>Alt</kbd> <kbd>L</kbd> open the dock</span>
+    </footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

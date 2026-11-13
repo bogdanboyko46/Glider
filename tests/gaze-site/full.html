@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Article</title>
+<style>body{max-width:760px;margin:40px auto;font:24px/60px Georgia,serif;padding:0 20px}</style><script>
+// Test harness for tests/gaze-full.mjs: the whole content-script stack (lens, dock, eye tracking)
+// runs as plain page scripts against a fake chrome.* and a fake camera frame. There is no
+// chrome.runtime.id, so content.js keeps its settings in localStorage.
+const _as = Element.prototype.attachShadow; Element.prototype.attachShadow = function (o) { return _as.call(this, { ...o, mode: "open" }); };
+const _store = {};
+window.chrome = {
+  runtime: {
+    getURL: (p) => location.origin + (p === "gaze/frame.html" ? "/tests/gaze-site/fake-frame.html" : "/lexilens-extension/" + p),
+    onMessage: { addListener() {} },
+  },
+  storage: {
+    local: {
+      get: (keys) => {
+        const names = keys == null ? Object.keys(_store) : typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys);
+        const out = {};
+        for (const k of names) if (k in _store) out[k] = _store[k];
+        return Promise.resolve(out);
+      },
+      set: (o) => { Object.assign(_store, o); return Promise.resolve(); },
+    },
+  },
+};
+</script><link rel="stylesheet" href="/lexilens-extension/content/content.css"></head>
+<body>
+<h1>Photosynthesis</h1>
+<p id="p1">Photosynthesis is the process plants use to turn light into chemical energy. Inside the chloroplast, chlorophyll absorbs mostly red and blue light and reflects green, which is why leaves look green to us. The energy captured from light splits water molecules, releasing oxygen as a by-product.</p>
+<p id="p2">The light-independent reactions, often called the Calvin cycle, use that stored energy to fix carbon dioxide into sugars. The enzyme responsible for the first step, ribulose-1,5-bisphosphate carboxylase-oxygenase, is probably the most abundant protein on Earth, and it is famously slow and inefficient at its job.</p>
+<p id="p3">Plants in hot, dry climates evolved workarounds such as C4 and CAM photosynthesis that concentrate carbon dioxide around the enzyme and limit water loss.</p>
+<script src="/lexilens-extension/content/homophones.js"></script>
+<script src="/lexilens-extension/content/syllableParser.js"></script>
+<script src="/lexilens-extension/content/domEngine.js"></script>
+<script src="/lexilens-extension/gaze/gaze-core.js"></script>
+<script src="/lexilens-extension/gaze/gaze-reader.js"></script>
+<script src="/lexilens-extension/content/content.js"></script>
+</body></html>

@@ -1,0 +1,147 @@
+/*
+ * LexiLens — host-page styles.
+ *
+ * Everything here lives in the page's own CSS scope, so it is deliberately
+ * minimal: text tokens, the typography guard, and text size. The dock, tooltip and controls are styled inside a Shadow DOM
+ * (see content.js) and never touch the page.
+ *
+ * Every selector is prefixed with "lexilens" so nothing collides with host CSS.
+ */
+
+/* ---------------------------------------------------------------- tokens */
+
+/* Our spans must be visually inert until a feature styles them. `all: unset`
+   keeps inherited text properties and clears anything a host rule such as
+   `span { ... }` would otherwise apply. */
+.lexilens-wrap,
+.lexilens-token,
+.lexilens-punct,
+.lexilens-fix,
+.lexilens-m {
+  all: unset;
+}
+
+/* -------------------------------------------- Feature C: bionic + prosody */
+
+html.lexilens-bionic .lexilens-fix {
+  font-weight: 700;
+}
+
+html.lexilens-bionic .lexilens-punct {
+  margin-right: 0.35em;
+}
+
+/* --------------------------------------- Feature B: b / d / p / q guard */
+
+/* Each letter gets its own tint, mixed with the page's text colour so it
+   holds up on light and dark pages. b and d (the most swapped pair) also get
+   a weighted foot so they differ by shape, not by colour alone. */
+.lexilens-m-b {
+  color: color-mix(in srgb, currentColor 35%, #1d4ed8);
+  box-shadow: inset 0 -0.13em 0 color-mix(in srgb, transparent 55%, #1d4ed8);
+}
+
+.lexilens-m-d {
+  color: color-mix(in srgb, currentColor 35%, #b45309);
+  box-shadow: inset 0 -0.13em 0 color-mix(in srgb, transparent 55%, #b45309);
+  border-radius: 0 0 0.3em 0;
+}
+
+.lexilens-m-p {
+  color: color-mix(in srgb, currentColor 35%, #047857);
+}
+
+.lexilens-m-q {
+  color: color-mix(in srgb, currentColor 35%, #a21caf);
+}
+
+/* ------------------------------------------- Feature D: look-alike lens */
+
+.lexilens-homophone {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 0.09em;
+  text-decoration-color: color-mix(in srgb, transparent 25%, #7c5cff);
+  text-underline-offset: 0.22em;
+  cursor: help;
+}
+
+/* ------------------------------------- Feature A: syllable hover target */
+
+html.lexilens-syllables .lexilens-long {
+  cursor: help;
+  border-radius: 0.2em;
+  transition: background-color 0.12s ease;
+}
+
+html.lexilens-syllables .lexilens-long:hover,
+.lexilens-token.lexilens-lensed {
+  background-color: rgba(255, 216, 77, 0.45);
+  border-radius: 0.2em;
+}
+
+
+/* --------------------------------- Feature B: typography guard (spacing) */
+
+html.lexilens-spacing :is(p, li, article, section, td, th, dd, dt, blockquote, figcaption) {
+  text-align: left !important;
+  letter-spacing: var(--lexilens-letter-spacing, 0px) !important;
+  word-spacing: var(--lexilens-word-spacing, 0px) !important;
+  line-height: var(--lexilens-line-height, 1.6) !important;
+  hyphens: manual !important;
+}
+
+/* Right-to-left text keeps its own reading edge (covers dir="rtl" and CSS direction). */
+html.lexilens-spacing :is(p, li, article, section, td, th, dd, dt, blockquote, figcaption):dir(rtl) {
+  text-align: right !important;
+}
+
+/* Eye tracking: a block the reader slowed down on gets a little more room
+   than the lens gives everywhere else. The extra class outranks the guard
+   above, and the nested list covers blocks inside it that the guard styles
+   directly. */
+html.lexilens-spacing .lexilens-ease,
+html.lexilens-spacing .lexilens-ease :is(p, li, article, section, td, th, dd, dt, blockquote, figcaption) {
+  letter-spacing: calc(var(--lexilens-letter-spacing, 1px) + 0.02em) !important;
+  word-spacing: calc(var(--lexilens-word-spacing, 3px) + 0.16em) !important;
+  line-height: calc(var(--lexilens-line-height, 1.8) + 0.3) !important;
+  transition: letter-spacing 0.3s ease, word-spacing 0.3s ease, line-height 0.3s ease;
+}
+
+/* Optional hyperlegible reading face (bundled, loaded by content.js). */
+html.lexilens-font :is(p, li, article, section, td, th, dd, dt, blockquote, figcaption, h1, h2, h3, h4, h5, h6) {
+  font-family: "LexiLens Atkinson", "Atkinson Hyperlegible", Verdana, "Segoe UI", sans-serif !important;
+}
+
+html.lexilens-font :is(code, pre, kbd, samp) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+}
+
+/* -------------------------------------------------------------- text size */
+
+/* Body text is scaled with zoom, which keeps each page's own proportions
+   (a 14px caption and an 18px paragraph both grow by the same factor) and
+   reflows inside the same column. Menus and page chrome are left alone. */
+html.lexilens-size :is(p, li, dd, dt, blockquote, figcaption):not(:where(nav, header, footer, aside, [role="navigation"], [role="menu"], [role="menubar"], [role="tablist"], [role="toolbar"]) *) {
+  zoom: var(--lexilens-font-scale, 1);
+}
+
+/* Zoom multiplies through nesting: a paragraph inside a list item is already
+   scaled by the list item. */
+html.lexilens-size :is(p, li, dd, dt, blockquote, figcaption) :is(p, li, dd, dt, blockquote, figcaption) {
+  zoom: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.lexilens-syllables .lexilens-long,
+  html.lexilens-spacing .lexilens-ease,
+  html.lexilens-spacing .lexilens-ease * {
+    transition: none !important;
+  }
+}
+
+@media print {
+  #lexilens-root {
+    display: none !important;
+  }
+}
