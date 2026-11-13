@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en" data-duration="7000">
+<head>
+<meta charset="utf-8">
+<title>Glider showcase: tune it from the edge (take B, close on the edge)</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* Take B: the camera pushes in on the edge. Timeline (ms): 300-1300 push in · 500 power button appears beside the mark
+   · 800 pointer to it · 1600 press · 1700 panel floats in beside where the mark was · 2400 pointer to Size
+   · 2900-3800 Size up, text grows · 3950 pointer to Spacing · 4400-5300 Spacing up, words open · 5600 pointer leaves · 7000 end */
+.page { transform-origin: 100% 50%; animation: cam 1s cubic-bezier(.4, 0, .2, 1) 300ms both; }
+.wbar { position: relative; z-index: 30; }
+@keyframes cam { from { transform: none; } to { transform: scale(1.35); } }
+
+.page p { letter-spacing: .035em; word-spacing: .2em; line-height: 1.95; animation: grow .9s cubic-bezier(.3, 0, .2, 1) 2.9s both, space .9s cubic-bezier(.3, 0, .2, 1) 4.4s both; }
+.page p b { font-weight: 700; }
+@keyframes grow { from { font-size: 21px; } to { font-size: 25px; } }
+@keyframes space { from { word-spacing: .2em; letter-spacing: .035em; } to { word-spacing: .42em; letter-spacing: .06em; } }
+
+.edge { gap: 6px; }
+.power { animation: show .3s ease .5s both, press .25s ease 1.6s both, hide .2s ease 1.75s forwards; }
+@keyframes show { from { opacity: 0; transform: translateX(10px); } }
+@keyframes press { 50% { transform: scale(.82); color: var(--ink); } }
+@keyframes hide { to { opacity: 0; } }
+.edge .gmark { animation: hide .2s ease 1.75s forwards; }
+
+/* A compact panel, centred on the mark, so it stays in frame at this zoom. */
+.panel { top: 50%; bottom: auto; margin-top: -108px; animation: floatin .45s cubic-bezier(.2, 0, 0, 1) 1.7s both; }
+@keyframes floatin { from { transform: translateX(300px); } }
+#size b { animation: fill-a .9s cubic-bezier(.3, 0, .2, 1) 2.9s both; } #size u { animation: knob-a .9s cubic-bezier(.3, 0, .2, 1) 2.9s both; }
+#gap b { animation: fill-b .9s cubic-bezier(.3, 0, .2, 1) 4.4s both; } #gap u { animation: knob-b .9s cubic-bezier(.3, 0, .2, 1) 4.4s both; }
+@keyframes fill-a { from { width: 22%; } to { width: 64%; } } @keyframes knob-a { from { left: 22%; } to { left: 64%; } }
+@keyframes fill-b { from { width: 34%; } to { width: 70%; } } @keyframes knob-b { from { left: 34%; } to { left: 70%; } }
+#lines b { width: 46%; } #lines u { left: 46%; }
+.track u { animation-name: none; }
+#size u { animation: knob-a .9s cubic-bezier(.3, 0, .2, 1) 2.9s both, hold .9s ease 2.9s both; }
+#gap u { animation: knob-b .9s cubic-bezier(.3, 0, .2, 1) 4.4s both, hold .9s ease 4.4s both; }
+@keyframes hold { 15%, 85% { box-shadow: 0 0 0 2px var(--accent), 0 0 0 8px rgba(47, 107, 74, .18); } }
+
+.ptr { animation: p1 .8s cubic-bezier(.4, 0, .2, 1) .8s both, p2 .45s cubic-bezier(.4, 0, .2, 1) 2.4s forwards, p3 .9s cubic-bezier(.3, 0, .2, 1) 2.9s forwards,
+  p4 .4s cubic-bezier(.4, 0, .2, 1) 3.95s forwards, p5 .9s cubic-bezier(.3, 0, .2, 1) 4.4s forwards, p6 .7s ease 5.6s forwards; }
+@keyframes p1 { from { transform: translate(470px, 430px); } to { transform: translate(662px, 286px); } }
+@keyframes p2 { to { transform: translate(var(--sx0), var(--sy)); } }
+@keyframes p3 { to { transform: translate(var(--sx1), var(--sy)); } }
+@keyframes p4 { to { transform: translate(var(--gx0), var(--gy)); } }
+@keyframes p5 { to { transform: translate(var(--gx1), var(--gy)); } }
+@keyframes p6 { to { transform: translate(560px, 400px); opacity: 0; } }
+.page { --sy: 267px; --gy: 301px; --sx0: 578px; --sx1: 639px; --gx0: 596px; --gx1: 648px; }
+.click { position: absolute; z-index: 19; left: 667px; top: 291px; width: 20px; height: 20px; margin: -10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--accent); opacity: 0; animation: ping .5s ease-out 1.6s both; }
+@keyframes ping { 0% { opacity: .9; transform: scale(.4); } 100% { opacity: 0; transform: scale(2.4); } }
+
+.copy h1 { animation: in .5s ease .2s both; }
+.copy .sub { animation: in .5s ease 1.9s both; }
+@keyframes in { from { opacity: 0; transform: translateY(10px); } }
+</style>
+</head>
+<body class="scene">
+  <div class="copy">
+    <p class="kicker">02 YOUR SETTINGS</p>
+    <h1>Your reading, your settings.</h1>
+    <p class="sub">Size, spacing and line gap, one click from the side of the screen.</p>
+  </div>
+  <div class="window">
+    <div class="wbar"><i></i><i></i><i></i><span>en.wikipedia.org/wiki/Photosynthesis</span></div>
+    <div class="page">
+      <h2>How plants make food</h2>
+      <p id="t">Photosynthesis is the process that plants use to convert light into chemical energy. Inside the chloroplast, chlorophyll absorbs approximately all of the red and blue light and subsequently reflects the green, which is the reason that leaves appear green to us. The energy that is captured is then used to separate water molecules.</p>
+      <div class="edge">
+        <div class="gmark"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.6 7.4a8 8 0 1 0 10.8 0"/></svg></div>
+      </div>
+      <div class="panel">
+        <div class="head"><div class="gmark" style="transform:scale(.5);transform-origin:left center;padding:0;margin-right:-22px"><i></i><i></i><i></i><i></i><i></i></div>Glider</div>
+        <div class="row" id="size"><span>Size</span><div class="track"><b></b><u></u></div></div>
+        <div class="row" id="gap"><span>Spacing</span><div class="track"><b></b><u></u></div></div>
+        <div class="row" id="lines"><span>Line gap</span><div class="track"><b></b><u></u></div></div>
+      </div>
+      <svg class="ptr" viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.5L10 19z" fill="#20352a" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span class="click"></span>
+    </div>
+  </div>
+<script>
+// Static set-up only (no timers): wrap the start of each word so it shows bold.
+const p = document.getElementById('t');
+p.innerHTML = p.textContent.replace(/[A-Za-z][A-Za-z'-]*/g, (w) => { const n = w.length <= 3 ? 1 : w.length <= 5 ? 2 : Math.ceil(w.length * .4); return '<b>' + w.slice(0, n) + '</b>' + w.slice(n); });
+</script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en" data-duration="8500">
+<head>
+<meta charset="utf-8">
+<title>And makes it simpler</title>
+<link rel="stylesheet" href="base.css">
+<style>
+
+  @font-face { font-family: "Showcase Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Regular.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Showcase Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Bold.woff2") format("woff2"); font-weight: 700; }
+  .fin-col { position: absolute; left: 44px; top: 34px; width: 640px; height: 420px; font: 21px/37px Georgia, "Times New Roman", serif; color: #24292c; }
+  .fin-line { position: absolute; left: 0; white-space: nowrap; height: 37px; }
+  .fin-mark { position: absolute; left: -18px; width: 664px; top: 129px; height: 119px; border-radius: 6px;
+              background: rgba(47, 107, 74, .11); box-shadow: inset 5px 0 0 #2f6b4a; }
+  .fin-dot { position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; border-radius: 50%;
+             background: radial-gradient(circle, rgba(224, 165, 43, .38) 0 34%, rgba(224, 165, 43, .16) 35% 100%);
+             box-shadow: 0 0 0 2.5px rgba(224, 165, 43, .55); will-change: transform; }
+  .fin-chip { position: absolute; left: 44px; bottom: 20px; display: flex; align-items: center; gap: 8px; padding: 7px 13px 7px 10px; border-radius: 999px;
+              background: #20352a; color: #eef2ea; font: 600 13px/1 "Segoe UI", system-ui, sans-serif; }
+  .fin-chip i { width: 9px; height: 9px; border-radius: 50%; background: #6fcf97; box-shadow: 0 0 0 3px rgba(111, 207, 151, .25); }
+  .fin-note { position: absolute; left: 204px; bottom: 28px; font: 13px/1.3 "Segoe UI", system-ui, sans-serif; color: #8a978d; }
+  @keyframes fin-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fin-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes fin-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes fin-pulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(111, 207, 151, .25); } 50% { box-shadow: 0 0 0 6px rgba(111, 207, 151, .08); } }
+  .copy .kicker, .copy h1, .copy .sub { animation: fin-rise .6s ease both; }
+  .copy h1 { animation-delay: .12s; } .copy .sub { animation-delay: .26s; }
+  .fin-dot { animation: s6-path 8500ms linear both; }
+  @keyframes s6-path {
+    0.00% { transform: translate(111px, 224px); }
+    0.00% { transform: translate(111px, 224px); }
+    26.41% { transform: translate(111px, 224px); }
+    27.06% { transform: translate(27px, 171px); }
+    28.67% { transform: translate(27px, 171px); }
+    29.32% { transform: translate(153px, 172px); }
+    31.01% { transform: translate(153px, 172px); }
+    31.66% { transform: translate(279px, 171px); }
+    33.24% { transform: translate(279px, 171px); }
+    33.88% { transform: translate(407px, 173px); }
+    35.75% { transform: translate(407px, 173px); }
+    36.40% { transform: translate(523px, 170px); }
+    38.05% { transform: translate(523px, 170px); }
+    38.69% { transform: translate(30px, 211px); }
+    40.40% { transform: translate(30px, 211px); }
+    41.05% { transform: translate(155px, 212px); }
+    42.73% { transform: translate(155px, 212px); }
+    43.38% { transform: translate(284px, 214px); }
+    44.89% { transform: translate(284px, 214px); }
+    45.54% { transform: translate(413px, 212px); }
+    47.27% { transform: translate(413px, 212px); }
+    47.92% { transform: translate(536px, 214px); }
+    49.40% { transform: translate(536px, 214px); }
+    50.05% { transform: translate(26px, 283px); }
+    51.61% { transform: translate(26px, 283px); }
+    52.26% { transform: translate(138px, 285px); }
+    53.67% { transform: translate(138px, 285px); }
+    54.32% { transform: translate(261px, 286px); }
+    55.87% { transform: translate(261px, 286px); }
+    56.52% { transform: translate(387px, 285px); }
+    58.21% { transform: translate(387px, 285px); }
+    58.86% { transform: translate(510px, 284px); }
+    60.40% { transform: translate(510px, 284px); }
+    61.05% { transform: translate(20px, 320px); }
+    63.04% { transform: translate(20px, 320px); }
+    63.68% { transform: translate(176px, 323px); }
+    65.53% { transform: translate(176px, 323px); }
+    66.18% { transform: translate(335px, 325px); }
+    67.89% { transform: translate(335px, 325px); }
+    68.54% { transform: translate(338px, 322.5px); }
+    85.54% { transform: translate(338px, 322.5px); }
+    100.00% { transform: translate(338px, 322.5px); }
+  }
+  .fin-line.hard { animation: fin-out .45s ease 700ms both; }
+  .fin-mark { animation: fin-out .45s ease 850ms both; }
+  .s6-card { position: absolute; left: -18px; width: 664px; top: 129px; height: 119px; box-sizing: border-box; border-radius: 8px;
+             background: #f1f6ec; box-shadow: inset 6px 0 0 #2f6b4a, 0 10px 26px rgba(32, 53, 42, .14), 0 0 0 1px rgba(47, 107, 74, .16);
+             transform-origin: 6px 50%; animation: s6-card .7s cubic-bezier(.2, .9, .25, 1) 950ms both; }
+  @keyframes s6-card { from { opacity: 0; transform: scale(.965); } to { opacity: 1; transform: none; } }
+  .s6-line { position: absolute; left: 22px; white-space: nowrap; font: 400 24px/42px "Atkinson", "Showcase Atkinson", Verdana, sans-serif; color: #1d2a22; letter-spacing: .01em; }
+  .s6-line:nth-of-type(1) { top: 20px; animation: fin-rise .5s ease 1350ms both; }
+  .s6-line:nth-of-type(2) { top: 62px; animation: fin-rise .5s ease 1500ms both; }
+  .s6-tag { position: absolute; right: 12px; top: -13px; padding: 5px 12px; border-radius: 999px; background: #2f6b4a; color: #fff;
+            font: 700 13px/1 "Segoe UI", system-ui, sans-serif; letter-spacing: .02em; animation: fin-rise .45s ease 1600ms both; }
+  .s6-back { position: absolute; right: 96px; top: -13px; padding: 5px 12px; border-radius: 999px; background: #fcfcfb; color: #2f6b4a;
+             box-shadow: 0 0 0 1px rgba(47, 107, 74, .35); font: 600 13px/1 "Segoe UI", system-ui, sans-serif; animation: fin-rise .45s ease 1700ms both; }
+</style>
+</head>
+<body class="scene">
+  <div class="copy">
+    <p class="kicker">06 SIMPLIFY</p>
+    <h1>And makes it simpler.</h1>
+    <p class="sub">Plain words, right where you were reading. The original is one tap away.</p>
+  </div>
+  <div class="window">
+    <div class="wbar"><i></i><i></i><i></i><span>en.wikipedia.org/wiki/Photosynthesis</span></div>
+    <div class="page">
+      <div class="fin-col">
+        <div class="fin-mark"></div>
+        <span class="fin-line" style="top:0px">Photosynthesis is how plants turn light into food. It</span>
+        <span class="fin-line" style="top:37px">happens in tiny green parts of the leaf called chloroplasts,</span>
+        <span class="fin-line" style="top:74px">which catch the light of the sun.</span>
+        <span class="fin-line hard" style="top:133px">Inside the chloroplast, chlorophyll absorbs approximately</span>
+        <span class="fin-line hard" style="top:170px">all of the red and blue light and subsequently reflects the</span>
+        <span class="fin-line hard" style="top:207px">green, which is the reason that leaves appear green to us.</span>
+        <span class="fin-line" style="top:266px">The energy from that light splits water. The plant keeps</span>
+        <span class="fin-line" style="top:303px">what it needs and lets the oxygen go.</span>
+        <div class="s6-card">
+          <span class="s6-line">Chlorophyll takes in red and blue light. It bounces</span>
+          <span class="s6-line">the green light back. That is why leaves look green.</span>
+          <span class="s6-back">Show original</span>
+          <span class="s6-tag">Simpler</span>
+        </div>
+        <div class="fin-dot"></div>
+      </div>
+      <div class="edge"><div class="gmark"><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="fin-chip"><i></i>Eye tracking on</div>
+      <div class="fin-note">Gaze shown is a simulation of the tracker's signal.</div>
+    </div>
+  </div>
+</body>
+</html>

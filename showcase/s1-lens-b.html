@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-duration="7000">
+<head>
+<meta charset="utf-8">
+<title>Glider showcase: the lens (take B, before and after)</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* Take B: a before / after wipe. Timeline (ms): 0 cramped page, mark off · 700 pointer travels to the mark · 1700 press,
+   strokes reach out · 1800-2900 the divider sweeps to the middle · 2900-4300 hold, both halves labelled
+   · 4300-5300 the divider finishes · 5400 pointer leaves · 7000 end */
+.lay { position: absolute; inset: 0; padding: 30px 96px 30px 44px; background: var(--page); }
+.lay.before p { letter-spacing: 0; word-spacing: 0; line-height: 1.38; }
+.lay.after p { letter-spacing: .035em; word-spacing: .2em; line-height: 1.95; }
+.lay.after p b { font-weight: 700; }
+.lay.after { z-index: 2; animation: wipe 3500ms linear 1800ms both; }
+@keyframes wipe {
+  0% { clip-path: inset(0 100% 0 0); animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  31.4%, 71.4% { clip-path: inset(0 48% 0 0); animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+.divider { position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; width: 3px; margin-left: -1.5px; background: var(--accent); animation: sweep 3500ms linear 1800ms both; }
+.divider::after { content: ""; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--page), 0 6px 14px rgba(32, 53, 42, .35); }
+@keyframes sweep {
+  0% { left: 0%; opacity: 0; animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  3% { opacity: 1; }
+  31.4%, 71.4% { left: 52%; opacity: 1; animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  97% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+.tagb { position: absolute; z-index: 4; bottom: 22px; padding: 7px 14px 8px; border-radius: 999px; font: 700 15px/1 "Lexend", sans-serif; animation: tag 1700ms ease 2800ms both; }
+.tagb.on { left: 44px; background: var(--accent); color: #fff; }
+.tagb.off { left: calc(52% + 22px); background: var(--tile); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+@keyframes tag { 0%, 100% { opacity: 0; transform: translateY(6px); } 14%, 86% { opacity: 1; transform: none; } }
+
+.gmark i { transform-origin: right center; animation: reach .5s cubic-bezier(.2, 0, 0, 1) both; }
+.gmark i:nth-child(1) { animation-delay: 1.72s; } .gmark i:nth-child(2) { animation-delay: 1.78s; } .gmark i:nth-child(3) { animation-delay: 1.84s; }
+.gmark i:nth-child(4) { animation-delay: 1.9s; } .gmark i:nth-child(5) { animation-delay: 1.96s; }
+@keyframes reach { from { transform: scaleX(.5); } to { transform: scaleX(1); } }
+.gmark i:nth-child(3) { animation-name: reach, green; animation-duration: .5s, .3s; }
+@keyframes green { from { background: var(--ink); opacity: .5; } to { background: var(--accent); opacity: 1; } }
+
+.ptr { animation: travel 1s cubic-bezier(.4, 0, .2, 1) .7s both, leave .9s cubic-bezier(.4, 0, .2, 1) 5.4s forwards; }
+@keyframes travel { from { transform: translate(400px, 480px); } to { transform: translate(712px, 300px); } }
+@keyframes leave { to { transform: translate(610px, 500px); opacity: 0; } }
+.click { position: absolute; z-index: 19; left: 716px; top: 304px; width: 20px; height: 20px; margin: -10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--accent); opacity: 0; animation: ping .5s ease-out 1.7s both; }
+@keyframes ping { 0% { opacity: .9; transform: scale(.4); } 100% { opacity: 0; transform: scale(2.4); } }
+
+.copy h1 { animation: in .5s ease .2s both; }
+.copy .sub { animation: in .5s ease 2.9s both; }
+@keyframes in { from { opacity: 0; transform: translateY(10px); } }
+</style>
+</head>
+<body class="scene">
+  <div class="copy">
+    <p class="kicker">01 THE LENS</p>
+    <h1>One press. Easier reading.</h1>
+    <p class="sub">Wider spacing and bold word starts, on any page.</p>
+  </div>
+  <div class="window">
+    <div class="wbar"><i></i><i></i><i></i><span>en.wikipedia.org/wiki/Photosynthesis</span></div>
+    <div class="page">
+      <div class="lay before">
+        <h2>How plants make food</h2>
+        <p class="t">Photosynthesis is the process that plants use to convert light into chemical energy. Inside the chloroplast, chlorophyll absorbs approximately all of the red and blue light and subsequently reflects the green, which is the reason that leaves appear green to us. The energy that is captured is then used to separate water molecules.</p>
+      </div>
+      <div class="lay after">
+        <h2>How plants make food</h2>
+        <p class="t" id="t">Photosynthesis is the process that plants use to convert light into chemical energy. Inside the chloroplast, chlorophyll absorbs approximately all of the red and blue light and subsequently reflects the green, which is the reason that leaves appear green to us. The energy that is captured is then used to separate water molecules.</p>
+      </div>
+      <div class="divider"></div>
+      <span class="tagb on">With Glider</span>
+      <span class="tagb off">Without</span>
+      <div class="edge"><div class="gmark"><i></i><i></i><i></i><i></i><i></i></div></div>
+      <svg class="ptr" viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.5L10 19z" fill="#20352a" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span class="click"></span>
+    </div>
+  </div>
+<script>
+// Static set-up only (no timers): wrap the start of each word in the "after" copy so it shows bold.
+const p = document.getElementById('t');
+p.innerHTML = p.textContent.replace(/[A-Za-z][A-Za-z'-]*/g, (w) => { const n = w.length <= 3 ? 1 : w.length <= 5 ? 2 : Math.ceil(w.length * .4); return '<b>' + w.slice(0, n) + '</b>' + w.slice(n); });
+</script>
+</body>
+</html>

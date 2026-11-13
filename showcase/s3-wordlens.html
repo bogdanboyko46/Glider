@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-duration="7000">
+<head>
+<meta charset="utf-8">
+<title>Glider: Hear any word</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* Scene 3. Timeline (ms): 500 pointer leaves, 1500 lands on the word, 1700 lens pops,
+   2400 pointer to "Sound it out", 3000 press, 3300-6050 one chunk at a time, 6050-6700 whole word. */
+
+.page p { letter-spacing: .035em; word-spacing: .2em; line-height: 1.95; }
+.w3 { position: relative; display: inline-block; }
+.w3-t { border-radius: 5px; animation: w3-mark .2s ease 1500ms both; }
+@keyframes w3-mark { from { background: transparent; box-shadow: 0 0 0 3px transparent; } to { background: #dcebd6; box-shadow: 0 0 0 3px #dcebd6; } }
+
+.wl {
+  position: absolute; left: -64px; top: 100%; z-index: 3; display: block; width: 452px; margin-top: 12px; padding: 14px 14px 15px;
+  border-radius: 20px; background: #eef2ea; box-shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 26px 56px -16px rgba(32, 53, 42, .42);
+  font-family: "Atkinson", "Segoe UI", sans-serif; font-size: 16px; letter-spacing: 0; word-spacing: 0; line-height: 1.2; color: #20352a; text-align: left; white-space: normal;
+  transform-origin: 130px 0; animation: wl-pop .34s cubic-bezier(.3, 1.4, .5, 1) 1700ms both;
+}
+@keyframes wl-pop { from { opacity: 0; transform: scale(.88) translateY(-8px); } 55% { opacity: 1; } to { opacity: 1; transform: none; } }
+
+.cks { display: flex; gap: 7px; }
+.ck { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 68px; border-radius: 999px; background: #c4dfc0; }
+.ck:nth-child(2n) { background: #f4dfa6; }
+.ck b { font-size: 25px; font-weight: 700; letter-spacing: .02em; }
+.ck i { font-size: 16px; font-style: normal; letter-spacing: .02em; opacity: .8; }
+
+/* 3400ms run starting at 3300ms: five 550ms slots, then all together. */
+.ck { animation: 3400ms linear 3300ms both; }
+.ck:nth-child(1) { animation-name: ck1; } .ck:nth-child(2) { animation-name: ck2; } .ck:nth-child(3) { animation-name: ck3; }
+.ck:nth-child(4) { animation-name: ck4; } .ck:nth-child(5) { animation-name: ck5; }
+@keyframes ck1 { 0% { opacity: 1; transform: none; } 3%, 16% { opacity: 1; transform: scale(1.08); } 19%, 81% { opacity: .38; transform: none; } 84%, 95% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: none; } }
+@keyframes ck2 { 0% { opacity: 1; transform: none; } 3%, 16% { opacity: .38; transform: none; } 19%, 32% { opacity: 1; transform: scale(1.08); } 35%, 81% { opacity: .38; transform: none; } 84%, 95% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: none; } }
+@keyframes ck3 { 0% { opacity: 1; transform: none; } 3%, 32% { opacity: .38; transform: none; } 35%, 48% { opacity: 1; transform: scale(1.08); } 51%, 81% { opacity: .38; transform: none; } 84%, 95% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: none; } }
+@keyframes ck4 { 0% { opacity: 1; transform: none; } 3%, 48% { opacity: .38; transform: none; } 51%, 64% { opacity: 1; transform: scale(1.08); } 67%, 81% { opacity: .38; transform: none; } 84%, 95% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: none; } }
+@keyframes ck5 { 0% { opacity: 1; transform: none; } 3%, 64% { opacity: .38; transform: none; } 67%, 95% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: none; } }
+
+.say { display: flex; gap: 8px; margin-top: 13px; }
+.sb { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px 0 13px; border-radius: 999px; font-size: 16px; font-weight: 700; }
+.sb svg { width: 17px; height: 17px; }
+.sb-word { background: #2f6b4a; color: #fff; }
+.sb-slow { background: #e0e8d9; box-shadow: inset 0 0 0 1px #93a593; animation: sb-press .3s ease 3000ms both, sb-ring 3400ms linear 3300ms both; }
+@keyframes sb-press { 40% { transform: scale(.93); } }
+@keyframes sb-ring { 0%, 100% { box-shadow: inset 0 0 0 1px #93a593, 0 0 0 0 rgba(47, 107, 74, 0); } 4%, 95% { box-shadow: inset 0 0 0 1px #2f6b4a, 0 0 0 5px rgba(47, 107, 74, .22); } }
+.eq { display: inline-flex; align-items: center; gap: 3px; height: 16px; }
+.eq u { width: 3px; height: 16px; border-radius: 2px; background: #2f6b4a; transform: scaleY(.25); animation: eq 340ms ease-in-out 3300ms 10 alternate both; }
+.eq u:nth-child(2) { animation-delay: 3420ms; } .eq u:nth-child(3) { animation-delay: 3360ms; }
+@keyframes eq { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+
+/* Pointer: tip sits at the bottom centre of the word at translate(0, 0). */
+.p3 { position: absolute; left: 50%; top: 78%; z-index: 4; width: 26px; height: 26px; margin: 0 0 0 -4px; overflow: visible; filter: drop-shadow(0 3px 4px rgba(20, 30, 24, .3)); animation: ptr 7000ms linear both; }
+@keyframes ptr {
+  0% { transform: translate(330px, 250px); opacity: 0; }
+  4% { opacity: 1; }
+  7% { transform: translate(330px, 250px); animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  21.4%, 34.3% { transform: translate(0, 0); animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  41.4%, 100% { transform: translate(78px, 138px); opacity: 1; }
+}
+.p3c { position: absolute; left: 50%; top: 78%; z-index: 3; width: 34px; height: 34px; margin: 121px 0 0 61px; border-radius: 50%; border: 2px solid #2f6b4a; opacity: 0; animation: ptr-click .45s ease-out 3000ms both; }
+@keyframes ptr-click { from { opacity: .7; transform: scale(.3); } to { opacity: 0; transform: scale(1.2); } }
+</style>
+</head>
+<body class="scene">
+  <div class="copy">
+    <p class="kicker">03 WORD LENS</p>
+    <h1>Hear any word</h1>
+    <p class="sub">Rest on a long word. Glider breaks it into chunks, shows the sound of each one, and says it out loud.</p>
+  </div>
+
+  <div class="window">
+    <div class="wbar"><i></i><i></i><i></i><span>kids.britannica.com/article/Moon</span></div>
+    <div class="page">
+      <h2>The Moon</h2>
+      <p>The Moon takes <span class="w3"><span class="w3-t">approximately</span><span class="wl"><span class="cks"><span class="ck"><b>ap</b><i>uh</i></span><span class="ck"><b>prox</b><i>prahks</i></span><span class="ck"><b>i</b><i>uh</i></span><span class="ck"><b>mate</b><i>muht</i></span><span class="ck"><b>ly</b><i>lee</i></span></span><span class="say"><span class="sb sb-word"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/></svg>Hear word</span><span class="sb sb-slow"><span class="eq"><u></u><u></u><u></u></span>Sound it out</span></span></span><span class="p3c"></span><svg class="p3" viewBox="0 0 26 26" aria-hidden="true"><path d="M4 2l16 9.5-7 1.6-3.4 6.6z" fill="#20352a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></span> 27 days<br>to travel once around the Earth.</p>
+      <p>During that time we see it change shape, from a thin curve to a full bright circle and back again.</p>
+      <p>The Moon does not make its own light. It reflects light from the Sun, and that is why it seems to glow in the night sky.</p>
+      <div class="edge"><div class="gmark"><i></i><i></i><i></i><i></i><i></i></div></div>
+    </div>
+  </div>
+</body>
+</html>

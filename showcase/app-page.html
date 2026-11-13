@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How plants make food</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fcfcfb; color: #24292c; font: 20px/1.45 Georgia, "Times New Roman", serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 34px 40px 80px; }
+  h1 { margin: 0 0 14px; font-size: 34px; line-height: 1.2; }
+  p { margin: 0 0 18px; text-align: justify; }
+</style>
+</head>
+<body>
+<!-- A plain article for recording the real Glider UI. ?off starts with the lens off, ?gaze=1 marks eye tracking as wanted. -->
+<main>
+  <h1>How plants make food</h1>
+  <p id="p1">Photosynthesis is the process that plants use to convert light into chemical energy. Inside the chloroplast, chlorophyll absorbs approximately all of the red and blue light and subsequently reflects the green, which is the reason that leaves appear green to us.</p>
+  <p id="p2">The energy that is captured is then used to separate water molecules, and this releases oxygen as a by-product. Scientists are still studying whether their models can predict the effect that hotter summers will have on this process.</p>
+  <p id="p3">The plant stores that energy as sugar. It uses the sugar to grow new leaves, roots and seeds, and animals that eat the plant take in the same energy.</p>
+</main>
+<script>
+  // Load the real content scripts straight from the repository (same harness idea as demo/sample-assignment.html).
+  var q = new URLSearchParams(location.search);
+  try { localStorage.setItem('glider:settings:v2', JSON.stringify({ on: !q.has('off'), dockVisible: true, gaze: false })); localStorage.removeItem('glider:dock'); } catch (e) {}
+  var base = '../glider-extension/';
+  window.chrome = window.chrome || {};
+  window.chrome.runtime = window.chrome.runtime || { getURL: function (p) { return base + p; } };
+  var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = base + 'content/content.css'; document.head.appendChild(css);
+  var files = ['content/homophones', 'content/wordLevels', 'content/wordParts', 'content/wordData', 'content/readingDifficulty', 'content/syllableParser', 'content/domEngine', 'content/content'];
+  (function next(i) { if (i >= files.length) return; var s = document.createElement('script'); s.src = base + files[i] + '.js'; s.onload = s.onerror = function () { next(i + 1); }; document.body.appendChild(s); })(0);
+</script>
+</body>
+</html>

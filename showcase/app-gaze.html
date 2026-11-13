@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How plants make food</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fcfcfb; color: #24292c; font: 20px/1.45 Georgia, "Times New Roman", serif; }
+  main { max-width: 700px; margin: 0 0 0 250px; padding: 26px 30px 80px 20px; }   /* leaves the bottom-left corner free for the camera widget */
+  h1 { margin: 0 0 12px; font-size: 32px; line-height: 1.2; }
+  p { margin: 0 0 34px; }
+</style>
+<script>
+  // A plain article for recording the REAL Glider stack with eye tracking: lens, dock, tracker, simplifier.
+  // Only two things are stand-ins: the camera (a frame that turns a scripted gaze point into the same kind
+  // of feature numbers the real camera frame sends) and chrome.* (in-memory storage, repository URLs).
+  const _as = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function (o) { return _as.call(this, { ...o, mode: 'open' }); };   // lets the recorder reach the tracker's own UI
+  try {
+    localStorage.setItem('glider:settings:v2', JSON.stringify({ on: true, dockVisible: true, gaze: true }));
+    localStorage.removeItem('glider:dock');
+  } catch (e) {}
+  const _store = {
+    // The reader has chosen automatic simplification, and has a measured reading pace on file.
+    // The pace is set high so that a stall registers within the few seconds a showcase clip allows.
+    'glider:simplify': { enabled: true, useClaude: false, scale: 1.2, auto: true },
+    grBaseline: { wpm: 600, msPerWord: 100, cv: 0.2, regressionRate: 0.1, tau: 2, words: 79, lines: 6, ms: 7900, source: 'gaze', t: Date.now() },
+  };
+  window.chrome = {
+    runtime: {
+      getURL: (p) => location.origin + (p === 'gaze/frame.html' ? '/showcase/app-gaze-cam.html' : '/glider-extension/' + p),
+      onMessage: { addListener() {} },
+      sendMessage: () => Promise.resolve({ ready: false }),
+    },
+    storage: {
+      local: {
+        get: (keys) => { const names = keys == null ? Object.keys(_store) : typeof keys === 'string' ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys);
+          const out = {}; for (const k of names) if (k in _store) out[k] = _store[k]; return Promise.resolve(out); },
+        set: (o) => { Object.assign(_store, o); return Promise.resolve(); },
+      },
+      onChanged: { addListener() {} },
+    },
+  };
+</script>
+<link rel="stylesheet" href="/glider-extension/content/content.css">
+</head>
+<body>
+<main>
+  <h1>How plants make food</h1>
+  <p id="p1">Plants make their own food. They need light, water and air to do it. The work happens in the green parts of a leaf, and it is called photosynthesis.</p>
+  <p id="p2">Inside the chloroplast, chlorophyll absorbs approximately all of the red and blue light and subsequently reflects the green, which is the reason that leaves appear green to us.</p>
+  <p id="p3">The plant stores that energy as sugar. It uses the sugar to grow new leaves, roots and seeds.</p>
+</main>
+<script src="/glider-extension/content/homophones.js"></script>
+<script src="/glider-extension/content/syllableParser.js"></script>
+<script src="/glider-extension/content/domEngine.js"></script>
+<script src="/glider-extension/gaze/gaze-core.js"></script>
+<script src="/glider-extension/gaze/gaze-reader.js"></script>
+<script src="/glider-extension/simplify/simplifier.js"></script>
+<script src="/glider-extension/simplify/textscore.js"></script>
+<script src="/glider-extension/simplify/gate.js"></script>
+<script src="/glider-extension/simplify/bridge.js"></script>
+<script src="/glider-extension/content/content.js"></script>
+</body>
+</html>

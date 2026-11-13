@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" data-duration="7000">
+<head>
+<meta charset="utf-8">
+<title>Glider showcase: tune it from the edge</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* Timeline (ms): 500 power button appears beside the mark · 900 pointer to it · 1800 click · 1900 panel floats in
+   · 2700 pointer to Size · 3100-4100 Size up, text grows · 4300 pointer to Spacing · 4600-5500 Spacing up, words open · 7000 end */
+.page p { letter-spacing: .035em; word-spacing: .2em; line-height: 1.95; animation: grow 1s cubic-bezier(.3, 0, .2, 1) 3.1s both, space .9s cubic-bezier(.3, 0, .2, 1) 4.6s both; }
+.page p b { font-weight: 700; }
+@keyframes grow { from { font-size: 21px; } to { font-size: 25px; } }
+@keyframes space { from { word-spacing: .2em; letter-spacing: .035em; } to { word-spacing: .42em; letter-spacing: .06em; } }
+
+.power { animation: show .3s ease .5s both, press .25s ease 1.8s both, hide .2s ease 1.95s forwards; }
+@keyframes show { from { opacity: 0; transform: translateX(10px); } }
+@keyframes press { 50% { transform: scale(.82); color: var(--ink); } }
+@keyframes hide { to { opacity: 0; } }
+.edge .gmark { animation: hide .2s ease 1.95s forwards; }
+
+.panel { animation: floatin .45s cubic-bezier(.2, 0, 0, 1) 1.9s both; }
+@keyframes floatin { from { transform: translateX(300px); } }
+#size b { animation: fill-a 1s cubic-bezier(.3, 0, .2, 1) 3.1s both; } #size u { animation: knob-a 1s cubic-bezier(.3, 0, .2, 1) 3.1s both; }
+#gap b { animation: fill-b .9s cubic-bezier(.3, 0, .2, 1) 4.6s both; } #gap u { animation: knob-b .9s cubic-bezier(.3, 0, .2, 1) 4.6s both; }
+@keyframes fill-a { from { width: 22%; } to { width: 64%; } } @keyframes knob-a { from { left: 22%; } to { left: 64%; } }
+@keyframes fill-b { from { width: 34%; } to { width: 70%; } } @keyframes knob-b { from { left: 34%; } to { left: 70%; } }
+#lines b { width: 46%; } #lines u { left: 46%; }
+
+.ptr { animation: p1 .8s cubic-bezier(.4, 0, .2, 1) .9s both, p2 .5s cubic-bezier(.4, 0, .2, 1) 2.6s forwards, p3 1s cubic-bezier(.3, 0, .2, 1) 3.1s forwards,
+  p4 .35s cubic-bezier(.4, 0, .2, 1) 4.2s forwards, p5 .9s cubic-bezier(.3, 0, .2, 1) 4.6s forwards, p6 .7s ease 5.7s forwards; }
+@keyframes p1 { from { transform: translate(420px, 430px); } to { transform: translate(660px, 284px); } }
+@keyframes p2 { to { transform: translate(588px, 92px); } }
+@keyframes p3 { to { transform: translate(650px, 92px); } }
+@keyframes p4 { to { transform: translate(600px, 127px); } }
+@keyframes p5 { to { transform: translate(660px, 127px); } }
+@keyframes p6 { to { transform: translate(560px, 330px); opacity: 0; } }
+.click { position: absolute; z-index: 19; left: 666px; top: 291px; width: 20px; height: 20px; margin: -10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--accent); opacity: 0; animation: ping .5s ease-out 1.8s both; }
+@keyframes ping { 0% { opacity: .9; transform: scale(.4); } 100% { opacity: 0; transform: scale(2.4); } }
+
+.copy h1 { animation: in .5s ease .2s both; }
+.copy .sub { animation: in .5s ease 2.1s both; }
+@keyframes in { from { opacity: 0; transform: translateY(10px); } }
+</style>
+</head>
+<body class="scene">
+  <div class="copy">
+    <p class="kicker">02 YOUR SETTINGS</p>
+    <h1>Tuned from the edge.</h1>
+    <p class="sub">Size, spacing and line gap, one click from the side of the screen.</p>
+  </div>
+  <div class="window">
+    <div class="wbar"><i></i><i></i><i></i><span>en.wikipedia.org/wiki/Photosynthesis</span></div>
+    <div class="page">
+      <h2>How plants make food</h2>
+      <p id="t">Photosynthesis is the process that plants use to convert light into chemical energy. Inside the chloroplast, chlorophyll absorbs approximately all of the red and blue light and subsequently reflects the green, which is the reason that leaves appear green to us. The energy that is captured is then used to separate water molecules.</p>
+      <div class="edge">
+        <div class="gmark"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="power"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.6 7.4a8 8 0 1 0 10.8 0"/></svg></div>
+      </div>
+      <div class="panel">
+        <div class="head"><div class="gmark" style="transform:scale(.5);transform-origin:left center;padding:0;margin-right:-22px"><i></i><i></i><i></i><i></i><i></i></div>Glider</div>
+        <div class="row" id="size"><span>Size</span><div class="track"><b></b><u></u></div></div>
+        <div class="row" id="gap"><span>Spacing</span><div class="track"><b></b><u></u></div></div>
+        <div class="row" id="lines"><span>Line gap</span><div class="track"><b></b><u></u></div></div>
+      </div>
+      <svg class="ptr" viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.5L10 19z" fill="#20352a" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span class="click"></span>
+    </div>
+  </div>
+<script>
+const p = document.getElementById('t');
+p.innerHTML = p.textContent.replace(/[A-Za-z][A-Za-z'-]*/g, (w) => { const n = w.length <= 3 ? 1 : w.length <= 5 ? 2 : Math.ceil(w.length * .4); return '<b>' + w.slice(0, n) + '</b>' + w.slice(n); });
+</script>
+</body>
+</html>

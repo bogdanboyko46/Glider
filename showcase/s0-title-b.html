@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" data-duration="4000">
+<head>
+<meta charset="utf-8">
+<title>Glider · s0 title (variant B, dark and centred)</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Variant B: dark green stage, the mark assembles in the centre as an app-icon tile, then word and tagline below.
+     Timeline (ms): 150 tile · 350-1160 strokes reach from the tile's right edge · 1100 middle turns green ·
+     1450 tile settles upward · 1650 "Glider" · 2150 tagline · 2950 green stroke reaches again · hold to 4000. */
+  @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Regular.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Bold.woff2") format("woff2"); font-weight: 700; }
+  html, body { margin: 0; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden; position: relative;
+    background: #20352a; color: #eef2ea;
+    font-family: "Atkinson", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  }
+  .lift { position: absolute; left: 520px; top: 240px; width: 240px; height: 240px; animation: lift 600ms 1450ms cubic-bezier(.3, 0, .2, 1) both; }
+  @keyframes lift { from { transform: none; } to { transform: translateY(-112px) scale(.8); } }
+  /* 40-unit grid at 6px per unit: a 240px tile; strokes 24px thick, lengths 60 108 168 108 60, anchored to the right edge */
+  .tile { position: absolute; inset: 0; border-radius: 54px; background: #eef2ea; overflow: hidden; animation: pop 450ms 150ms cubic-bezier(.2, .9, .3, 1.2) both; }
+  @keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+  .slot { position: absolute; right: -12px; height: 24px; transform-origin: right center; }
+  .slot:nth-child(1) { top: 12px;  width: 72px; }
+  .slot:nth-child(2) { top: 60px;  width: 120px; }
+  .slot:nth-child(3) { top: 108px; width: 180px; }
+  .slot:nth-child(4) { top: 156px; width: 120px; }
+  .slot:nth-child(5) { top: 204px; width: 72px; }
+  .stroke { width: 100%; height: 100%; border-radius: 12px; background: #20352a; transform-origin: right center; animation: reach 450ms cubic-bezier(.2, .9, .25, 1.12) both; }
+  .slot:nth-child(1) .stroke { animation-delay: 350ms; }
+  .slot:nth-child(2) .stroke { animation-delay: 440ms; }
+  .slot:nth-child(3) .stroke { animation: reach 450ms 530ms cubic-bezier(.2, .9, .25, 1.12) both, green 350ms 1100ms ease-out both; }
+  .slot:nth-child(4) .stroke { animation-delay: 620ms; }
+  .slot:nth-child(5) .stroke { animation-delay: 710ms; }
+  .slot:nth-child(3) { animation: again 900ms 2950ms cubic-bezier(.4, 0, .2, 1) both; }
+  @keyframes reach { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes green { from { background: #20352a; } to { background: #2f6b4a; } }
+  @keyframes again { 0%, 100% { transform: scaleX(1); } 45% { transform: scaleX(1.14); } }
+
+  .word, .tag { position: absolute; left: 0; width: 1280px; margin: 0; text-align: center; }
+  .word { top: 372px; font-size: 132px; font-weight: 700; line-height: 1; letter-spacing: -2px; animation: rise 650ms 1650ms cubic-bezier(.2, .8, .2, 1) both; }
+  .tag { top: 530px; font-size: 38px; line-height: 1.25; color: #b9cdb9; animation: rise 650ms 2150ms cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+  <div class="lift" aria-hidden="true">
+    <div class="tile">
+      <div class="slot"><div class="stroke"></div></div>
+      <div class="slot"><div class="stroke"></div></div>
+      <div class="slot"><div class="stroke"></div></div>
+      <div class="slot"><div class="stroke"></div></div>
+      <div class="slot"><div class="stroke"></div></div>
+    </div>
+  </div>
+  <h1 class="word">Glider</h1>
+  <p class="tag">It notices when reading gets hard.</p>
+</body>
+</html>

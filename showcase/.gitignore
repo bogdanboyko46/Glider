@@ -1,0 +1,6 @@
+out/
+art/
+art-flat/
+veo/
+*.pptx
+__pycache__/

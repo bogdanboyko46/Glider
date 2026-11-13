@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-duration="4000">
+<head>
+<meta charset="utf-8">
+<title>Glider · sb what</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Slide 3, continues from slide 2 (same page card, cramped). All motion is CSS keyframes (no JS). Timeline (ms): 150 headline · 700-1580 the five Reach strokes come in from the right edge · 850 line · 1300-2600 the green stroke stretches toward the page and the lines relax, darken and spread · 2200 bold word starts appear · hold to 4000. */
+  @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Regular.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Bold.woff2") format("woff2"); font-weight: 700; }
+  html, body { margin: 0; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden; position: relative;
+    background: #eef2ea; color: #20352a;
+    font-family: "Atkinson", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  }
+  .glow { position: absolute; left: -180px; top: 60px; width: 900px; height: 600px; border-radius: 50%;
+          background: radial-gradient(closest-side, #ffffff 0%, rgba(255, 255, 255, 0) 100%); opacity: .9; }
+  .head { position: absolute; left: 120px; top: 246px; margin: 0; white-space: nowrap;
+          font-size: 60px; font-weight: 700; line-height: 1.04; letter-spacing: -2px; }
+  .rule { position: absolute; left: 126px; top: 340px; width: 132px; height: 8px; border-radius: 4px; background: #2f6b4a; transform-origin: left center; }
+  .sub  { position: absolute; left: 126px; top: 376px; margin: 0; width: 470px; font-size: 34px; line-height: 1.3; color: #566b5c; }
+  @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+  @keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+  /* a web page: a white card with a title bar and 24 lines of "text" */
+  .card { position: absolute; left: 760px; top: 110px; width: 380px; height: 500px; border-radius: 22px; background: #fcfcfb; overflow: hidden;
+          box-shadow: 0 0 0 1px rgba(32, 53, 42, .1), 0 40px 80px -30px rgba(32, 53, 42, .35); }
+  .bar  { height: 38px; background: #e9eee4; border-bottom: 1px solid #dbe3d4; display: flex; align-items: center; gap: 7px; padding: 0 14px; }
+  .bar i { width: 10px; height: 10px; border-radius: 50%; background: #c3cfbc; }
+  .lines { padding: 26px 34px 0; }
+  .lines b { display: block; width: 58%; height: 16px; border-radius: 8px; background: #6f7f73; margin-bottom: 20px; }
+  .lines i { display: block; height: 9px; border-radius: 4.5px; }
+  .lines i:nth-of-type(4n+1) { width: 100%; } .lines i:nth-of-type(4n+2) { width: 94%; }
+  .lines i:nth-of-type(4n+3) { width: 98%; }  .lines i:nth-of-type(4n)   { width: 88%; }
+  .lines i:nth-of-type(6n)   { width: 61%; }
+
+  /* slide 3: starts where slide 2 ended (cramped), then the Reach strokes come in and the page relaxes */
+  .head { animation: rise 650ms 150ms cubic-bezier(.2, .8, .2, 1) both; }
+  .rule { animation: draw 450ms 650ms cubic-bezier(.2, .8, .2, 1) both; }
+  .sub  { animation: rise 650ms 850ms cubic-bezier(.2, .8, .2, 1) both; }
+  .lines { transform-origin: left top; animation: unwall 700ms 1300ms cubic-bezier(.3, 0, .2, 1) both; }
+  @keyframes unwall { from { transform: scaleY(.94); } to { transform: none; } }
+  .lines i { position: relative; animation: relax 1300ms 1300ms cubic-bezier(.3, 0, .2, 1) both; }
+  @keyframes relax { from { margin-bottom: 6px; height: 9px; background: #5d6c61; } to { margin-bottom: 23px; height: 11px; background: #20352a; } }
+  /* each line shows a bolder "word start" once it has room */
+  .lines i::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 22%; border-radius: inherit; background: #2f6b4a;
+                     animation: arrive 500ms 2200ms both; }
+  @keyframes arrive { from { opacity: 0; } to { opacity: 1; } }
+  .lines b { animation: title 1300ms 1300ms cubic-bezier(.3, 0, .2, 1) both; }
+  @keyframes title { from { background: #6f7f73; } to { background: #20352a; } }
+
+  /* the Reach mark on the right edge: 5px per unit (lengths 50 90 140 90 50, 20 thick) */
+  .reach { position: absolute; right: 0; top: 270px; width: 150px; height: 180px; }
+  .slot { position: absolute; right: -10px; height: 20px; transform-origin: right center; }
+  .slot:nth-child(1) { top: 0;     width: 60px; }
+  .slot:nth-child(2) { top: 40px;  width: 100px; }
+  .slot:nth-child(3) { top: 80px;  width: 150px; }
+  .slot:nth-child(4) { top: 120px; width: 100px; }
+  .slot:nth-child(5) { top: 160px; width: 60px; }
+  .stroke { width: 100%; height: 100%; border-radius: 10px; background: #20352a; transform-origin: right center; animation: reach 480ms cubic-bezier(.2, .9, .25, 1.12) both; }
+  .slot:nth-child(1) .stroke { animation-delay: 700ms; }
+  .slot:nth-child(2) .stroke { animation-delay: 800ms; }
+  .slot:nth-child(3) .stroke { background: #2f6b4a; animation-delay: 900ms; }
+  .slot:nth-child(4) .stroke { animation-delay: 1000ms; }
+  .slot:nth-child(5) .stroke { animation-delay: 1100ms; }
+  @keyframes reach { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  /* the green stroke stretches toward the page as the page lets go */
+  .slot:nth-child(3) { animation: touch 1100ms 1300ms cubic-bezier(.4, 0, .2, 1) both; }
+  @keyframes touch { 0%, 100% { transform: scaleX(1); } 40% { transform: scaleX(1.28); } }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <h1 class="head">One lens, any page.</h1>
+  <div class="rule"></div>
+  <p class="sub">A Chrome extension that makes text easier to read.</p>
+  <div class="card" aria-hidden="true">
+    <div class="bar"><i></i><i></i><i></i></div>
+    <div class="lines"><b></b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+  <div class="reach" aria-hidden="true">
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+  </div>
+</body>
+</html>

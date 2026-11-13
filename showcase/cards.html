@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glider deck card</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* The three middle cards of the five-card deck (?n=2..4). Cards 1 and 5 are the full-screen title and close animations.
+   Same look as the first deck: plain sage, Lexend headlines, browser windows. Each card pairs two connected features,
+   and each is composed differently. The .screen boxes are where the scene recordings are laid; their rectangles are
+   exported in body[data-rects]. */
+body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: relative; background: var(--bg); color: var(--ink); font-family: "Atkinson", "Segoe UI", sans-serif; }
+.h { position: absolute; margin: 0; font: 700 54px/1.05 "Lexend", sans-serif; letter-spacing: -.028em; }
+.l { position: absolute; margin: 0; font-size: 21px; line-height: 1.45; color: var(--muted); }
+.tag { position: absolute; margin: 0; font: 600 15px/1 "Lexend", sans-serif; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+.tag::before { content: ""; width: 22px; height: 5px; border-radius: 3px; background: var(--accent); }
+.screen { position: absolute; border-radius: 16px; background: var(--page); box-shadow: 0 0 0 1px rgba(32, 53, 42, .1), 0 34px 60px -30px rgba(32, 53, 42, .45); }
+</style>
+</head>
+<body>
+<script>
+const n = Number(new URLSearchParams(location.search).get('n') || 2);
+const el = (html) => document.body.insertAdjacentHTML('beforeend', html);
+const rects = [];
+// every window keeps the scenes' own shape, 736 x 624
+const screen = (x, y, w) => { const h = Math.round(w * 624 / 736); el(`<div class="screen" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>`); rects.push({ x, y, w, h }); };
+
+const CARDS = {
+  // 2 The lens, and tuning it: headline across the top, two windows side by side, the second set a little lower.
+  2() {
+    el(`<h1 class="h" style="left:60px;top:44px">Lines stop crowding you.</h1>
+        <p class="l" style="left:62px;top:116px;width:1100px">More space and a bold start to every word. Then set size and spacing from the side of the screen.</p>`);
+    screen(60, 186, 566); el(`<p class="tag" style="left:64px;top:680px">One switch</p>`);
+    screen(654, 206, 566); el(`<p class="tag" style="left:658px;top:164px">Tuned from the edge</p>`);
+  },
+  // 3 Word help: words down the left, two windows overlapping on a diagonal at the right.
+  3() {
+    el(`<h1 class="h" style="left:60px;top:150px;width:400px">Help with the hard words.</h1>
+        <p class="l" style="left:62px;top:356px;width:340px">Long words split into chunks you can hear. Look-alike words come with a quick meaning.</p>`);
+    screen(440, 32, 500); el(`<p class="tag" style="left:960px;top:60px">Hear any word</p>`);
+    screen(736, 268, 500); el(`<p class="tag" style="left:500px;top:668px">Words that look alike</p>`);
+  },
+  // 4 Eye tracking, then the simpler version: one large window at the left, headline stacked at the right.
+  4() {
+    screen(52, 40, 754);
+    el(`<h1 class="h" style="left:850px;top:150px;width:390px;font-size:50px">It sees you stuck. Then it gets simpler.</h1>
+        <p class="l" style="left:852px;top:400px;width:360px">Your camera notices the lines that slow your eyes, and shows them again in plainer words.</p>
+        <p class="l" style="left:852px;top:640px;width:380px;font-size:14px;color:#8a978d">The gaze shown is a simulation of the tracker's signal.</p>`);
+  },
+};
+CARDS[n]();
+document.body.dataset.rects = JSON.stringify(rects);
+</script>
+</body>
+</html>

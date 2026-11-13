@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glider deck slide</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* One static slide per ?n=1..10. Ten different layouts on Gemini-generated backgrounds (showcase/art/bg-NN.jpg).
+   The .screen box is where the deck builder lays the real-app recording; its rectangle is exported in body[data-rect]. */
+body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: relative; background: #eef2ea center / cover no-repeat; color: var(--ink); font-family: "Atkinson", "Segoe UI", sans-serif; }
+.h { position: absolute; margin: 0; font: 700 60px/1.04 "Lexend", sans-serif; letter-spacing: -.028em; color: var(--ink); }
+.l { position: absolute; margin: 0; font-size: 24px; line-height: 1.4; color: #3d5246; }
+.flat { position: absolute; background: #f6f8f2; }
+.bar { position: absolute; background: #f8faf5; box-shadow: 0 0 0 1px rgba(32, 53, 42, .1); border-radius: 22px; }
+.screen { position: absolute; border-radius: 14px; background: #fcfcfb; box-shadow: 0 0 0 1px rgba(32, 53, 42, .16), 0 10px 0 -4px rgba(32, 53, 42, .12); overflow: hidden; }
+.screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: left top; }
+.mark { position: absolute; display: grid; gap: 14px; justify-items: end; }
+.mark i { display: block; height: 18px; border-radius: 9px; background: var(--ink); opacity: .55; }
+.mark.s i { height: 6px; border-radius: 3px; }
+.word { font: 700 30px/1 "Lexend", sans-serif; letter-spacing: -.02em; }
+</style>
+</head>
+<body>
+<script>
+const n = Number(new URLSearchParams(location.search).get('n') || 1);
+const bg = (i) => { document.body.style.backgroundImage = `url(art-flat/bg-${String(i).padStart(2, '0')}.jpg)`; };
+const el = (html) => document.body.insertAdjacentHTML('beforeend', html);
+const strokes = (unit, extra = '') => [10, 18, 28, 18, 10].map((w, i) => `<i style="width:${w * unit}px;${i === 2 ? 'background:var(--accent);opacity:1;' : ''}${extra}"></i>`).join('');
+const screen = (x, y, w, h, img) => { el(`<div class="screen" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${img ? `<img src="${img}">` : ''}</div>`); if (!img) document.body.dataset.rect = JSON.stringify({ x, y, w, h }); };
+bg(n);
+
+const S = {
+  // 1 Title: wordmark huge and centred, the logo strokes coming in from the right edge.
+  1() { el(`<div class="flat" style="left:300px;top:190px;width:680px;height:300px;border-radius:26px"></div>
+    <h1 class="h" style="left:0;right:0;top:214px;text-align:center;font-size:168px">Glider</h1>
+    <p class="l" style="left:0;right:0;top:412px;text-align:center;font-size:32px">Built for the way you read.</p>
+    <div class="mark" style="right:0;top:232px">${strokes(9)}</div>`); },
+  // 2 The problem: small headline top left, a cramped page bleeding off the right and bottom.
+  2() { screen(430, 150, 1100, 688, 'out/still-off.png');
+    el(`<div class="flat" style="left:40px;top:40px;width:372px;height:184px;border-radius:20px"></div>
+    <h1 class="h" style="left:64px;top:64px;font-size:46px">Pages crowd you.</h1>
+    <p class="l" style="left:66px;top:132px;width:330px">Tight lines. Long words. No room to slow down.</p>`); },
+  // 3 What it is: split in half, words left, the lens-on page right.
+  3() { el(`<div class="bar" style="left:0;top:0;width:600px;height:720px;border-radius:0"></div>
+    <h1 class="h" style="left:72px;top:232px;width:480px">A lens for dyslexia.</h1>
+    <p class="l" style="left:74px;top:392px;width:420px">It reshapes any web page to suit how you read.</p>
+    <div class="mark s" style="left:74px;top:176px;justify-items:start;gap:5px">${strokes(1.5)}</div>`);
+    screen(660, 172, 600, 375, 'out/still-on.png'); },
+  // 4 The lens: the recording across the top, a caption bar underneath.
+  4() { screen(232, 34, 816, 510);
+    el(`<div class="bar" style="left:232px;top:566px;width:816px;height:120px"></div>
+    <h1 class="h" style="left:268px;top:588px;font-size:38px">Lines stop crowding you.</h1>
+    <p class="l" style="left:270px;top:640px;font-size:21px">More space, larger text, and a bold start to every word.</p>`); },
+  // 5 Tuned from the edge: recording pushed off the left side, words right-aligned down the right edge.
+  5() { screen(-70, 96, 846, 529);
+    el(`<div class="flat" style="left:800px;top:196px;width:360px;height:280px;border-radius:20px"></div>
+    <h1 class="h" style="right:150px;top:226px;width:360px;text-align:right">Set it your way.</h1>
+    <p class="l" style="right:152px;top:382px;width:330px;text-align:right">Press the logo at the side. Tune size and spacing.</p>`); },
+  // 6 Hear any word: the word lens enlarged in the middle, small headline above, line below.
+  6() { el(`<div class="flat" style="left:380px;top:28px;width:520px;height:80px;border-radius:20px"></div><h1 class="h" style="left:0;right:0;top:44px;text-align:center;font-size:44px">Hear the hard word.</h1>`);
+    screen(240, 124, 800, 500);
+    el(`<div class="flat" style="left:370px;top:638px;width:540px;height:54px;border-radius:16px"></div><p class="l" style="left:0;right:0;top:648px;text-align:center">Long words split into chunks you can hear.</p>`); },
+  // 7 Look-alike words: headline left, recording to the right and high, leaves along the bottom.
+  7() { el(`<div class="flat" style="left:40px;top:96px;width:440px;height:250px;border-radius:20px"></div>
+    <h1 class="h" style="left:64px;top:120px;width:420px;font-size:56px">Their, there, they're.</h1>
+    <p class="l" style="left:66px;top:268px;width:360px">Words that look alike come with a quick meaning.</p>`);
+    screen(520, 56, 704, 440); },
+  // 8 It notices you are stuck: headline stacked one word per line at the far left, recording large on the right.
+  8() { el(`<div class="flat" style="left:0;top:0;width:372px;height:720px"></div>
+    <h1 class="h" style="left:60px;top:110px;font-size:66px;line-height:1.02">It<br>sees<br>you<br>stuck.</h1>
+    <p class="l" style="left:62px;top:420px;width:300px">Your camera notices the lines that slow your eyes.</p>`);
+    screen(400, 74, 832, 520); },
+  // 9 Makes it simpler: recording centred and wide, headline top left over the tangle-to-line thread.
+  9() { el(`<div class="flat" style="left:40px;top:28px;width:1200px;height:92px;border-radius:20px"></div><h1 class="h" style="left:64px;top:44px;font-size:50px">Then it gets simpler.</h1>
+    <p class="l" style="right:64px;top:66px;width:420px;text-align:right;font-size:22px">Those lines, in plainer words, right where you are.</p>`);
+    screen(208, 138, 864, 540); },
+  // 10 Close: this is a showcase, so no sales line. Headline low and centred, small mark and name under it.
+  10() { el(`<h1 class="h" style="left:0;right:0;top:404px;text-align:center;font-size:76px">Read at your pace.</h1>
+    <div style="position:absolute;left:0;right:0;top:536px;display:flex;justify-content:center;align-items:center;gap:14px">
+      <div class="mark s" style="position:static;gap:5px">${strokes(1.5)}</div><span class="word">Glider</span></div>`); },
+};
+S[n]();
+</script>
+</body>
+</html>
