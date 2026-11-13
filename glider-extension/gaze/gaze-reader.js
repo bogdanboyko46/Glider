@@ -38,7 +38,7 @@
     shortcuts: true,
     baselineWpm: 150,
     root: null,
-    settleMs: 650,
+    settleMs: 1000,          // after the dot starts moving: its 600 ms glide plus time for the eyes to land
     sampleMs: 1000,
     domEvents: false,       // also dispatch DOM CustomEvents (visible to the page; off by default)
     trace: false,           // log detector internals to the console
@@ -46,6 +46,9 @@
     onEnableRequest: null,  // managed mode: called with true/false when the user asks to turn tracking on/off
     sensitivity: 1,         // multiplies the calibrated tau: above 1 helps later, below 1 helps sooner
     baselineText: null,     // override the reading-pace passage
+    featureCount: 25,       // regression inputs: eye features + eye-look blendshapes. The raw head matrix and head
+                            // position (25-43) barely vary in a keep-still calibration and wreck it after a small shift.
+    clickRefine: true,      // clicks add calibration samples (the lab turns this off to keep runs comparable)
     widget: true,           // false hides the camera widget and toasts (the camera keeps running)
   };
 
@@ -148,10 +151,10 @@
     #calib { position: fixed; inset: 0; background: #eef2ea; pointer-events: auto; display: none; cursor: none; }
     #calib.show { display: block; }
     #cdot { position: fixed; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: #2f6b4a;
-            box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); transition: left .35s ease, top .35s ease; display: none; }
+            box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); transition: left .6s cubic-bezier(.45, 0, .25, 1), top .6s cubic-bezier(.45, 0, .25, 1); display: none; } /* keep settleMs at least this glide + 400ms */
     #cdot::after { content: ''; position: absolute; left: 10px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
-    #cdot.pulse { animation: shrink var(--dur, 1s) linear forwards; }
-    @keyframes shrink { from { transform: scale(1.25); } to { transform: scale(.55); } }
+    #cdot.pulse { animation: shrink var(--dur, 1s) ease-out forwards; }
+    @keyframes shrink { from { transform: scale(1.15); } to { transform: scale(.6); } }
     #instr { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px));
              text-align: left; color: #20352a; font-size: 18px; line-height: 1.6; letter-spacing: .01em; cursor: default; }
     .card { background: #f8faf5; border-radius: 30px; padding: 26px 28px 24px;
@@ -175,6 +178,22 @@
     #bhint { font-size: 16px; line-height: 1.5; color: #566b5c; margin: 0 0 20px; }
     #btext { margin: 0; font-size: 24px; line-height: 60px; text-align: left; letter-spacing: .02em; word-spacing: .14em; }
     #bread button { margin-top: 26px; }
+
+    /* While a card asks the reader to check their face, the camera box stays
+       in view above the calibration screen. It is covered again once the dot
+       starts, so it cannot pull the eyes away from the dot. */
+    #cam:has(~ #calib.show > #instr:not([style*="display: none"]) .card.face) { z-index: 3; box-shadow: 0 0 0 3px #2f6b4a, 0 18px 40px -14px rgba(32, 53, 42, .34); }
+    .card { max-height: calc(100vh - 32px); overflow: auto; }
+    /* How far through the dots: a short, pale bar on the bottom edge. It only
+       changes while the dot is travelling and never animates, so it cannot
+       pull the eyes during sampling. */
+    #calib.show:has(> #cdot[style*="display: block"])::after { content: ''; position: fixed; left: 50%; bottom: 6px; width: 120px; height: 4px;
+            margin-left: -60px; border-radius: 2px;
+            background: linear-gradient(to right, #93a593 calc(var(--done, 0) * 100%), #d6dfce calc(var(--done, 0) * 100%)); }
+    .meter { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; }
+    .meter i { width: 46px; height: 8px; border-radius: 4px; background: #d6dfce; }
+    .meter[data-level="1"] i:nth-child(-n+1), .meter[data-level="2"] i:nth-child(-n+2), .meter[data-level="3"] i { background: #2f6b4a; }
+    .card .big + .meter { margin-top: -2px; }
 
     /* help on the page: the line being read, and the read-aloud pill */
     .hl { position: fixed; border-radius: 8px; background: rgba(244, 223, 166, .5); pointer-events: none;
@@ -314,11 +333,20 @@
       }
       return;
     }
+    if (d.type === 'camera') {
+      S.camera = d.settings || null;
+      emit('camera', { t: performance.now(), settings: S.camera });
+      const c = S.camera;
+      if (c && c.width && c.height && (c.width < 1280 || c.height < 720)) toast('Your camera is only giving ' + c.width + ' by ' + c.height + '. Eye tracking will be rough at that size.', 8000);
+      return;
+    }
     if (d.type !== 'f') return;
     S.fps = d.fps;
     const t = performance.now();
     // Every camera frame, blinks and lost faces included (same clock as 'gaze').
     if (listeners.frame && listeners.frame.length) emit('frame', { t, face: !!d.face, blink: !!d.blink, head: d.head || null });
+    // Lab use: the raw feature vector of every frame, before any model.
+    if (listeners.raw && listeners.raw.length) emit('raw', { t, face: !!d.face, blink: !!d.blink, f: d.face ? d.f : undefined, head: d.head || null, fps: d.fps });
     if (!d.face) { S.latest = { face: false, t }; return; }
     S.latest = { ...d, t };
     if (!d.blink) { S.recent.push({ f: d.f, t }); if (S.recent.length > 6) S.recent.shift(); }
@@ -405,7 +433,11 @@
     return lines;
   }
 
-  function wordCount(el) { const m = (el.innerText || el.textContent || '').match(/\S+/g); return m ? m.length : 0; }
+  /* Reading time follows characters far better than words: dense text has longer words.
+     A block's size is therefore counted in "passage words": its characters divided by the
+     characters per word of the baseline passage the reader's pace was measured on. */
+  const CHARS_PER_WORD = BASELINE_TEXT.replace(/\s+/g, '').length / BASELINE_TEXT.match(/\S+/g).length;
+  function wordCount(el) { return (el.innerText || el.textContent || '').replace(/\s+/g, '').length / CHARS_PER_WORD; }
 
   function blockState(el) {
     let st = S.states.get(el);
@@ -443,12 +475,14 @@
       if (S.heat.size > 300) S.heat.delete(S.heat.keys().next().value);
     }
     // Learn this reader's normal pace from paragraphs they finished without trouble.
-    if (st.nLines > 1 && st.maxLine >= st.nLines - 1 && st.triggers === 0 && st.totalDwell > 1500 && st.words > 8) {
-      const obs = st.words / (st.totalDwell / 60000);
-      S.wpm = 0.75 * S.wpm + 0.25 * Math.max(50, Math.min(450, obs));
+    // Every finished paragraph teaches, including the slow ones (leaving those out kept the
+    // expectation too fast on hard text). One odd paragraph can only pull the pace so far.
+    if (st.nLines > 1 && st.maxLine >= st.nLines - 1 && st.totalDwell > 1500 && st.words > 8) {
+      const obs = Math.max(0.6 * S.wpm, Math.min(1.6 * S.wpm, st.words / (st.totalDwell / 60000)));
+      S.wpm = 0.8 * S.wpm + 0.2 * Math.max(40, Math.min(450, obs));
       // The measured baseline is the anchor: page text can be harder or easier than
       // the passage, but the working pace may only move so far from it.
-      if (S.baseline) S.wpm = Math.max(0.6 * S.baseline.wpm, Math.min(1.5 * S.baseline.wpm, S.wpm));
+      if (S.baseline) S.wpm = Math.max(0.45 * S.baseline.wpm, Math.min(1.6 * S.baseline.wpm, S.wpm));
     }
   }
 
@@ -465,11 +499,11 @@
     S.lastFix = fix;
     emit('fixation', fix);
     if (S.bl) { baselineFixation(fix); return; }
-    if (fix.t < S.scrollT + 200) return;      // fixation overlapped a scroll: positions are unreliable
+    if (fix.t < S.scrollT + 200) { S.prevFixEnd = 0; return; }      // fixation overlapped a scroll: positions are unreliable
     const el = pickBlock(fix.x, fix.y);
     if (el !== S.block) { leaveBlock(S.block, fix.t); enterBlock(el, fix.t); }
     if (S.struggling && S.struggling.el !== el) setStruggling(null);   // moved to other text
-    if (!el) { S.cur = null; return; }
+    if (!el) { S.cur = null; S.prevFixEnd = 0; return; }
     const st = blockState(el);
     const lines = getLines(el);
     if (!lines.length) return;
@@ -535,8 +569,20 @@
       regressionRate: S.baseline ? S.baseline.regressionRate : 0,
     });
     if (opts.trace) console.log('[gaze-trace]', JSON.stringify({ line: L, onLine: Math.round(onLine), expLine: Math.round(exp.line), total: Math.round(st.totalDwell), expPara: Math.round(exp.para), back: st.backtracks.length, words: st.words, n: lines.length, tau: +T.toFixed(2), ratio: +d.ratio.toFixed(2) }));
-    if (!d.reason) return;
-    const reason = d.reason;
+    // How fine can we trust the tracker on this text? When its vertical error is large
+    // next to the line spacing, a single line is a guess: fall back to the paragraph's
+    // total time, which does not depend on getting the line right.
+    const pitch = lines.length > 1 ? (lines[lines.length - 1].top - lines[0].top) / (lines.length - 1) : lines[0].bottom - lines[0].top;
+    const coarse = S.sy > 0.6 * pitch;
+    let reason = d.reason, severity = d.severity;
+    if (coarse) {
+      const slow = st.triggers === 0 && st.totalDwell > Math.max(4000, T * exp.para);   // once per visit
+      reason = slow ? 'slow-paragraph' : null;
+      severity = Math.min(1, st.totalDwell / (2.5 * T * Math.max(exp.para, 1)));
+    } else if (reason === 'stuck-line' && conf < 0.5) {
+      reason = null;   // slow, but not sure enough which line to point at it
+    }
+    if (!reason) return;
     let line = L;
     if (reason === 'rereading') {
       let m = 0;
@@ -545,15 +591,19 @@
     }
     const backtracks = st.backtracks.length;
     st.lastTrigger = now; st.triggers++; st.runMs = 0; st.backtracks = [];
-    const rect = lines[line];
+    // Coarse tracking reports a band of lines around the best guess, not one line.
+    const span = coarse ? 1 : 0;
+    const a = lines[Math.max(0, line - span)], b = lines[Math.min(lines.length - 1, line + span)];
+    const rect = { top: a.top, bottom: b.bottom, left: Math.min(a.left, b.left), right: Math.max(a.right, b.right) };
     const detail = {
-      element: el, lineIndex: line, lineRect: { ...rect }, lineText: getLineText(el, rect),
-      paragraphText: (el.innerText || el.textContent || '').trim(), reason, severity: +d.severity.toFixed(2),
+      element: el, lineIndex: line, lineRect: { ...rect }, lineText: getLineText(el, rect), coarse, lineSpan: span,
+      paragraphText: (el.innerText || el.textContent || '').trim(), reason, severity: +severity.toFixed(2),
       metrics: {
         paragraphDwellMs: Math.round(st.totalDwell), expectedParagraphMs: Math.round(exp.para),
         lineDwellMs: Math.round(st.lineDwell[line]), expectedLineMs: Math.round(exp.line), backtracks,
         readerWpm: Math.round(S.wpm), baselineWpm: S.baseline ? Math.round(S.baseline.wpm) : null,
         tau: +T.toFixed(2), ratio: +d.ratio.toFixed(2), lineConfidence: +conf.toFixed(2),
+        trackerErrorPx: Math.round(S.sy), linePitchPx: Math.round(pitch),
       },
     };
     if (L >= 0) st.lineDwell[L] = 0;
@@ -692,7 +742,7 @@
     const pill = document.createElement('div');
     pill.className = 'pill';
     const read = document.createElement('button');
-    read.textContent = 'Read line aloud';
+    read.textContent = d.coarse ? 'Read this part aloud' : 'Read line aloud';
     read.onclick = () => {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(d.lineText || d.paragraphText);
@@ -703,7 +753,7 @@
     // In managed mode the host extension owns every change to the page's text.
     if (d.reason !== 'stuck-line' && !opts.managed) { d.element.classList.add('gr-assist'); S.assisted.add(d.element); }
     $('hlayer').append(hl, pill);
-    S.highlights.push({ el: d.element, idx: d.lineIndex, until: performance.now() + 7000, hl, pill });
+    S.highlights.push({ el: d.element, idx: d.lineIndex, span: d.lineSpan || 0, until: performance.now() + 7000, hl, pill });
   }
 
   // --------------------------------------------------------- render loop
@@ -715,7 +765,8 @@
       const now = performance.now();
       if (S.struggling && now - S.struggling.since > 15000) setStruggling(null);   // nothing new for a while
       S.highlights = S.highlights.filter((h) => {
-        const r = getLines(h.el)[h.idx];
+        const ls = getLines(h.el), r0 = ls[Math.max(0, h.idx - h.span)], r1 = ls[Math.min(ls.length - 1, h.idx + h.span)];
+        const r = r0 && r1 && ls[h.idx] ? { top: r0.top, bottom: r1.bottom, left: Math.min(r0.left, r1.left), right: Math.max(r0.right, r1.right) } : null;
         if (now > h.until || !r || !h.el.isConnected) { h.hl.remove(); h.pill.remove(); return false; }
         Object.assign(h.hl.style, { left: r.left - 5 + 'px', top: r.top - 2 + 'px', width: r.right - r.left + 10 + 'px', height: r.bottom - r.top + 4 + 'px' });
         Object.assign(h.pill.style, { left: Math.min(innerWidth - 150, r.right + 10) + 'px', top: r.top - 4 + 'px' });
@@ -817,15 +868,16 @@
       window.addEventListener('keydown', onEsc, true);
       try {
         instr.style.display = 'block';
-        instr.innerHTML = `<div class="card"><h3>Calibrate eye tracking</h3>
-          <ol><li>Sit the way you will read, about an arm's length from the screen.</li>
+        instr.innerHTML = `<div class="card face"><h3>Calibrate eye tracking</h3>
+          <ol>${opts.widget ? '<li>Check that you can see your whole face in the camera box in the corner.</li>' : ''}
+          <li>Sit the way you will read, about an arm's length from the screen.</li>
           <li>Keep your head still.</li>
           <li>Follow the green dot with your <b>eyes</b>. It moves to a new spot, then shrinks.</li></ol>
           <small>This takes about 30 seconds${withBaseline ? '. After that there is one short passage to read' : ''}.</small>
           <div class="go"><button>Start</button> <span class="quiet"><kbd>Space</kbd> to start, <kbd>Esc</kbd> to cancel</span></div></div>`;
         await waitForStart(instr);
         while (!(S.latest && S.latest.face)) {
-          instr.innerHTML = '<div class="card"><h3>Looking for your face</h3><p>Check that the room is bright and the camera can see you.</p></div>';
+          instr.innerHTML = '<div class="card face"><h3>Looking for your face</h3><p>Move until your whole face shows in the camera box. A brighter room helps.</p><small>The dot starts as soon as your face is found. <kbd>Esc</kbd> to cancel.</small></div>';
           await sleep(300);
           if (escaped) throw new Error('cancelled');
         }
@@ -836,6 +888,8 @@
           const out = [];
           for (let i = 0; i < pts.length; i++) {
             if (escaped) throw new Error('cancelled');
+            // Progress through all 18 dots, 0..1, for a quiet indicator styled in CSS.
+            cal.style.setProperty('--done', (((groupBase ? CAL_POINTS.length : 0) + i) / (CAL_POINTS.length + VAL_POINTS.length)).toFixed(3));
             const x = pts[i][0] * innerWidth, y = pts[i][1] * innerHeight;
             dot.classList.remove('pulse');
             dot.style.left = x + 'px'; dot.style.top = y + 'px';
@@ -850,14 +904,21 @@
 
         const calPts = await runPoints(CAL_POINTS, 0);
         const X = [], Y = [], G = [], heads = [];
-        for (const p of calPts) for (const s of p.samples) { X.push(s.f); Y.push([p.x, p.y]); G.push(p.g); heads.push(s.head); }
+        const thin = calPts.filter((p) => p.samples.length < 8).length;
+        if (thin > 2) throw new Error('your eyes were lost on several dots. Face the camera, add light and try again');
+        for (const p of calPts) for (const s of p.samples) { X.push(s.f.slice(0, opts.featureCount)); Y.push([p.x, p.y]); G.push(p.g); heads.push(s.head); }
         if (X.length < 120) throw new Error('not enough face frames — improve lighting and face the camera');
         let model = new C.Ridge().fit(X, Y, G);
+        // Second pass without the stray frames (eyes still arriving, glances away, half blinks).
+        trimTrain(model, X, Y, G, heads);
+        model = new C.Ridge().fit(X, Y, G);
 
         const valPts = await runPoints(VAL_POINTS, 100);
         dot.style.display = 'none';
         const acc = accuracyFrom(model, valPts);
-        for (const p of valPts) for (const s of p.samples) { X.push(s.f); Y.push([p.x, p.y]); G.push(p.g); heads.push(s.head); }
+        for (const p of valPts) for (const s of p.samples) { X.push(s.f.slice(0, opts.featureCount)); Y.push([p.x, p.y]); G.push(p.g); heads.push(s.head); }
+        model = new C.Ridge().fit(X, Y, G);
+        trimTrain(model, X, Y, G, heads);
         model = new C.Ridge().fit(X, Y, G);
 
         S.model = model;
@@ -875,11 +936,12 @@
         saveCalibration();
 
         instr.style.display = 'block';
-        const quality = acc.effY < 45 ? ['Great', 'Glider can follow you line by line.']
-          : acc.effY < 80 ? ['Good', 'Glider can follow you line by line when the lines are spaced out.']
-            : ['Rough', 'Glider can only tell which paragraph you are on. A brighter room and a still head will help.'];
+        const quality = acc.effY < 45 ? ['Great', 'Glider can follow you line by line.', 3]
+          : acc.effY < 80 ? ['Good', 'Glider can follow you line by line when the lines are spaced out.', 2]
+            : ['Rough', 'Glider can only tell which paragraph you are on. A brighter room and a still head will help.', 1];
         instr.innerHTML = `<div class="card"><h3>Calibration done</h3>
           <div class="big">${quality[0]}</div>
+          <div class="meter" data-level="${quality[2]}" aria-hidden="true"><i></i><i></i><i></i></div>
           <p>${quality[1]}</p>
           <small>Accuracy: ±${Math.round(acc.effX)}px across, ±${Math.round(acc.effY)}px up and down. Best line spacing: ${acc.recommendedLinePitchPx}px.</small>
           <div class="go"><button>${withBaseline ? 'Continue' : 'Start reading'}</button> <span class="quiet">or press <kbd>Space</kbd></span></div></div>`;
@@ -910,6 +972,23 @@
     try { return await calibrating; } finally { calibrating = null; }
   }
 
+  /** Drop, per calibration dot, the frames whose prediction error is far from that dot's own median (in place). */
+  function trimTrain(model, X, Y, G, heads) {
+    const med = (a) => { const b = a.slice().sort((p, q) => p - q); return b.length ? b[b.length >> 1] : 0; };
+    const byDot = new Map();
+    X.forEach((x, i) => { const p = model.predict(x); (byDot.get(G[i]) || byDot.set(G[i], []).get(G[i])).push({ i, ex: p[0] - Y[i][0], ey: p[1] - Y[i][1] }); });
+    const drop = new Set();
+    for (const rows of byDot.values()) {
+      if (rows.length < 8) continue;
+      const mx = med(rows.map((r) => r.ex)), my = med(rows.map((r) => r.ey));
+      const sx = 1.4826 * med(rows.map((r) => Math.abs(r.ex - mx))) || 1, sy = 1.4826 * med(rows.map((r) => Math.abs(r.ey - my))) || 1;
+      for (const r of rows) if (Math.abs(r.ex - mx) > 2.5 * sx || Math.abs(r.ey - my) > 2.5 * sy) drop.add(r.i);
+    }
+    if (!drop.size || drop.size > 0.3 * X.length) return 0;
+    for (const arr of [X, Y, G, heads]) { let w = 0; for (let i = 0; i < arr.length; i++) if (!drop.has(i)) arr[w++] = arr[i]; arr.length = w; }
+    return drop.size;
+  }
+
   function accuracyFrom(model, pts) {
     let bx = 0, by = 0, nx = 0, ny = 0, k = 0;
     for (const p of pts) {
@@ -924,8 +1003,9 @@
     }
     if (!k) throw new Error('lost the face during validation');
     const accX = Math.sqrt(bx / k), accY = Math.sqrt(by / k), precX = nx / k, precY = ny / k;
-    // A fixation averages ~6+ frames, so frame noise shrinks by ~sqrt(6); bias does not.
-    const effX = Math.sqrt(accX ** 2 + precX ** 2 / 6), effY = Math.sqrt(accY ** 2 + precY ** 2 / 6);
+    // A fixation spans ~6 frames, but neighbouring frames share most of their landmark
+    // noise, so it holds only about 2.5 independent ones. Bias does not average out at all.
+    const effX = Math.sqrt(accX ** 2 + precX ** 2 / 2.5), effY = Math.sqrt(accY ** 2 + precY ** 2 / 2.5);
     return {
       accuracyX: Math.round(accX), accuracyY: Math.round(accY), precisionX: Math.round(precX), precisionY: Math.round(precY),
       effX: Math.round(effX), effY: Math.round(effY),
@@ -944,7 +1024,7 @@
   // -------------------------------------------- click-based refinement
   // People look at what they click. Each click is a free calibration sample.
   document.addEventListener('pointerdown', (e) => {
-    if (S.status !== 'tracking' || !S.model || !S.train || S.drifted) return;
+    if (!opts.clickRefine || S.status !== 'tracking' || !S.model || !S.train || S.drifted) return;
     if (S.host && e.composedPath().includes(S.host)) return;
     const now = performance.now();
     const fresh = S.recent.filter((r) => now - r.t < 200);
@@ -954,8 +1034,9 @@
     clearTimeout(S.refitTimer);
     S.refitTimer = setTimeout(() => {
       const { X, Y, G } = S.train;
-      const cX = S.clicks.map((c) => c.f), cY = S.clicks.map((c) => [c.x, c.y]), cG = S.clicks.map((c) => 'click');
-      S.model = new C.Ridge().fit(X.concat(cX), Y.concat(cY), G.concat(cG), [S.model.lambda]);
+      const nf = Math.min(X[0].length, opts.featureCount);
+      const cX = S.clicks.map((c) => c.f.slice(0, nf)), cY = S.clicks.map((c) => [c.x, c.y]), cG = S.clicks.map((c) => 'click');
+      S.model = new C.Ridge().fit(X.map((r) => (r.length > nf ? r.slice(0, nf) : r)).concat(cX), Y.concat(cY), G.concat(cG), [S.model.lambda]);
     }, 400);
   }, true);
 
@@ -1051,6 +1132,14 @@
       emit('status', getState());
     },
     getTau: () => +tau().toFixed(2),
+    /** Lab use: everything needed to refit or replay offline. Large. */
+    debugDump() {
+      return {
+        state: getState(), accuracy: S.accuracy, model: S.model ? S.model.toJSON() : null, train: S.train,
+        calibHead: S.calibHead, calibScreen: S.calibScreen, baseline: S.baseline, camera: S.camera || null, tau: +tau().toFixed(2),
+        noise: { sx: S.sx, sy: S.sy, dispersion: S.fix.dispersion, drift: S.drift.y }, clicks: S.clicks.length,
+      };
+    },
     /** Show or hide the camera widget and toasts; tracking is unaffected. */
     setWidgetVisible(v) { opts.widget = !!v; applyWidget(); },
   };

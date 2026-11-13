@@ -60,6 +60,12 @@
     }
     video.srcObject = stream;
     await video.play();
+    // What the camera actually delivered (it may ignore the ideal constraints).
+    try {
+      const track = stream.getVideoTracks()[0];
+      const st = track.getSettings();
+      post({ type: 'camera', settings: { width: st.width, height: st.height, frameRate: st.frameRate, deviceLabel: track.label, videoWidth: video.videoWidth, videoHeight: video.videoHeight } });
+    } catch (_) { /* settings unavailable */ }
     status('loading', 'loading face model…');
     try { landmarker = await createLandmarker('GPU'); }
     catch (e) { console.warn('[gaze] GPU delegate failed, using CPU', e); landmarker = await createLandmarker('CPU'); }

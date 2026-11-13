@@ -16,6 +16,10 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "options_ui": {
+    "page": "simplify/options.html",
+    "open_in_tab": true
+  },
   "background": {
     "service_worker": "background/service-worker.js"
   },
@@ -34,6 +38,9 @@
         "gaze/gaze-core.js",
         "gaze/gaze-reader.js",
         "assessment/session-logger.js",
+        "simplify/simplifier.js",
+        "simplify/bridge.js",
+        "gaze/gaze-lab.js",
         "content/content.js"
       ],
       "run_at": "document_idle",

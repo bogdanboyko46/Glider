@@ -20,9 +20,15 @@ const CONTENT_JS = [
   'gaze/gaze-core.js',
   'gaze/gaze-reader.js',
   'assessment/session-logger.js',
+  'simplify/simplifier.js',
+  'simplify/bridge.js',
+  'gaze/gaze-lab.js',
   'content/content.js',
 ];
 const CONTENT_CSS = ['content/content.css'];
+
+// Optional Claude rewrite of a hard paragraph; answers 'glider:simplify' messages (only with a saved API key).
+importScripts('/simplify/claude.js');
 
 const COMMANDS = new Set(['toggle-dock']);
 

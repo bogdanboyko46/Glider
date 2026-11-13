@@ -1,0 +1,643 @@
+<title>Glider Motion Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: a quiet workbench. Sticky control strip, then one section per interaction,
+   each a row of identical specimen cards (stage on top, name + spec + Replay / Pick below). */
+:root {
+  --bg: #f3f6ef; --fg: #1d2e25; --muted: #586b5e; --card: #fbfcf9; --rule: #d5ddcd;
+  --acc: #2f6b4a; --acc-ink: #ffffff; --chip: #e1ead9; --stage: #ffffff; --gold: #f4dfa6; --gold-ink: #4a3c0c;
+  --font: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #121814; --fg: #e4ebdf; --muted: #9fb0a2; --card: #1a221d; --rule: #2e3a31; --acc: #86cba0; --acc-ink: #0f1a13; --chip: #243028; --stage: #f1f4ec; --gold: #5b4a14; --gold-ink: #f6e7b4; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #121814; --fg: #e4ebdf; --muted: #9fb0a2; --card: #1a221d; --rule: #2e3a31; --acc: #86cba0; --acc-ink: #0f1a13; --chip: #243028; --stage: #f1f4ec; --gold: #5b4a14; --gold-ink: #f6e7b4; color-scheme: dark; }
+
+body { --k: 1; --kf: 1; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.5; }
+body.slow { --k: 3; --kf: 3; }
+body.rm { --k: 0; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+* { box-sizing: border-box; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { margin: 0; font-size: 30px; line-height: 1.15; letter-spacing: -.01em; text-wrap: balance; }
+.lede { max-width: 66ch; margin: 8px 0 0; color: var(--muted); }
+h2 { margin: 0; font-size: 21px; line-height: 1.2; }
+h3 { margin: 0; font-size: 15.5px; line-height: 1.25; }
+a { color: var(--acc); }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 18px; padding: 10px 0; background: var(--bg); border-bottom: 1px solid var(--rule); }
+.bar-group { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--muted); }
+.nav { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.nav a { padding: 3px 10px; border-radius: 999px; background: var(--chip); color: var(--fg); font-size: 13px; text-decoration: none; }
+.nav a[data-picked]::after { content: " \2713"; color: var(--acc); font-weight: 700; }
+.btn { height: 32px; padding: 0 14px; border: 1px solid var(--rule); border-radius: 999px; background: var(--card); color: var(--fg); font: inherit; font-size: 13.5px; cursor: pointer; }
+.btn:hover { border-color: var(--acc); }
+.btn[aria-pressed="true"] { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); font-weight: 700; }
+.btn:focus-visible, .nav a:focus-visible, .check input:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.check { display: inline-flex; align-items: center; gap: 7px; color: var(--fg); cursor: pointer; }
+.check input { width: 17px; height: 17px; margin: 0; accent-color: var(--acc); }
+
+.area { margin-top: 40px; scroll-margin-top: 76px; }
+.area-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 16px; }
+.area-head p { max-width: 70ch; margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; margin-top: 14px; }
+.card { display: flex; flex-direction: column; min-width: 0; padding: 10px; border: 1px solid var(--rule); border-radius: 18px; background: var(--card); }
+.card.picked { border-color: var(--acc); box-shadow: 0 0 0 2px var(--acc); }
+.meta { flex: 1; padding: 12px 4px 0; }
+.meta-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.tag { padding: 1px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 11.5px; letter-spacing: .02em; }
+.tag.rec { background: var(--gold); color: var(--gold-ink); }
+.meta p { margin: 5px 0 0; color: var(--muted); font-size: 13.5px; }
+.spec { display: block; margin-top: 7px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.acts { display: flex; gap: 8px; padding: 12px 4px 2px; }
+.picks { margin-top: 44px; padding: 18px; border: 1px solid var(--rule); border-radius: 18px; background: var(--card); }
+.picks p { max-width: 66ch; margin: 4px 0 12px; color: var(--muted); font-size: 14px; }
+.picks textarea { display: block; width: 100%; min-height: 216px; padding: 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 12.5px; line-height: 1.55; resize: vertical; }
+.picks .acts { padding-left: 0; }
+
+/* ===================== the specimen: Sage, same tokens as the extension ===================== */
+.stage {
+  --surface: #eef2ea; --well: #e0e8d9; --tile: #e4ebdd; --ink: #20352a; --ink-2: #566b5c; --line-strong: #93a593;
+  --accent: #2f6b4a; --track: #cfd9c7; --syl-a: #c4dfc0; --syl-b: #f4dfa6;
+  --ease: cubic-bezier(.2, .8, .2, 1); --spring: cubic-bezier(.3, 1.4, .5, 1);
+  --shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 22px 50px -14px rgba(32, 53, 42, .34);
+  position: relative; height: var(--h, 200px); overflow: hidden; border-radius: 10px; background: var(--stage);
+  color: var(--ink); font-size: 13px; line-height: 1.4; -webkit-font-smoothing: antialiased;
+}
+:where(.stage) button { margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: inherit; }
+.stage :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pg { margin: 0; padding: 14px 16px; color: #7c897f; font-size: 13px; line-height: 1.6; }
+
+.sw { position: relative; display: block; flex: none; width: 42px; height: 24px; border-radius: 999px; background: var(--track); box-shadow: inset 0 0 0 1px var(--line-strong); transition: background-color calc(var(--k) * .15s) ease, box-shadow calc(var(--k) * .15s) ease; }
+.sw i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(16, 17, 21, .3), 0 0 0 1px var(--line-strong); transition: transform calc(var(--k) * .15s) var(--ease); }
+.sw[aria-checked="true"] { background: var(--accent); box-shadow: none; }
+.sw[aria-checked="true"] i { transform: translateX(18px); box-shadow: none; }
+.sw.big { zoom: 1.5; }
+
+.ll-pill { display: flex; align-items: center; gap: 12px; height: 50px; padding: 0 11px 0 20px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); white-space: nowrap; font-size: 14px; font-weight: 700; user-select: none; transition: opacity calc(var(--k) * .16s) var(--ease), transform calc(var(--k) * .16s) var(--ease), visibility 0s; }
+.ll-panel { width: 262px; border-radius: 30px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; transition: opacity calc(var(--k) * .18s) var(--ease), transform calc(var(--k) * .18s) var(--ease), visibility 0s; }
+.ll-head { display: flex; align-items: center; gap: 10px; padding: 14px 10px 10px 16px; }
+.ll-head-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ll-title { font-size: 17px; font-weight: 700; line-height: 1.15; }
+.ll-status { font-size: 12px; color: var(--ink-2); }
+.ll-icon-btn { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 22px; color: var(--ink-2); }
+.ll-icon-btn:hover { background: var(--well); color: var(--ink); }
+.ll-body { padding: 0 12px 6px; }
+.ll-body > *, .tile { margin-bottom: 6px; padding: 8px 12px 8px 14px; border-radius: 18px; background: var(--tile); }
+.ll-sliders { display: grid; grid-template-columns: auto 1fr 36px; align-items: center; gap: 0 12px; }
+.ll-sliders label, .ll-sliders .lab { font-size: 12.5px; line-height: 28px; }
+.ll-value { font-size: 12px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.trk { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) var(--p), var(--track) var(--p)); }
+.trk::after { content: ""; position: absolute; top: -5px; left: calc(var(--p) - 8px); width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); }
+.ll-row { display: flex; align-items: center; gap: 10px; }
+.ll-row-text { flex: 1; min-width: 0; }
+.ll-name { display: block; font-size: 13px; line-height: 1.3; }
+.ll-name.b { font-size: 14.5px; font-weight: 700; }
+.ll-hint { display: block; font-size: 11.5px; color: var(--ink-2); line-height: 1.35; }
+
+/* ---- 1. pill to panel ---- */
+.dock { position: absolute; right: 12px; bottom: 12px; width: 0; height: 0; }
+.dock > * { position: absolute; right: 0; bottom: 0; transform-origin: 100% 100%; }
+.dock[data-open="true"] .ll-pill, .dock[data-open="false"] .ll-panel { opacity: 0; visibility: hidden; pointer-events: none; transform: scale(.96); transition: opacity calc(var(--k) * .12s) ease, transform calc(var(--k) * .12s) ease, visibility 0s linear calc(var(--k) * .12s); }
+
+.a-open.v-grow .ll-panel { transition: opacity calc(var(--k) * .2s) ease, transform calc(var(--k) * .34s) var(--spring), visibility 0s; }
+.a-open.v-grow .dock[data-open="false"] .ll-panel { transform: scale(.45); transition: opacity calc(var(--k) * .14s) ease, transform calc(var(--k) * .18s) ease-in, visibility 0s linear calc(var(--k) * .18s); }
+.a-open.v-grow .dock[data-open="true"] .ll-pill { transform: scale(.8); }
+
+.a-open.v-morph .dock { filter: drop-shadow(0 16px 22px rgba(32, 53, 42, .26)); }
+.a-open.v-morph .ll-pill, .a-open.v-morph .ll-panel { box-shadow: none; }
+.a-open.v-morph .ll-pill { transition: opacity calc(var(--k) * .12s) ease calc(var(--k) * .2s), visibility 0s; }
+.a-open.v-morph .dock[data-open="true"] .ll-pill { transform: none; transition: opacity calc(var(--k) * .1s) ease, visibility 0s linear calc(var(--k) * .1s); }
+.a-open.v-morph .ll-panel { clip-path: inset(0 round 30px); transition: clip-path calc(var(--k) * .36s) var(--ease), opacity calc(var(--k) * .1s) ease, visibility 0s; }
+.a-open.v-morph .dock[data-open="false"] .ll-panel { transform: none; clip-path: inset(calc(100% - 50px) 0 0 calc(100% - 128px) round 25px); transition: clip-path calc(var(--k) * .26s) var(--ease), opacity calc(var(--k) * .1s) ease calc(var(--k) * .18s), visibility 0s linear calc(var(--k) * .28s); }
+.a-open.v-morph .ll-panel > * { transition: opacity calc(var(--k) * .2s) ease calc(var(--k) * .14s); }
+.a-open.v-morph .dock[data-open="false"] .ll-panel > * { opacity: 0; transition: opacity calc(var(--k) * .08s) ease; }
+
+.a-open.v-stagger .ll-panel { transition: opacity calc(var(--k) * .2s) ease, transform calc(var(--k) * .26s) var(--ease), visibility 0s; }
+.a-open.v-stagger .dock[data-open="false"] .ll-panel { transform: translateY(14px); }
+.a-open.v-stagger .ll-body > * { transition: opacity calc(var(--k) * .22s) ease calc(var(--k) * (.06s + var(--i) * .05s)), transform calc(var(--k) * .22s) var(--ease) calc(var(--k) * (.06s + var(--i) * .05s)); }
+.a-open.v-stagger .dock[data-open="false"] .ll-body > * { opacity: 0; transform: translateY(8px); transition: none; }
+
+/* ---- 2. switch ---- */
+.a-switch { display: grid; align-content: center; padding: 0 12px; }
+.a-switch .tile { margin: 0; padding: 14px 14px 14px 16px; }
+.a-switch.v-spring .sw i { transition: transform calc(var(--k) * .34s) cubic-bezier(.34, 1.56, .64, 1); }
+.a-switch.v-stretch .sw i { width: auto; right: 21px; transition: left calc(var(--k) * .14s) ease-out, right calc(var(--k) * .22s) ease-out calc(var(--k) * .07s); }
+.a-switch.v-stretch .sw[aria-checked="true"] i { transform: none; left: 21px; right: 3px; transition: right calc(var(--k) * .14s) ease-out, left calc(var(--k) * .22s) ease-out calc(var(--k) * .07s); }
+.a-switch.v-tick .sw i { transition: transform calc(var(--k) * .18s) var(--ease), scale calc(var(--k) * .1s) ease; }
+.a-switch.v-tick .sw:active i { scale: .86; }
+.a-switch.v-tick .sw i::after { content: ""; position: absolute; left: 6.5px; top: 3.5px; width: 5px; height: 9px; border: solid var(--accent); border-width: 0 2px 2px 0; transform: rotate(45deg) scale(0); transition: transform calc(var(--k) * .1s) ease; }
+.a-switch.v-tick .sw[aria-checked="true"] i::after { transform: rotate(45deg) scale(1); transition: transform calc(var(--k) * .22s) cubic-bezier(.34, 1.56, .64, 1) calc(var(--k) * .12s); }
+
+/* ---- 3 + 4. hover lens ---- */
+.line { margin: 0; padding: 16px 12px 0; font-size: 14.5px; color: var(--ink); }
+.long { border-radius: 4px; background: #dcebd6; box-shadow: 0 0 0 2px #dcebd6; cursor: pointer; }
+.ll-tip { position: absolute; left: 8px; top: 50px; max-width: calc(100% - 16px); padding: 11px 12px 12px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); opacity: 0; transform: translateY(-4px); transition: opacity calc(var(--k) * .12s) ease, transform calc(var(--k) * .12s) ease; }
+.ll-tip[data-show="true"] { opacity: 1; transform: none; }
+.ll-parts { position: relative; display: flex; flex-wrap: wrap; align-items: stretch; gap: 5px; }
+.ll-part { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 38px; padding: 6px 8px 7px; border-radius: 999px; background: var(--syl-a); color: var(--ink); transition: transform calc(var(--k) * .12s) var(--ease), box-shadow calc(var(--k) * .12s) var(--ease), opacity calc(var(--k) * .18s) ease; }
+.ll-part:nth-child(2n) { background: var(--syl-b); }
+.ll-part:hover { transform: translateY(-1px); }
+.ll-part-letters { font-size: 17px; font-weight: 700; line-height: 1.15; letter-spacing: .02em; }
+.ll-part-sound { font-size: 13px; line-height: 1.2; letter-spacing: .02em; opacity: .78; }
+.ll-say { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.ll-say-btn { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px 0 10px; border-radius: 999px; font-size: 13px; font-weight: 700; transition: transform calc(var(--k) * .12s) var(--ease); }
+.ll-say-btn svg { width: 16px; height: 16px; flex: none; }
+.ll-say-btn[data-say="word"] { background: var(--accent); color: #fff; }
+.ll-say-btn[data-say="slow"] { padding-left: 13px; background: var(--well); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.ll-say-btn:hover { transform: scale(1.03); }
+.runner { display: none; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(7px); } }
+@keyframes split { from { transform: translateX(calc((2 - var(--i)) * 5px)); border-radius: 0; } }
+@keyframes fadein { from { opacity: 0; } }
+.a-lens.v-pop .ll-tip { transform-origin: 96px 0; transform: scale(.9) translateY(-6px); transition: opacity calc(var(--k) * .12s) ease, transform calc(var(--k) * .26s) var(--spring); }
+.a-lens.v-pop .ll-tip[data-show="true"] { transform: none; }
+.a-lens.v-cascade .ll-tip[data-show="true"] .ll-part { animation: rise calc(var(--k) * .24s) var(--ease) calc(var(--k) * (.05s + var(--i) * .05s)) backwards; }
+.a-lens.v-cascade .ll-tip[data-show="true"] .ll-say { animation: rise calc(var(--k) * .24s) var(--ease) calc(var(--k) * .32s) backwards; }
+.a-lens.v-split .ll-tip[data-show="true"] .ll-part { animation: split calc(var(--k) * .34s) var(--ease) calc(var(--k) * .1s) backwards; }
+.a-lens.v-split .ll-tip[data-show="true"] .ll-part-sound, .a-lens.v-split .ll-tip[data-show="true"] .ll-say { animation: fadein calc(var(--k) * .2s) ease calc(var(--k) * .4s) backwards; }
+
+.a-sound.v-now .ll-part[data-now] { box-shadow: 0 0 0 2.5px var(--accent); transform: translateY(-2px); }
+.a-sound.v-fill .ll-part { position: relative; overflow: hidden; isolation: isolate; }
+.a-sound.v-fill .ll-part::before { content: ""; position: absolute; inset: 0; z-index: -1; background: rgba(47, 107, 74, .3); transform: scaleX(0); transform-origin: 0 50%; }
+.a-sound.v-fill .ll-part[data-now]::before { transform: none; transition: transform calc(var(--kf) * .5s) linear; }
+.a-sound.v-fill .ll-part[data-done]::before { transform: none; }
+.a-sound.v-spot .ll-parts[data-run] .ll-part { opacity: .4; }
+.a-sound.v-spot .ll-parts[data-run] .ll-part[data-now] { opacity: 1; transform: scale(1.08); }
+.a-sound.v-bar .ll-parts { padding-bottom: 9px; }
+.a-sound.v-bar .runner { display: block; position: absolute; left: 0; bottom: 0; width: var(--w, 0); height: 4px; border-radius: 2px; background: var(--accent); transform: translateX(var(--x, 0)); opacity: 0; transition: transform calc(var(--k) * .22s) var(--ease), width calc(var(--k) * .22s) var(--ease), opacity .15s ease; }
+.a-sound.v-bar .ll-parts[data-run] .runner { opacity: 1; }
+
+/* ---- 5. slider ---- */
+.a-slider { display: grid; align-content: center; padding: 0 12px; }
+.a-slider .tile { margin: 0; padding-top: 26px; padding-bottom: 14px; }
+.rw { position: relative; }
+.ll-range { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 28px; margin: 0; padding: 0; background: transparent; cursor: pointer; }
+.ll-range::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) var(--p), var(--track) var(--p)); }
+.ll-range::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -5px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); box-shadow: 0 1px 2px rgba(16, 17, 21, .2); transition: transform calc(var(--k) * .14s) var(--ease), box-shadow calc(var(--k) * .14s) ease; }
+.ll-range::-moz-range-track { height: 6px; border-radius: 3px; background: var(--track); }
+.ll-range::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+.ll-range::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); }
+.ll-range:focus-visible { outline: none; }
+.ll-range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bub, .ticks { display: none; }
+.a-slider.v-grow .ll-range:hover::-webkit-slider-thumb { transform: scale(1.15); }
+.a-slider.v-grow .rw[data-drag] .ll-range::-webkit-slider-thumb { transform: scale(1.35); box-shadow: 0 0 0 7px rgba(47, 107, 74, .16); }
+.a-slider.v-bubble .bub { display: block; position: absolute; left: calc(8px + (100% - 16px) * var(--pn)); bottom: 100%; padding: 2px 8px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; opacity: 0; transform: translate(-50%, 6px) scale(.7); transform-origin: 50% 100%; transition: opacity calc(var(--k) * .12s) ease, transform calc(var(--k) * .2s) var(--spring); pointer-events: none; }
+.a-slider.v-bubble .rw[data-drag] .bub { opacity: 1; transform: translate(-50%, 2px); }
+.a-slider.v-ticks .ticks { display: flex; justify-content: space-between; position: absolute; left: 6px; right: 6px; bottom: -3px; pointer-events: none; }
+.a-slider.v-ticks .ticks i { width: 4px; height: 4px; border-radius: 50%; background: var(--track); transition: background-color calc(var(--k) * .15s) ease, transform calc(var(--k) * .2s) var(--spring); }
+.a-slider.v-ticks .ticks i[data-on] { background: var(--accent); transform: scale(1.4); }
+@keyframes bump { 40% { transform: translateY(-2px); } }
+.a-slider.v-ticks .ll-value[data-bump] { animation: bump calc(var(--k) * .16s) ease; }
+
+/* ---- 6. drag ---- */
+.ll-pill.free { position: absolute; left: 0; top: 0; cursor: grab; touch-action: none; }
+.ll-pill.free[data-grab] { cursor: grabbing; }
+.a-drag.v-lift .ll-pill[data-grab], .a-drag.v-spring .ll-pill[data-grab] { scale: 1.05; box-shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 30px 54px -12px rgba(32, 53, 42, .45); }
+.drag-hint { position: absolute; left: 0; right: 0; bottom: 6px; margin: 0; text-align: center; font-size: 11.5px; color: #8a968c; pointer-events: none; }
+
+/* ---- 7. toast ---- */
+.ll-toast { position: absolute; left: 50%; bottom: 18px; padding: 9px 14px; border-radius: 999px; background: #20352a; color: #fff; font-size: 13px; white-space: nowrap; box-shadow: 0 10px 30px -8px rgba(20, 27, 52, .5); opacity: 0; transform: translate(-50%, 8px); transition: opacity calc(var(--k) * .18s) ease, transform calc(var(--k) * .18s) var(--ease); }
+.ll-toast[data-show] { opacity: 1; transform: translate(-50%, 0); }
+.ll-toast.quiet { transition: none !important; }
+.a-toast.v-pop .ll-toast { transform: translate(-50%, 0) scale(.8); transition: opacity calc(var(--k) * .14s) ease, transform calc(var(--k) * .3s) var(--spring); }
+.a-toast.v-pop .ll-toast[data-show] { transform: translate(-50%, 0); }
+.a-toast.v-drain .ll-toast { overflow: hidden; }
+.a-toast.v-drain .ll-toast::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #9fd3b0; transform-origin: 0 50%; }
+@keyframes drain { to { transform: scaleX(0); } }
+.a-toast.v-drain .ll-toast[data-timed]::after { animation: drain calc(var(--kf) * 2.2s) linear forwards; }
+.a-toast.v-side .ll-toast { left: auto; right: 14px; transform: translateX(18px); }
+.a-toast.v-side .ll-toast[data-show] { transform: none; }
+
+/* ---- 8. calibration dot ---- */
+.a-calib { background: #eef2ea; }
+.calib-hint { position: absolute; left: 0; right: 0; top: 30%; margin: 0; text-align: center; font-size: 12.5px; color: var(--ink-2); }
+.cdot { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: #2f6b4a; box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); transition: left calc(var(--k) * .35s) ease, top calc(var(--k) * .35s) ease; }
+@keyframes shrink { from { transform: scale(1.25); } to { transform: scale(.55); } }
+@keyframes shrink-soft { from { transform: scale(1.15); } to { transform: scale(.6); } }
+@keyframes close-in { from { transform: scale(1); opacity: .2; } to { transform: scale(.42); opacity: 1; } }
+.a-calib.v-now .cdot.pulse { animation: shrink calc(var(--kf) * .9s) linear forwards; }
+.a-calib.v-glide .cdot { transition: left calc(var(--k) * .6s) cubic-bezier(.45, 0, .25, 1), top calc(var(--k) * .6s) cubic-bezier(.45, 0, .25, 1); }
+.a-calib.v-glide .cdot.pulse { animation: shrink-soft calc(var(--kf) * .9s) ease-out forwards; }
+.a-calib.v-ring .cdot { box-shadow: none; }
+.a-calib.v-ring .cdot::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: #eef2ea; }
+.a-calib.v-ring .cdot::after { content: ""; position: absolute; inset: -17px; border: 3px solid #2f6b4a; border-radius: 50%; opacity: 0; }
+.a-calib.v-ring .cdot.pulse::after { animation: close-in calc(var(--kf) * .9s) ease-in forwards; }
+.a-calib.v-hop .cdot { transition: opacity calc(var(--k) * .14s) ease, scale calc(var(--k) * .22s) var(--spring); }
+.a-calib.v-hop .cdot.out { opacity: 0; scale: .5; }
+.a-calib.v-hop .cdot.pulse { animation: shrink calc(var(--kf) * .9s) linear forwards; }
+
+/* ---- 9. paragraph ease ---- */
+.a-ease { padding: 12px 14px; }
+.a-ease p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: var(--ink); }
+.a-ease .target { margin: 0 -6px 8px; padding: 2px 6px; border-radius: 8px; cursor: pointer; }
+.a-ease .eased { letter-spacing: .05em; word-spacing: .18em; line-height: 1.95; }
+.a-ease.v-now .target { transition: letter-spacing calc(var(--k) * .3s) ease, word-spacing calc(var(--k) * .3s) ease, line-height calc(var(--k) * .3s) ease; }
+.a-ease.v-slow .target { transition: letter-spacing calc(var(--k) * 1.4s) cubic-bezier(.4, 0, .2, 1), word-spacing calc(var(--k) * 1.4s) cubic-bezier(.4, 0, .2, 1), line-height calc(var(--k) * 1.4s) cubic-bezier(.4, 0, .2, 1); }
+.a-ease.v-cue .target { transition: background-color calc(var(--k) * .35s) ease; }
+.a-ease.v-cue .eased { background: #e4ebdd; transition: background-color calc(var(--k) * .35s) ease, letter-spacing 0s linear calc(var(--k) * .35s), word-spacing 0s linear calc(var(--k) * .35s), line-height 0s linear calc(var(--k) * .35s); }
+@keyframes dip { 40% { opacity: .2; } }
+.a-ease.v-dip .target { transition: letter-spacing 0s linear calc(var(--k) * .2s), word-spacing 0s linear calc(var(--k) * .2s), line-height 0s linear calc(var(--k) * .2s); }
+.a-ease.v-dip .target.dip { animation: dip calc(var(--k) * .5s) ease; }
+
+/* ---- 10. focus ---- */
+.a-focus { display: grid; grid-template-rows: 1fr 1fr; }
+.frow { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.frow.dark { background: #20352a; }
+.frow.dark .ll-icon-btn { color: #cfe5d4; }
+.stage.a-focus .fc:focus-visible { outline: none; }
+.a-focus.v-now .fc:is(.f, :focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.a-focus.v-settle .fc { outline: 2px solid transparent; outline-offset: 8px; transition: outline-offset calc(var(--k) * .2s) var(--ease), outline-color calc(var(--k) * .12s) ease; }
+.a-focus.v-settle .fc:is(.f, :focus-visible) { outline-color: var(--accent); outline-offset: 2px; }
+.a-focus.v-double .fc:is(.f, :focus-visible) { box-shadow: 0 0 0 2px #fff, 0 0 0 5px var(--accent); }
+.a-focus.v-halo .fc { transition: box-shadow calc(var(--k) * .2s) ease; }
+.a-focus.v-halo .fc:is(.f, :focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 8px rgba(127, 199, 154, .38); }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Glider Motion Lab</h1>
+    <p class="lede">Ten interactions from the Glider dock, hover lens and eye-tracking screens, each shown several ways. Press Replay to watch one, or use the specimen directly. Pick one per row and copy the list at the bottom. Nothing here touches the extension.</p>
+  </header>
+
+  <div class="bar">
+    <div class="bar-group">Speed
+      <button class="btn" type="button" id="speed-normal" aria-pressed="true">Normal</button>
+      <button class="btn" type="button" id="speed-slow" aria-pressed="false">Slow, 3x</button>
+    </div>
+    <label class="check" for="rm"><input type="checkbox" id="rm"> Reduced motion</label>
+    <nav class="nav" id="nav" aria-label="Interactions"></nav>
+  </div>
+
+  <main id="areas"></main>
+
+  <section class="picks" id="picks">
+    <h2>Your picks</h2>
+    <p>One line per interaction. Copy this and paste it back to Claude, and only those treatments get applied to the extension. Picks are remembered in this browser.</p>
+    <textarea id="picks-text" readonly aria-label="Your picks"></textarea>
+    <div class="acts"><button class="btn" type="button" id="copy">Copy picks</button><button class="btn" type="button" id="use-rec">Use the suggested set</button><button class="btn" type="button" id="clear">Clear</button></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  let slow = false, reduced = false;
+  const kk = () => (slow ? 3 : 1);
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms * kk()));
+  const dur = (s) => (reduced ? 0 : s * kk()) + 's';
+  const tween = (ms, fn, ok) => new Promise((res) => {
+    const t0 = performance.now(), d = ms * kk();
+    const f = (t) => {
+      if (!ok()) return res();
+      const u = Math.min(1, Math.max(0, (t - t0) / d));
+      fn(u < .5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u));
+      u < 1 ? requestAnimationFrame(f) : res();
+    };
+    requestAnimationFrame(f);
+  });
+
+  const PG = '<p class="pg">Plants make their own food. They take in sunlight through their leaves and water through their roots. Inside each leaf, tiny green parts turn light, water and air into sugar.</p>';
+  const SW = (on) => `<span class="sw" aria-hidden="true" aria-checked="${on}"><i></i></span>`;
+  const MIN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>';
+  const PLAY = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/></svg>';
+  const fake = (name, p) => `<span class="lab">${name}</span><span class="trk" style="--p:${p}%"></span><span class="ll-value">${p}%</span>`;
+  const PANEL = `<div class="dock" data-open="true">
+    <button type="button" class="ll-pill" aria-label="Glider. Open the panel"><span>Glider</span>${SW(true)}</button>
+    <section class="ll-panel">
+      <header class="ll-head"><div class="ll-head-text"><span class="ll-title">Glider</span><span class="ll-status">Reading lens is on</span></div>${SW(true)}
+        <button type="button" class="ll-icon-btn" data-min aria-label="Minimise the panel">${MIN}</button></header>
+      <div class="ll-body">
+        <div class="ll-sliders" style="--i:0">${fake('Size', 40)}${fake('Letters', 55)}</div>
+        <div class="ll-row" style="--i:1"><div class="ll-row-text"><span class="ll-name">Colour b d p q</span><span class="ll-hint">Tell mirrored letters apart</span></div>${SW(false)}</div>
+      </div>
+    </section></div>`;
+  const PARTS = [['pho', 'foh'], ['to', 'toh'], ['syn', 'sin'], ['the', 'thuh'], ['sis', 'sis']];
+  const TIP = `<p class="line">The class measured <span class="long">photosynthesis</span> in pond weed.</p>
+    <div class="ll-tip" data-show="true"><div class="ll-parts">${PARTS.map(([a, b], i) => `<button type="button" class="ll-part" style="--i:${i}"><span class="ll-part-letters">${a}</span><span class="ll-part-sound">${b}</span></button>`).join('')}<span class="runner"></span></div>
+    <div class="ll-say"><button type="button" class="ll-say-btn" data-say="word">${PLAY}Hear word</button><button type="button" class="ll-say-btn" data-say="slow">Sound it out</button></div></div>`;
+  const FROW = (cls) => `<div class="frow ${cls}"><button type="button" class="ll-say-btn fc" data-say="word">${PLAY}Hear word</button><button type="button" class="ll-say-btn fc" data-say="slow">Sound it out</button><button type="button" class="ll-icon-btn fc" aria-label="Minimise">${MIN}</button></div>`;
+
+  /* Each area: id, title, note, stage height, suggested variant, variants [key, name, description, spec], html, init, play */
+  const AREAS = [
+    { id: 'open', title: 'Pill to panel', h: 236, rec: 'morph',
+      note: 'Opening and minimising the dock. Click the pill or the minimise button in any specimen.',
+      vs: [
+        ['now', 'Scale and fade', 'What ships today. Quick and neutral, but the panel has no visible link to the pill.', '0.16s in, 0.12s out · shipping'],
+        ['grow', 'Grow from the corner', 'The panel springs out of the corner where the pill sits, with a small overshoot.', '0.34s spring in, 0.18s out · CSS only'],
+        ['morph', 'Pill becomes the panel', 'The pill outline widens into the panel, then the controls fade in. Minimising folds it back to the same spot.', '0.36s clip-path · CSS only'],
+        ['stagger', 'Rise, then rows follow', 'The panel lifts in and its rows arrive one after another, top to bottom.', '0.26s + 50ms per row · CSS only'],
+      ],
+      html: () => PG + PANEL,
+      init(card) {
+        const dock = $('.dock', card);
+        $('.ll-pill', card).onclick = () => { dock.dataset.open = 'true'; };
+        $('[data-min]', card).onclick = () => { dock.dataset.open = 'false'; };
+      },
+      async play(card, v, ok) {
+        const dock = $('.dock', card);
+        dock.dataset.open = 'false'; await wait(620); if (!ok()) return;
+        dock.dataset.open = 'true';
+      } },
+
+    { id: 'switch', title: 'Lens switch', h: 104, rec: 'stretch',
+      note: 'The one switch that turns the reading lens on. Shown at 1.5x so the thumb is easy to watch. Click it.',
+      vs: [
+        ['now', 'Slide', 'What ships today. The thumb slides across in a straight move.', '0.15s ease · shipping'],
+        ['stretch', 'Stretch and settle', 'The leading edge of the thumb moves first and the back catches up, like a drop of water.', '0.14s lead, 0.22s follow · CSS only'],
+        ['spring', 'Spring', 'The thumb overshoots the end slightly and settles back.', '0.34s overshoot · CSS only'],
+        ['tick', 'Press and tick', 'The thumb dips when pressed, and a tick draws inside it once the lens is on.', '0.18s slide, tick at 0.12s · CSS only'],
+      ],
+      html: () => `<div class="tile ll-row"><div class="ll-row-text"><span class="ll-name b">Reading lens</span><span class="ll-hint">Spacing, bold starts and the hover lens</span></div><button type="button" class="sw big" role="switch" aria-checked="true" aria-label="Reading lens"><i></i></button></div>`,
+      init(card) { const sw = $('.sw', card); sw.onclick = () => sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') !== 'true'); },
+      async play(card, v, ok) {
+        const sw = $('.sw', card);
+        sw.setAttribute('aria-checked', 'false'); await wait(560); if (!ok()) return;
+        sw.setAttribute('aria-checked', 'true');
+      } },
+
+    { id: 'lens', title: 'Hover lens entrance', h: 196, rec: 'split',
+      note: 'The lens that appears when a student rests on a long word. Click the highlighted word to hide and show it.',
+      vs: [
+        ['now', 'Fade and nudge', 'What ships today. The lens fades in with a 4px drop.', '0.12s ease · shipping'],
+        ['pop', 'Pop from the word', 'The lens grows out of the word it explains, so the eye knows what it belongs to.', '0.26s spring from the word · CSS only'],
+        ['cascade', 'Chunks arrive in order', 'The chunks rise in one at a time, left to right, in reading order. Buttons come last.', '50ms per chunk · CSS only'],
+        ['split', 'The word breaks apart', 'The chunks start joined as one bar and slide apart, then the sounds fade in underneath. Shows what the lens does.', '0.34s split, sounds at 0.4s · CSS + tiny JS'],
+      ],
+      html: () => TIP,
+      init(card) { const tip = $('.ll-tip', card); $('.long', card).onclick = (e) => { e.stopPropagation(); tip.dataset.show = tip.dataset.show !== 'true'; }; },
+      async play(card, v, ok) {
+        const tip = $('.ll-tip', card);
+        tip.dataset.show = 'false'; await wait(480); if (!ok()) return;
+        tip.dataset.show = 'true';
+      } },
+
+    { id: 'sound', title: 'Sound it out', h: 196, rec: 'fill',
+      note: 'Which chunk is being spoken. No audio in this lab, the timing is half a second per chunk. Click "Sound it out".',
+      vs: [
+        ['now', 'Ring and lift', 'What ships today. The spoken chunk gets a green ring and rises 2px.', '0.12s · shipping'],
+        ['fill', 'Fill as it speaks', 'Colour sweeps across the chunk for as long as its sound lasts, and stays on finished chunks. Letters never move.', 'linear, length of the sound · CSS only'],
+        ['spot', 'Spotlight', 'The other chunks fade back and the spoken one grows slightly.', '0.18s fade, 1.08 scale · CSS only'],
+        ['bar', 'Travelling underline', 'One bar glides under the chunks and stretches to fit the one being spoken.', '0.22s glide · CSS + JS'],
+      ],
+      html: () => TIP,
+      init(card) {
+        this.mark(card, 2);
+        $('[data-say="slow"]', card).onclick = (e) => { e.stopPropagation(); replay(card); };
+      },
+      mark(card, n) {
+        const box = $('.ll-parts', card), parts = $$('.ll-part', card);
+        box.toggleAttribute('data-run', n >= 0);
+        parts.forEach((p, i) => { p.toggleAttribute('data-now', i === n); p.toggleAttribute('data-done', n >= 0 && i < n); });
+        if (n >= 0) { box.style.setProperty('--x', parts[n].offsetLeft + 'px'); box.style.setProperty('--w', parts[n].offsetWidth + 'px'); }
+      },
+      async play(card, v, ok) {
+        this.mark(card, -1); await wait(260);
+        for (let i = 0; i < PARTS.length; i++) { if (!ok()) return; this.mark(card, i); await wait(520); }
+        if (!ok()) return; await wait(300); if (ok()) this.mark(card, -1);
+      } },
+
+    { id: 'slider', title: 'Slider feedback', h: 112, rec: 'grow',
+      note: 'Size, Letters, Words and Lines. These sliders are live, drag them.',
+      vs: [
+        ['now', 'Plain', 'What ships today. The fill follows the thumb, nothing else responds.', 'no motion · shipping'],
+        ['grow', 'Thumb grows in the hand', 'The thumb swells on hover and again while dragging, with a soft halo, so it is clear what is held.', '1.15 hover, 1.35 drag · CSS only'],
+        ['bubble', 'Value bubble', 'A bubble with the current value pops up above the thumb while dragging.', '0.2s spring · CSS + JS'],
+        ['ticks', 'Notches', 'The slider settles on five steps. Each notch lights as it is passed and the number gives a small nod.', '5 steps · markup + JS'],
+      ],
+      html: (v) => `<div class="tile ll-sliders"><label for="rng-${v}">Letters</label><div class="rw"><input class="ll-range" id="rng-${v}" type="range" min="0" max="100" step="${v === 'ticks' ? 25 : 1}" value="${v === 'ticks' ? 50 : 55}"><span class="bub"></span><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span></div><span class="ll-value"></span></div>`,
+      init(card) {
+        const inp = $('.ll-range', card), rw = $('.rw', card), val = $('.ll-value', card);
+        const upd = () => {
+          const p = +inp.value / 100, txt = Math.round(p * 100) + '%';
+          rw.style.setProperty('--p', p * 100 + '%'); rw.style.setProperty('--pn', p);
+          if (val.textContent !== txt && val.textContent) { val.removeAttribute('data-bump'); void val.offsetWidth; val.setAttribute('data-bump', ''); }
+          val.textContent = txt; $('.bub', card).textContent = txt;
+          $$('.ticks i', card).forEach((t, i) => t.toggleAttribute('data-on', i * 25 <= +inp.value));
+        };
+        card._upd = upd; upd();
+        inp.addEventListener('input', upd);
+        inp.addEventListener('pointerdown', () => rw.setAttribute('data-drag', ''));
+        ['pointerup', 'pointercancel', 'blur'].forEach((n) => inp.addEventListener(n, () => rw.removeAttribute('data-drag')));
+        inp.addEventListener('keydown', () => { rw.setAttribute('data-drag', ''); clearTimeout(card._kt); card._kt = setTimeout(() => rw.removeAttribute('data-drag'), 700); });
+      },
+      async play(card, v, ok) {
+        const inp = $('.ll-range', card), rw = $('.rw', card);
+        rw.setAttribute('data-drag', '');
+        let from = +inp.value;
+        for (const [to, ms] of [[85, 700], [25, 800], [v === 'ticks' ? 50 : 55, 600]]) {
+          await tween(ms, (u) => { inp.value = from + (to - from) * u; card._upd(); }, ok);
+          if (!ok()) return; from = to;
+        }
+        await wait(250); if (ok()) rw.removeAttribute('data-drag');
+      } },
+
+    { id: 'drag', title: 'Dragging the pill', h: 200, rec: 'lift',
+      note: 'Moving the dock out of the way. Drag the pill inside each specimen, or press Replay for a simulated drag.',
+      vs: [
+        ['now', 'Stays where dropped', 'What ships today. The pill follows the pointer and stops where it is released.', 'no motion · shipping'],
+        ['lift', 'Lifts when held', 'The pill rises with a deeper shadow while held and settles when dropped. Position behaviour is unchanged.', '1.05 scale, 0.16s · CSS + one attribute'],
+        ['glide', 'Glides to the nearest side', 'On release the pill slides to the left or right edge and keeps its height.', '0.3s ease-out · JS change to dock position'],
+        ['spring', 'Springs to a corner', 'The pill lifts while held, then snaps to the nearest corner with a small bounce.', '0.5s spring · JS change to dock position'],
+      ],
+      html: () => PG + `<button type="button" class="ll-pill free" aria-label="Glider. Drag to move"><span>Glider</span>${SW(true)}</button><p class="drag-hint">drag me</p>`,
+      init(card) {
+        const st = $('.stage', card), pill = $('.ll-pill', card), v = card.dataset.v, M = 12;
+        const lim = () => ({ w: st.clientWidth - pill.offsetWidth, h: st.clientHeight - pill.offsetHeight });
+        const put = (x, y, tr) => {
+          card._pos = { x, y };
+          pill.style.transition = (tr ? 'transform ' + tr + ', ' : '') + `scale ${dur(.16)} ease, box-shadow ${dur(.16)} ease`;
+          pill.style.transform = `translate(${x}px, ${y}px)`;
+        };
+        const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
+        const drop = () => {
+          pill.removeAttribute('data-grab');
+          const { w, h } = lim(); let { x, y } = card._pos;
+          y = clamp(y, M, h - M);
+          if (v === 'glide') put(x < w / 2 ? M : w - M, y, `${dur(.3)} cubic-bezier(.2,.8,.2,1)`);
+          else if (v === 'spring') put(x < w / 2 ? M : w - M, y < h / 2 ? M : h - M, `${dur(.5)} cubic-bezier(.3,1.45,.5,1)`);
+          else put(clamp(x, M, w - M), y);
+        };
+        card._put = put; card._drop = drop; card._lim = lim;
+        const home = () => { const { w, h } = lim(); put(w - M, h - M); };
+        home(); addEventListener('resize', home);
+        let start = null;
+        pill.addEventListener('pointerdown', (e) => {
+          card._run = (card._run || 0) + 1;
+          pill.setPointerCapture(e.pointerId); pill.setAttribute('data-grab', '');
+          start = { px: e.clientX, py: e.clientY, x: card._pos.x, y: card._pos.y };
+        });
+        pill.addEventListener('pointermove', (e) => {
+          if (!start) return;
+          const { w, h } = lim();
+          put(clamp(start.x + e.clientX - start.px, 0, w), clamp(start.y + e.clientY - start.py, 0, h));
+        });
+        const end = () => { if (start) { start = null; drop(); } };
+        pill.addEventListener('pointerup', end); pill.addEventListener('pointercancel', end);
+      },
+      async play(card, v, ok) {
+        const pill = $('.ll-pill', card), { w, h } = card._lim(), M = 12;
+        card._put(w - M, h - M); await wait(200); if (!ok()) return;
+        pill.setAttribute('data-grab', ''); await wait(220); if (!ok()) return;
+        const from = card._pos, to = { x: w * .22, y: h * .3 };
+        await tween(850, (u) => card._put(from.x + (to.x - from.x) * u, from.y + (to.y - from.y) * u - Math.sin(u * Math.PI) * 18), ok);
+        if (!ok()) return; await wait(160); if (ok()) card._drop();
+      } },
+
+    { id: 'toast', title: 'Toast', h: 108, rec: 'drain',
+      note: 'Short confirmations such as "Reading lens on". Replay shows it arriving, waiting two seconds and leaving.',
+      vs: [
+        ['now', 'Rise and fade', 'What ships today. Slides up 8px and fades in, leaves the same way.', '0.18s · shipping'],
+        ['pop', 'Pop', 'Grows from 80% with a small bounce. More noticeable, good if toasts get missed.', '0.3s spring · CSS only'],
+        ['drain', 'Rise with a countdown', 'Same entrance as today, plus a thin line that drains so the toast does not vanish without warning.', '0.18s in, 2.2s line · CSS only'],
+        ['side', 'From the dock side', 'Slides in from the right edge beside the pill, so messages appear where the controls are.', '0.18s · CSS only'],
+      ],
+      html: () => `<p class="pg">Inside each leaf, tiny green parts turn light, water and air into sugar.</p><div class="ll-toast" role="status" data-show>Reading lens on</div>`,
+      async play(card, v, ok) {
+        const t = $('.ll-toast', card);
+        t.classList.add('quiet'); t.removeAttribute('data-show'); t.removeAttribute('data-timed'); void t.offsetWidth; t.classList.remove('quiet');
+        await wait(120); if (!ok()) return;
+        t.setAttribute('data-show', ''); t.setAttribute('data-timed', '');
+        await wait(2300); if (!ok()) return;
+        t.removeAttribute('data-show');
+        await wait(700); if (!ok()) return;
+        t.classList.add('quiet'); t.removeAttribute('data-timed'); t.setAttribute('data-show', ''); void t.offsetWidth; t.classList.remove('quiet');
+      } },
+
+    { id: 'calib', title: 'Calibration dot', h: 200, rec: 'ring',
+      note: 'Eye-tracking set-up: the student looks at a dot while it visits five points. The dwell here is shortened to 0.9s.',
+      vs: [
+        ['now', 'Slide and shrink', 'What ships today. The dot slides to the next point, then shrinks while it samples.', '0.35s move, linear shrink · shipping'],
+        ['glide', 'Slower glide', 'A longer, eased journey that the eye can follow the whole way, and a softer shrink.', '0.6s ease-in-out · CSS only'],
+        ['ring', 'Closing ring', 'The dot keeps its size, so there is a steady point to look at. A ring closes in around it to show time passing.', '0.35s move, ring closes · CSS only'],
+        ['hop', 'Fade and reappear', 'The dot fades out and reappears at the next point. Nothing travels across the screen.', '0.14s out, 0.22s in · needs a gaze logic change'],
+      ],
+      html: () => `<p class="calib-hint">Look at the dot</p><div class="cdot" style="left:50%;top:60%"></div>`,
+      async play(card, v, ok) {
+        const d = $('.cdot', card), travel = v === 'glide' ? 650 : v === 'hop' ? 260 : 400;
+        const go = async (x, y) => {
+          d.classList.remove('pulse');
+          if (v === 'hop') { d.classList.add('out'); await wait(170); }
+          d.style.left = x + '%'; d.style.top = y + '%';
+          if (v === 'hop') { void d.offsetWidth; d.classList.remove('out'); }
+          await wait(travel);
+        };
+        for (const [x, y] of [[10, 14], [90, 14], [50, 50], [10, 86], [90, 86]]) {
+          await go(x, y); if (!ok()) return;
+          d.classList.add('pulse'); await wait(920); if (!ok()) return;
+        }
+        await go(50, 60);
+      } },
+
+    { id: 'ease', title: 'Paragraph ease', h: 232, rec: 'cue',
+      note: 'When eye tracking sees a student stuck on a paragraph, Glider widens its spacing. The student is reading that text at that moment, so less travel is better. Click the paragraph to toggle.',
+      vs: [
+        ['now', 'Quick widen', 'What ships today. Letters, words and lines spread out over a third of a second.', '0.3s ease · shipping'],
+        ['slow', 'Slow widen', 'The same change stretched out so it is felt more than seen. Words still drift while being read.', '1.4s ease-in-out · CSS only'],
+        ['cue', 'Tint first, then one step', 'A soft tint fades in behind the paragraph to say "help is here", then the spacing changes in a single step. No drifting letters.', '0.35s tint, instant spacing · CSS only'],
+        ['dip', 'Dip and swap', 'The paragraph dims for a moment, the spacing changes while it is faint, and it comes back.', '0.5s dip · CSS + JS'],
+      ],
+      html: () => `<p>Plants make their own food from sunlight.</p><p class="target eased">Inside each leaf, tiny green parts called chloroplasts turn light, water and air into sugar.</p><p>The sugar feeds the whole plant.</p>`,
+      init(card) { const p = $('.target', card); p.onclick = (e) => { e.stopPropagation(); this.set(card, !p.classList.contains('eased')); }; },
+      set(card, on) {
+        const p = $('.target', card);
+        p.classList.toggle('eased', on);
+        if (card.dataset.v === 'dip') { p.classList.remove('dip'); void p.offsetWidth; p.classList.add('dip'); }
+      },
+      async play(card, v, ok) {
+        this.set(card, false); await wait(1100); if (!ok()) return;
+        this.set(card, true);
+      } },
+
+    { id: 'focus', title: 'Focus ring', h: 132, rec: 'double',
+      note: 'What keyboard users see. Shown on a light and a dark background because the pill floats over any web page. Press Tab inside a specimen to try it for real.',
+      vs: [
+        ['now', 'Solid outline', 'What ships today. A 2px green outline, 2px away from the control.', 'instant · shipping'],
+        ['settle', 'Ring settles in', 'The ring starts wide and tightens onto the control, which helps the eye find where focus went.', '0.2s · CSS only'],
+        ['double', 'Double ring', 'A white gap plus a thicker green ring. Stays visible on dark pages and photos.', 'instant · CSS only'],
+        ['halo', 'Outline with halo', 'Today\'s outline plus a soft glow that fades in around it.', '0.2s · CSS only'],
+      ],
+      html: () => FROW('') + FROW('dark'),
+      init(card) { this.mark(card, 0); },
+      mark(card, n) { $$('.frow', card).forEach((r) => $$('.fc', r).forEach((b, i) => b.classList.toggle('f', i === n))); },
+      async play(card, v, ok) {
+        for (const n of [-1, 0, 1, 2, 0]) { if (!ok()) return; this.mark(card, n); await wait(n < 0 ? 300 : 850); }
+      } },
+  ];
+  const BY = Object.fromEntries(AREAS.map((a) => [a.id, a]));
+
+  function replay(card) {
+    const run = (card._run = (card._run || 0) + 1);
+    BY[card.dataset.area].play(card, card.dataset.v, () => card._run === run);
+  }
+
+  /* ---- render ---- */
+  $('#nav').innerHTML = AREAS.map((a) => `<a href="#${a.id}" data-nav="${a.id}">${a.title}</a>`).join('');
+  $('#areas').innerHTML = AREAS.map((a) => `
+    <section class="area" id="${a.id}">
+      <div class="area-head"><div><h2>${a.title}</h2><p>${a.note}</p></div><button class="btn" type="button" data-all="${a.id}">Replay all four</button></div>
+      <div class="grid">${a.vs.map(([k, name, desc, spec]) => `
+        <article class="card" data-area="${a.id}" data-v="${k}">
+          <div class="stage a-${a.id} v-${k}" style="--h:${a.h}px">${a.html(k)}</div>
+          <div class="meta"><div class="meta-top"><h3>${name}</h3>${k === 'now' ? '<span class="tag">Today</span>' : ''}${k === a.rec ? '<span class="tag rec">Suggested</span>' : ''}</div><p>${desc}</p><span class="spec">${spec}</span></div>
+          <div class="acts"><button class="btn" type="button" data-replay>Replay</button><button class="btn" type="button" data-pick aria-pressed="false">Pick</button></div>
+        </article>`).join('')}</div>
+    </section>`).join('');
+  $$('.card').forEach((card) => { const a = BY[card.dataset.area]; if (a.init) a.init(card); });
+
+  /* ---- picks ---- */
+  const KEY = 'glider-motion-picks';
+  let picks = {};
+  try { picks = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { picks = {}; }
+  function showPicks() {
+    try { localStorage.setItem(KEY, JSON.stringify(picks)); } catch (_) { /* fine without it */ }
+    $$('.card').forEach((c) => {
+      const on = picks[c.dataset.area] === c.dataset.v;
+      c.classList.toggle('picked', on);
+      const b = $('[data-pick]', c); b.setAttribute('aria-pressed', on); b.textContent = on ? 'Picked' : 'Pick';
+    });
+    $$('[data-nav]').forEach((n) => n.toggleAttribute('data-picked', !!picks[n.dataset.nav]));
+    $('#picks-text').value = 'Glider motion picks\n' + AREAS.map((a) => {
+      const v = a.vs.find((x) => x[0] === picks[a.id]);
+      return `${a.title}: ${v ? `${v[1]} (${a.id}/${v[0]})` : 'not picked yet'}`;
+    }).join('\n');
+  }
+  showPicks();
+
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.card');
+    if (e.target.closest('[data-replay]')) return replay(card);
+    if (e.target.closest('[data-pick]')) {
+      if (picks[card.dataset.area] === card.dataset.v) delete picks[card.dataset.area]; else picks[card.dataset.area] = card.dataset.v;
+      return showPicks();
+    }
+    const all = e.target.closest('[data-all]');
+    if (all) return $$(`.card[data-area="${all.dataset.all}"]`).forEach(replay);
+  });
+  $('#use-rec').onclick = () => { AREAS.forEach((a) => { picks[a.id] = a.rec; }); showPicks(); };
+  $('#clear').onclick = () => { picks = {}; showPicks(); };
+  $('#copy').onclick = async () => {
+    const ta = $('#picks-text'), b = $('#copy');
+    try { await navigator.clipboard.writeText(ta.value); b.textContent = 'Copied'; }
+    catch (_) { ta.focus(); ta.select(); b.textContent = 'Selected, press Ctrl+C'; }
+    setTimeout(() => { b.textContent = 'Copy picks'; }, 1800);
+  };
+
+  /* ---- speed and reduced motion ---- */
+  const setSpeed = (s) => {
+    slow = s; document.body.classList.toggle('slow', s);
+    $('#speed-normal').setAttribute('aria-pressed', !s); $('#speed-slow').setAttribute('aria-pressed', s);
+  };
+  $('#speed-normal').onclick = () => setSpeed(false);
+  $('#speed-slow').onclick = () => setSpeed(true);
+  const rm = $('#rm');
+  const setReduced = (on) => { reduced = on; rm.checked = on; document.body.classList.toggle('rm', on); };
+  rm.onchange = () => setReduced(rm.checked);
+  setReduced(matchMedia('(prefers-reduced-motion: reduce)').matches);
+})();
+</script>
