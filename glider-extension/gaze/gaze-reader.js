@@ -762,6 +762,9 @@
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance((whole ? d.paragraphText : d.lineText) || d.paragraphText);
       u.rate = 0.9;
+      const pick = globalThis.Glider && globalThis.Glider.pickVoice;
+      const voice = typeof pick === 'function' ? pick('en-US') : null;
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
       speechSynthesis.speak(u);
     };
     pill.appendChild(read);

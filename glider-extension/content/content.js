@@ -1210,8 +1210,7 @@
 .ll[data-skin="sage"] .ll-dock[data-dragging="true"] .ll-pill { scale: 1.08; box-shadow: none; }
 .ll[data-skin="sage"] .ll-pill-main { display: block; height: auto; padding: 10px 0 10px 14px; border-radius: 10px 0 0 10px; cursor: pointer; }
 .ll[data-skin="sage"] .ll-dock[data-h="l"] .ll-pill-main { padding: 10px 14px 10px 0; border-radius: 0 10px 10px 0; }
-.ll-strokes { display: grid; gap: 4px; justify-items: end; opacity: .78; translate: 5px 0; transition: opacity .16s ease, translate .2s var(--ease);
-  filter: drop-shadow(0 0 1.2px rgba(255, 255, 255, .9)) drop-shadow(0 0 1.2px rgba(255, 255, 255, .9)); }
+.ll-strokes { display: grid; gap: 4px; justify-items: end; opacity: .78; translate: 5px 0; transition: opacity .16s ease, translate .2s var(--ease); }
 .ll-dock[data-h="l"] .ll-strokes { justify-items: start; translate: -5px 0; }
 .ll-pill:hover .ll-strokes, .ll-pill-main:focus-visible .ll-strokes { opacity: 1; translate: 0 0; }
 .ll-strokes i { display: block; height: 5px; width: 12px; border-radius: 2.5px; background: var(--ink); opacity: .5; transform-origin: right center; transition: transform .22s var(--ease), background-color .15s ease, opacity .15s ease; }
@@ -1249,6 +1248,8 @@
 .ll[data-skin="sage"] .ll-say-btn[data-say="slow"] { --fs: inset 0 0 0 1px var(--line-strong, var(--line)); }
 .ll[data-skin="sage"] :is(.ll-icon-btn, .ll-pill-main, .ll-btn) { transition: background-color .12s ease, color .12s ease, opacity .12s ease, box-shadow .2s ease; }
 .ll[data-skin="sage"] button:focus-visible { box-shadow: var(--fs, 0 0 0 0 transparent), var(--halo); }
+/* The edge mark shows keyboard focus with a crisp outline, not the soft halo. */
+.ll[data-skin="sage"] .ll-pill-main:focus-visible { box-shadow: none; outline: 2px solid var(--accent); outline-offset: 2px; }
 .ll[data-skin="sage"] .ll-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 1px 2px rgba(16, 17, 21, .2), var(--halo); }
 
 /* Header icon buttons sit close together. */
@@ -2951,6 +2952,40 @@
     return claudeAsked.ready;
   }
 
+  /* The narrator: a clean male English voice. Voices differ per browser and device, so this
+     ranks whatever is installed. Known male voices score by how natural they sound; a voice
+     that is not known to be male is only used when no male one exists. */
+  const MALE_VOICES = [
+    [/\b(Andrew|Brian|Christopher|Eric|Guy|Roger|Steffan|Davis|Tony|Jason|Ryan|Thomas|William|Liam)\b.*(Natural|Online|Neural)/i, 100],   // Edge / Windows natural voices
+    [/Google UK English Male/i, 90],
+    [/\b(Daniel|Alex|Aaron|Evan|Tom|Oliver|Arthur|Gordon|Reed|Rocko)\b/i, 80],   // macOS, iOS
+    [/Microsoft (Mark|George|Ryan|Guy|Andrew|Brian|Christopher|Eric)\b/i, 70],
+    [/Microsoft (David|James|Richard|Ravi|Sean)\b/i, 60],
+    [/\bmale\b/i, 50],
+  ];
+  const FEMALE_HINT = /\bfemale\b|Zira|Hazel|Susan|Samantha|Victoria|Karen|Moira|Tessa|Fiona|Aria|Jenny|Michelle|Sonia|Libby|Emma|Ava|Catherine|Heera|Linda|Google US English|Google UK English Female/i;
+  let voiceCache = { key: '', voice: null };
+  function pickVoice(lang) {
+    const synth = globalThis.speechSynthesis;
+    const all = synth ? synth.getVoices() : [];
+    const key = all.length + ':' + lang;
+    if (voiceCache.key === key && voiceCache.voice) return voiceCache.voice;
+    const english = all.filter((v) => /^en/i.test(v.lang));
+    let best = null, bestScore = -1;
+    for (const v of english) {
+      let score = 0;
+      for (const [re, points] of MALE_VOICES) if (re.test(v.name)) { score = points; break; }
+      if (!score) score = FEMALE_HINT.test(v.name) ? 1 : 10;                        // unknown voices before known female ones
+      if (v.lang.toLowerCase() === String(lang).toLowerCase()) score += 3;          // same accent as the page, all else equal
+      if (score > bestScore) { best = v; bestScore = score; }
+    }
+    voiceCache = { key, voice: best };
+    return best;
+  }
+  LL.pickVoice = pickVoice;
+  // The voice list arrives late in Chrome: ask for it early so the first word already has the right voice.
+  try { if (globalThis.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.addEventListener('voiceschanged', () => { voiceCache = { key: '', voice: null }; }); } } catch (_) { /* no speech here */ }
+
   /** Speak with the browser's own voice. Returns false if it cannot. */
   function speakText(word, rate, onEnd) {
     const synth = globalThis.speechSynthesis;
@@ -2959,10 +2994,10 @@
       const u = new SpeechSynthesisUtterance(String(word));
       const lang = (document.documentElement.lang || '').toLowerCase().startsWith('en') ? document.documentElement.lang : 'en-US';
       u.lang = lang;
-      const voices = synth.getVoices().filter((v) => /^en/i.test(v.lang));
-      const voice = voices.find((v) => v.localService && v.lang.toLowerCase() === lang.toLowerCase()) || voices.find((v) => v.localService) || voices[0];
-      if (voice) u.voice = voice;
+      const voice = pickVoice(lang);
+      if (voice) { u.voice = voice; u.lang = voice.lang || lang; }
       u.rate = rate;
+      u.pitch = 0.95;
       let done = false;
       u.onend = u.onerror = () => { if (!done) { done = true; if (onEnd) onEnd(); } };
       synth.speak(u);

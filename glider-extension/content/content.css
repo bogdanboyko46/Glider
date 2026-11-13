@@ -58,11 +58,16 @@ html.glider-bionic .glider-punct {
 /* ------------------------------------------- Feature D: look-alike lens */
 
 .glider-homophone {
-  text-decoration-line: underline;
-  text-decoration-style: dotted;
-  text-decoration-thickness: 0.09em;
-  text-decoration-color: color-mix(in srgb, transparent 25%, #7c5cff);
-  text-underline-offset: 0.22em;
+  /* Drawn dots, not text-decoration: a dotted underline spaces its dots by their own width, so they
+     touch at reading sizes. Each dot here is 0.1em across with a clear 0.22em gap. */
+  text-decoration: none;
+  background-image: radial-gradient(circle at center, color-mix(in srgb, transparent 15%, #7c5cff) 0 0.05em, transparent 0.062em);
+  background-size: 0.32em 0.14em;
+  background-repeat: repeat-x;
+  background-position: 0 100%;
+  padding-bottom: 0.12em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   cursor: help;
 }
 
