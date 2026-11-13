@@ -1,6 +1,6 @@
 # Glider
 
-A Chrome extension (Manifest V3) that makes dense web reading easier for students with dyslexia and visual-processing fatigue. It adds a small draggable dock to any page. Everything runs on the device: no accounts, no network calls, no build step. The one exception is opt-in: if you save your own Anthropic API key, the paragraph you are stuck on is sent to Claude to be rewritten more simply.
+A Chrome extension (Manifest V3) that makes dense web reading easier for students with dyslexia and visual-processing fatigue. It adds a small draggable dock to any page. Everything runs on the device: no accounts, no network calls, no build step. The one exception can be switched off: when Glider's rewrite service is set up, the paragraph you are stuck on is sent to it, and on to Claude, to be rewritten more simply.
 
 There is one reading lens and one switch. No modes.
 
@@ -65,10 +65,10 @@ The pure maths is in `gaze/gaze-core.js` (`summarizeBaseline`, `tauFromCv`, `str
 With eye tracking on, the paragraph a reader gets stuck on is swapped, right where it is, for a larger and simpler version. **Show original** on the paragraph puts it back; so does turning eye tracking or the lens off.
 
 - **On the device, always.** `simplify/simplifier.js` swaps hard words for common ones, shortens wordy phrases and splits long sentences at safe joints. It appears at once and needs nothing.
-- **Claude, optional.** Open the extension's **Options** page (`simplify/options.html`) and save an Anthropic API key. The offline version still appears at once, and Claude's rewrite replaces it a moment later. This is the only network call Glider makes: the paragraph being rewritten is sent to Anthropic, only when a key is saved. The key stays in this browser's extension storage.
+- **Claude, when the rewrite service is set up.** The offline version still appears at once, and Claude's rewrite replaces it a moment later. The extension holds no API key: it sends the paragraph to a small server you host (`proxy/`, see `proxy/README.md`), which holds the Anthropic key and calls Claude. This is the only network call Glider makes; **Use Claude rewrites** on the Options page (`simplify/options.html`) turns it off.
 - The page's own paragraph is never edited: it is hidden and a stand-in with the same tag and classes sits after it, so the page goes back exactly as it was.
 
-`simplify/bridge.js` listens to the tracker's `struggle` event; `simplify/claude.js` runs in the service worker and holds the model name and prompt.
+`simplify/bridge.js` listens to the tracker's `struggle` event; `simplify/claude.js` runs in the service worker and calls the rewrite service, whose address is `DEFAULT_SERVICE_URL` there (or the Options page). The model name and prompt live on the server in `proxy/lib/core.js`.
 
 ## Reading Check (analytics dashboard)
 
@@ -110,7 +110,8 @@ node tests/syllables.test.js   # syllable splitter accuracy on 345 words
 node tests/gaze-core.test.js   # gaze maths, baseline and tau
 node tests/gaze.mjs     # simulated camera: calibration, reading-pace baseline, planted struggles
 node tests/simplify.test.js    # offline text simplifier
-node tests/simplify.mjs        # struggle -> simplify bridge in headless Chrome (canned Claude reply)
+node tests/simplify.mjs        # struggle -> simplify bridge in headless Chrome (canned rewrite-service reply)
+node tests/proxy.test.mjs      # the rewrite service's request handling, with a fake Anthropic client
 node tests/analytics.test.js   # Reading Check metrics on simulated sessions with planted answers
 node tests/assessment.mjs      # Reading Check dashboard in headless Chrome (demo and degraded data)
 node tests/assessment-live.mjs # the whole Reading Check with a simulated reader and fake camera

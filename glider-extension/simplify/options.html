@@ -26,22 +26,26 @@
     </section>
 
     <section class="rc-card so-card">
-      <h2>Better rewrites with Claude <span class="rc-chip">optional</span></h2>
-      <p>Without a key, Glider simplifies on this device: it swaps hard words for common ones and splits long sentences. With an Anthropic API key, Claude rewrites the paragraph properly a moment later.</p>
-      <p class="so-note"><b>Privacy:</b> with a key saved, the paragraph you are stuck on is sent to Anthropic to be rewritten. Nothing else is sent, and nothing is sent without a key. The key is stored only in this browser.</p>
+      <h2>Better rewrites with Claude</h2>
+      <p>Glider always simplifies on this device first: it swaps hard words for common ones and splits long sentences. When Glider’s rewrite service is reachable, Claude rewrites the paragraph properly a moment later.</p>
+      <p class="so-note"><b>Privacy:</b> with this on, the paragraph you are stuck on is sent to Glider’s rewrite service and from there to Anthropic to be rewritten. Nothing else is sent: no page address, no account, no eye-tracking data. Switch it off to keep everything on this device.</p>
       <label class="so-row">
-        <span><b>Use Claude when a key is saved</b></span>
+        <span><b>Use Claude rewrites</b><br><small id="service-state"></small></span>
         <input type="checkbox" id="useClaude" class="so-check">
       </label>
-      <div class="so-key">
-        <label for="key"><b>Anthropic API key</b></label>
-        <div class="so-key__row">
-          <input type="password" id="key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
-          <button type="button" class="rc-btn rc-btn--primary" id="save">Save key</button>
-          <button type="button" class="rc-btn rc-btn--ghost" id="remove" hidden>Remove key</button>
+      <details class="so-adv">
+        <summary>Rewrite service address</summary>
+        <div class="so-key">
+          <label for="url">Address of the service (leave empty to use the built-in one)</label>
+          <div class="so-key__row">
+            <input type="url" id="url" autocomplete="off" spellcheck="false" placeholder="https://…/api/simplify">
+            <button type="button" class="rc-btn" id="save">Save and test</button>
+          </div>
+          <label for="token">Access code, if the service needs one</label>
+          <div class="so-key__row"><input type="password" id="token" autocomplete="off" spellcheck="false"></div>
+          <p class="so-status" id="key-status" role="status"></p>
         </div>
-        <p class="so-status" id="key-status" role="status"></p>
-      </div>
+      </details>
     </section>
 
     <section class="rc-card so-card">

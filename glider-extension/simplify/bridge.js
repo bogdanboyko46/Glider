@@ -5,7 +5,7 @@
  *
  *   GazeReader 'struggle' {element, lineText, paragraphText, reason}
  *        -> offline simplifier (simplify/simplifier.js): shown at once
- *        -> Claude rewrite via the service worker (simplify/claude.js), when an API key is saved:
+ *        -> Claude rewrite from Glider's rewrite service, asked through the service worker (simplify/claude.js):
  *           replaces the offline text when it arrives
  *
  * The page's own paragraph is never edited. It is hidden and a stand-in with the
@@ -24,14 +24,14 @@
   if (!Simplify) return;
 
   const SETTINGS_KEY = 'glider:simplify';
-  const API_KEY_NAME = 'glider:anthropicKey';
+  const SERVICE_KEY = 'glider:simplifyService';
   const DEFAULTS = { enabled: true, useClaude: true, scale: 1.2 };
   const TAGS = new Set(['P', 'LI', 'BLOCKQUOTE', 'DD', 'FIGCAPTION']);
   const MIN_CHARS = 60, MAX_CHARS = 3000, COOLDOWN_MS = 2500, MAX_ACTIVE = 3;
 
   const hasChrome = (() => { try { return !!(chrome && chrome.storage && chrome.storage.local); } catch (_) { return false; } })();
   const cfg = { ...DEFAULTS };
-  let hasKey = false;
+  let hasService = false;   // is a rewrite service address configured? (the extension holds no API key)
   let lastAt = -1e9;
   const active = new Map();        // original element -> entry
   const declined = new WeakSet();  // the reader asked for the original back: leave these alone
@@ -45,17 +45,21 @@
     if (!cfg.enabled) restoreAll();
   }
   if (hasChrome) {
-    chrome.storage.local.get([SETTINGS_KEY, API_KEY_NAME]).then((got) => {
-      applyConfig(got[SETTINGS_KEY]);
-      hasKey = !!String(got[API_KEY_NAME] || '').trim();
-    }).catch(() => {});
+    chrome.storage.local.get(SETTINGS_KEY).then((got) => applyConfig(got[SETTINGS_KEY])).catch(() => {});
+    askService();
     try {
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local') return;
         if (changes[SETTINGS_KEY]) applyConfig(changes[SETTINGS_KEY].newValue);
-        if (changes[API_KEY_NAME]) hasKey = !!String(changes[API_KEY_NAME].newValue || '').trim();
+        if (changes[SERVICE_KEY]) askService();
       });
     } catch (_) { /* no live sync */ }
+  }
+
+  function askService() {
+    let asked;
+    try { asked = chrome.runtime.sendMessage({ type: 'glider:simplify:status' }); } catch (_) { return; }
+    Promise.resolve(asked).then((r) => { hasService = !!(r && r.ready); }, () => { hasService = false; });
   }
 
   // ------------------------------------------------------------------ styles
@@ -195,7 +199,7 @@
     const offline = Simplify.simplify(text);
     const entry = show(el, offline.text || text);
     entry.original = text;
-    if (cfg.useClaude && hasKey && hasChrome) {
+    if (cfg.useClaude && hasService && hasChrome) {
       setLabel(entry, 'pending');
       let asked;
       try { asked = chrome.runtime.sendMessage({ type: 'glider:simplify', text, lineText: hint.coarse ? '' : String(hint.lineText || '') }); }   // a coarse struggle only knows "about here"
@@ -229,7 +233,7 @@
   window.GliderSimplifyBridge = {
     handleStruggle, simplifyElement, restore, restoreAll,
     active: () => Array.from(active.values()).map((e) => ({ source: e.source, text: e.body.textContent, original: e.original })),
-    config: () => ({ ...cfg, hasKey }),
-    _set(next) { if ('hasKey' in next) hasKey = !!next.hasKey; applyConfig({ ...cfg, ...next }); lastAt = -1e9; },
+    config: () => ({ ...cfg, hasService }),
+    _set(next) { if ('hasService' in next) hasService = !!next.hasService; applyConfig({ ...cfg, ...next }); lastAt = -1e9; },
   };
 })();

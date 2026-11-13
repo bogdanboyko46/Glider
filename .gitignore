@@ -3,3 +3,10 @@ tests/out/
 # Gaze Lab recordings: local eye-feature data, never committed
 tests/lab/recordings/
 tests/lab/instruction.json
+
+# Rewrite service: dependencies, local Vercel link, local secrets
+proxy/node_modules/
+proxy/.vercel/
+proxy/package-lock.json
+.env
+.env.*

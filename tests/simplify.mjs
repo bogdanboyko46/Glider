@@ -1,6 +1,6 @@
 // node tests/simplify.mjs [outDir] — the struggle -> simplify bridge in headless Chrome.
 // Runs simplify/simplifier.js + simplify/bridge.js on the gaze test article with a fake chrome.* and a
-// canned "Claude" reply, hands the bridge struggle events the way the tracker does, and checks the page.
+// canned reply from the rewrite service, hands the bridge struggle events the way the tracker does, and checks the page.
 import { join } from 'node:path';
 import { launch, serve, REPO } from './cdp.mjs';
 
@@ -12,7 +12,10 @@ const CANNED = 'Plants use stored energy to turn carbon dioxide into sugar. This
 const SETUP = `(async () => {
   window.__asked = [];
   window.__claude = { ok: true, text: ${JSON.stringify(CANNED)}, ms: 400, model: 'test' };
-  chrome.runtime.sendMessage = (m) => { __asked.push(m); return new Promise((r) => setTimeout(() => r(window.__claude), 400)); };
+  chrome.runtime.sendMessage = (m) => {
+    if (m.type === 'glider:simplify:status') return Promise.resolve({ ready: false, url: '' });   // no rewrite service configured
+    __asked.push(m); return new Promise((r) => setTimeout(() => r(window.__claude), 400));
+  };
   chrome.storage.onChanged = { addListener() {} };
   for (const src of ['simplify/simplifier.js', 'simplify/bridge.js']) {
     await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = '/glider-extension/' + src; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
@@ -48,7 +51,7 @@ try {
   check(s.inner === s.text, 'the control bar adds nothing to the paragraph text (kept in a shadow root)');
   check(Math.abs(s.px - s.basePx * 1.2) < 0.6, `text is enlarged 1.2x (${s.basePx}px -> ${s.px}px)`);
   check(s.label === 'Simplified' && s.source === 'offline', 'labelled "Simplified"');
-  check((await page.eval('__asked.length')) === 0, 'nothing is sent anywhere without an API key');
+  check((await page.eval('__asked.length')) === 0, 'nothing is sent anywhere when no rewrite service is set');
   await page.sleep(600);
   await page.shot(join(out, 'simplify-offline.png'));
 
@@ -59,10 +62,10 @@ try {
   await page.eval(`GliderSimplifyBridge._set({}); __struggle('p2'); 0`);
   check(!(await look('p2')).is, 'a paragraph the reader put back is not simplified again');
 
-  // ---- with a key: offline text first, then the Claude rewrite replaces it
-  await page.eval(`GliderSimplifyBridge._set({ hasKey: true }); __struggle('p1'); 0`);
+  // ---- with the rewrite service: offline text first, then the Claude rewrite replaces it
+  await page.eval(`GliderSimplifyBridge._set({ hasService: true }); __struggle('p1'); 0`);
   s = await look('p1');
-  check(s.is && s.text === (await offlineOf('p1')) && /improving/.test(s.label), 'with a key: offline text shows immediately while Claude works', s.label);
+  check(s.is && s.text === (await offlineOf('p1')) && /improving/.test(s.label), 'with the service: offline text shows immediately while Claude works', s.label);
   await page.sleep(900);
   s = await look('p1');
   const asked = await page.eval('__asked');
@@ -77,7 +80,7 @@ try {
   check(s.is && s.text === (await offlineOf('p3')) && s.label === 'Simplified', 'when Claude cannot be reached the offline version stays');
 
   // ---- cooldown, ineligible targets
-  await page.eval(`GliderSimplifyBridge.restoreAll(); GliderSimplifyBridge._set({ hasKey: false }); __struggle('p1'); __struggle('p3'); 0`);
+  await page.eval(`GliderSimplifyBridge.restoreAll(); GliderSimplifyBridge._set({ hasService: false }); __struggle('p1'); __struggle('p3'); 0`);
   check((await look('p1')).is && !(await look('p3')).is, 'two struggles in quick succession simplify only one paragraph');
   const h1 = await page.eval(`(() => { GliderSimplifyBridge._set({}); GliderSimplifyBridge.handleStruggle({ element: document.querySelector('h1') }); return !!document.querySelector('h1 + [data-glider-simplified]'); })()`);
   check(!h1, 'headings are never replaced');
