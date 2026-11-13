@@ -5,9 +5,7 @@
 <title>Glider · s9 close</title>
 <link rel="stylesheet" href="base.css">
 <style>
-  /* Closing card, the mirror of s0-title: same strokes on the right edge, already out. All motion is CSS keyframes (no JS).
-     Timeline (ms): 0 strokes resting, middle green · 200 headline · 750 rule · 950 "Runs on your device. No account." as two chips ·
-     1700 wordmark · 2500 the five strokes ripple once, top to bottom · hold to 4000. */
+  /* Closing card, variation A: the motto as a two-line headline with "dyslexia" in green, Glider beneath. No green line under the text. All motion is CSS keyframes (no JS). */
   @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Regular.woff2") format("woff2"); font-weight: 400; }
   @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Bold.woff2") format("woff2"); font-weight: 700; }
   html, body { margin: 0; }
@@ -34,24 +32,13 @@
   @keyframes ripple { 0%, 100% { transform: scaleX(1); } 45% { transform: scaleX(1.14); } }
 
   .head {
-    position: absolute; left: 120px; top: 194px; margin: 0; white-space: nowrap;
+    position: absolute; left: 120px; top: 168px; margin: 0; white-space: nowrap;
     font-size: 88px; font-weight: 700; line-height: 1.04; letter-spacing: -2px;
     animation: rise 650ms 200ms cubic-bezier(.2, .8, .2, 1) both;
   }
-  .rule {
-    position: absolute; left: 126px; top: 318px; width: 132px; height: 8px; border-radius: 4px; background: #2f6b4a;
-    transform-origin: left center; animation: draw 450ms 750ms cubic-bezier(.2, .8, .2, 1) both;
-  }
-  .chips { display: none; }
-  .chip {
-    padding: 14px 26px; border-radius: 999px; background: #ffffff; box-shadow: 0 0 0 2px #d6dfce;
-    font-size: 34px; line-height: 1.2; color: #20352a; white-space: nowrap;
-    animation: rise 600ms cubic-bezier(.2, .8, .2, 1) both;
-  }
-  .chip:nth-child(1) { animation-delay: 950ms; }
-  .chip:nth-child(2) { animation-delay: 1150ms; }
+  .head em { font-style: normal; color: #2f6b4a; }
   .sign {
-    position: absolute; left: 126px; top: 506px; display: flex; align-items: center; gap: 18px;
+    position: absolute; left: 126px; top: 478px; display: flex; align-items: center; gap: 18px;
     animation: rise 650ms 1700ms cubic-bezier(.2, .8, .2, 1) both;
   }
   /* small Reach mark beside the wordmark: 1.6px per unit */
@@ -62,7 +49,6 @@
   .name { font-size: 54px; font-weight: 700; letter-spacing: -1px; line-height: 1; }
   .what { font-size: 30px; color: #566b5c; margin-left: 6px; }
   @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
-  @keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 </style>
 </head>
 <body>
@@ -74,16 +60,10 @@
     <div class="slot"><div class="stroke"></div></div>
     <div class="slot"><div class="stroke"></div></div>
   </div>
-  <h1 class="head">Read at your pace</h1>
-  <div class="rule"></div>
-  <div class="chips">
-    <span class="chip">Runs on your device</span>
-    <span class="chip">No account</span>
-  </div>
+  <h1 class="head">Made with<br><em>dyslexia</em> in mind</h1>
   <div class="sign">
     <span class="mini" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
     <span class="name">Glider</span>
-    <span class="what">a reading lens for Chrome</span>
   </div>
 </body>
 </html>
