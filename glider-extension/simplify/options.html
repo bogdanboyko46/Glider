@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glider · Simplify hard text</title>
+  <link rel="stylesheet" href="../assessment/assessment.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="so">
+    <header>
+      <h1>Simplify hard text</h1>
+      <p class="so-lead">When eye tracking notices you are stuck on a paragraph, Glider swaps it, right where it is, for a larger and simpler version. “Show original” puts it back.</p>
+    </header>
+
+    <section class="rc-card so-card">
+      <label class="so-row">
+        <span><b>Simplify the paragraph I am stuck on</b><br><small>Needs eye tracking to be on.</small></span>
+        <input type="checkbox" id="enabled" class="so-check">
+      </label>
+      <label class="so-row">
+        <span><b>How much larger</b><br><small id="scale-label">120%</small></span>
+        <input type="range" id="scale" min="100" max="160" step="5" value="120">
+      </label>
+    </section>
+
+    <section class="rc-card so-card">
+      <h2>Better rewrites with Claude <span class="rc-chip">optional</span></h2>
+      <p>Without a key, Glider simplifies on this device: it swaps hard words for common ones and splits long sentences. With an Anthropic API key, Claude rewrites the paragraph properly a moment later.</p>
+      <p class="so-note"><b>Privacy:</b> with a key saved, the paragraph you are stuck on is sent to Anthropic to be rewritten. Nothing else is sent, and nothing is sent without a key. The key is stored only in this browser.</p>
+      <label class="so-row">
+        <span><b>Use Claude when a key is saved</b></span>
+        <input type="checkbox" id="useClaude" class="so-check">
+      </label>
+      <div class="so-key">
+        <label for="key"><b>Anthropic API key</b></label>
+        <div class="so-key__row">
+          <input type="password" id="key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+          <button type="button" class="rc-btn rc-btn--primary" id="save">Save key</button>
+          <button type="button" class="rc-btn rc-btn--ghost" id="remove" hidden>Remove key</button>
+        </div>
+        <p class="so-status" id="key-status" role="status"></p>
+      </div>
+    </section>
+
+    <section class="rc-card so-card">
+      <h2>Try it</h2>
+      <textarea id="sample" rows="5" spellcheck="false">The light-independent reactions, often called the Calvin cycle, utilize that stored energy in order to fix carbon dioxide into sugars. The enzyme responsible for the first step is probably the most abundant protein on Earth, and it is famously slow and inefficient at its job.</textarea>
+      <div class="so-actions">
+        <button type="button" class="rc-btn" id="try">Simplify</button>
+        <span class="so-status" id="try-status" role="status"></span>
+      </div>
+      <div class="so-out" id="out-offline" hidden><span class="rc-chip">On this device</span><p></p></div>
+      <div class="so-out" id="out-claude" hidden><span class="rc-chip">Claude</span><p></p></div>
+    </section>
+  </main>
+  <script src="simplifier.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

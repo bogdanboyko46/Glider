@@ -1,1 +1,5 @@
 tests/out/
+
+# Gaze Lab recordings: local eye-feature data, never committed
+tests/lab/recordings/
+tests/lab/instruction.json

@@ -88,6 +88,7 @@
      tracker waits longer before helping, below 1 it steps in sooner. */
   const GAZE_SENSITIVITY = Object.freeze([1.4, 1.2, 1, 0.85, 0.7]);
   const GAZE_TIP_MS = 7000; // how long a lens opened by the eye tracker stays up
+  const EASE_CHIP_MS = 9000; // how long the "Spaced out for you" note stays up
 
   function sanitize(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
@@ -660,6 +661,35 @@
 }
 .ll-toast[data-show="true"] { opacity: 1; transform: translate(-50%, 0); }
 
+/* note beside a paragraph the eye tracker spaced out */
+.ll-eased {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 6px 0 14px;
+  border-radius: 999px;
+  background-color: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.ll-eased[hidden] { display: none; }
+.ll-eased[data-show="true"] { opacity: 1; }
+.ll-eased button { height: 24px; padding: 0 11px; border-radius: 999px; background: var(--well); font-size: 12.5px; font-weight: 600; line-height: 24px; }
+.ll-eased button:hover { background: var(--well-hover); }
+/* Once toast() has placed it beside the dock it slides in from that side. */
+.ll-toast[data-h="r"] { transform: translateX(18px); }
+.ll-toast[data-h="l"] { transform: translateX(-18px); }
+.ll-toast[data-h][data-show="true"] { transform: none; }
+
 /* ================================================================ designs */
 
 /* Flow: an ivory sheet with a serif voice and a small black capsule at rest. */
@@ -1116,6 +1146,77 @@
 .ll[data-skin="contrast"] .ll-hint, .ll[data-skin="contrast"] .ll-hero-hint, .ll[data-skin="contrast"] .ll-status, .ll[data-skin="contrast"] .ll-value, .ll[data-skin="contrast"] .ll-sample-label, .ll[data-skin="contrast"] .ll-skin-name { font-size: 13px; }
 .ll[data-skin="contrast"] .ll-toast { box-shadow: 0 0 0 2px #ffffff; }
 
+/* ================================================================ motion */
+/* Sage motion, chosen from demo/motion-lab.html. Only how things move:
+   every rule here can be deleted to get the plain fades above back. */
+
+/* Switch: the leading edge of the thumb moves first and the back catches up. */
+.ll[data-skin="sage"] .ll-switch::after {
+  width: auto;
+  right: 21px;
+  transition: left .14s ease-out, right .22s ease-out .07s, background-color .15s ease;
+}
+.ll[data-skin="sage"] .ll-switch[aria-checked="true"]::after,
+.ll[data-skin="sage"] [aria-checked="true"] > .ll-switch::after {
+  transform: none;
+  left: 21px;
+  right: 3px;
+  transition: right .14s ease-out, left .22s ease-out .07s, background-color .15s ease;
+}
+
+/* Pill to panel: the pill outline widens into the panel and folds back into
+   the same corner. The open clip reaches 70px past the panel so its shadow
+   is not cut off. --pill-w is measured in setOpen. */
+.ll[data-skin="sage"] .ll-pill { transition: opacity .12s ease .2s, scale .16s var(--ease), box-shadow .16s ease, visibility 0s; }
+.ll[data-skin="sage"] .ll-dock[data-open="true"] .ll-pill { transform: none; transition: opacity .1s ease, visibility 0s linear .1s; }
+.ll[data-skin="sage"] .ll-panel {
+  clip-path: inset(-70px round var(--radius));
+  transition: clip-path .36s var(--ease), opacity .1s ease, visibility 0s;
+}
+.ll[data-skin="sage"] .ll-dock[data-open="false"] .ll-panel {
+  --fold-x: calc(100% - var(--pill-w, 124px));
+  --fold-y: calc(100% - var(--pill-h));
+  transform: none;
+  clip-path: inset(var(--fold-y) 0 0 var(--fold-x) round calc(var(--pill-h) / 2));
+  transition: clip-path .26s var(--ease), opacity .1s ease .18s, visibility 0s linear .28s;
+}
+.ll[data-skin="sage"] .ll-dock[data-open="false"][data-h="l"][data-v="b"] .ll-panel { clip-path: inset(var(--fold-y) var(--fold-x) 0 0 round calc(var(--pill-h) / 2)); }
+.ll[data-skin="sage"] .ll-dock[data-open="false"][data-h="r"][data-v="t"] .ll-panel { clip-path: inset(0 0 var(--fold-y) var(--fold-x) round calc(var(--pill-h) / 2)); }
+.ll[data-skin="sage"] .ll-dock[data-open="false"][data-h="l"][data-v="t"] .ll-panel { clip-path: inset(0 var(--fold-x) var(--fold-y) 0 round calc(var(--pill-h) / 2)); }
+@keyframes ll-fade-in { from { opacity: 0; } }
+.ll[data-skin="sage"] .ll-dock[data-open="true"] .ll-panel > * { animation: ll-fade-in .2s ease .14s backwards; }
+.ll[data-skin="sage"] .ll-dock[data-open="false"] .ll-panel > * { opacity: 0; transition: opacity .08s ease; }
+
+/* Dragging the pill: it lifts while it is held. */
+.ll[data-skin="sage"] .ll-dock[data-dragging="true"] .ll-pill { scale: 1.05; box-shadow: 0 30px 54px -12px rgba(32, 53, 42, .45); }
+
+/* Hover lens: grows out of the word it explains (--ox is set in positionTip). */
+.ll[data-skin="sage"] .ll-tip {
+  transform-origin: var(--ox, 50%) 100%;
+  transform: scale(.9) translateY(6px);
+  transition: opacity .12s ease, transform .26s cubic-bezier(.3, 1.4, .5, 1);
+}
+.ll[data-skin="sage"] .ll-tip[data-side="below"] { transform-origin: var(--ox, 50%) 0; transform: scale(.9) translateY(-6px); }
+.ll[data-skin="sage"] .ll-tip[data-show="true"] { transform: none; }
+
+/* Sound it out: the other chunks fade back and the spoken one grows a
+   little. The letters stay where they are. */
+.ll[data-skin="sage"] .ll-part { transition: transform .12s var(--ease), box-shadow .2s ease, opacity .18s ease; }
+.ll[data-skin="sage"] .ll-tip:has(.ll-part[data-now="true"]) .ll-part:not([data-now="true"]) { opacity: .4; }
+.ll[data-skin="sage"] .ll-part[data-now="true"] { transform: scale(1.08); }
+.ll[data-skin="sage"] .ll-part[data-now="true"]:not(:focus-visible) { box-shadow: none; }
+
+/* Focus: the outline, plus a soft halo that shows on dark pages too. --fs
+   carries a control's own edge so the halo does not replace it. */
+.ll[data-skin="sage"] { --halo: 0 0 0 7px rgba(127, 199, 154, .38); }
+.ll[data-skin="sage"] .ll-switch { --fs: inset 0 0 0 var(--bw) var(--line-strong); }
+.ll[data-skin="sage"] .ll-switch[aria-checked="true"] { --fs: inset 0 0 0 1.5px var(--accent-edge); }
+.ll[data-skin="sage"] .ll-btn { --fs: inset 0 0 0 var(--bw) var(--accent-edge); }
+.ll[data-skin="sage"] .ll-say-btn[data-say="slow"] { --fs: inset 0 0 0 1px var(--line-strong, var(--line)); }
+.ll[data-skin="sage"] :is(.ll-icon-btn, .ll-pill-main, .ll-btn) { transition: background-color .12s ease, color .12s ease, opacity .12s ease, box-shadow .2s ease; }
+.ll[data-skin="sage"] button:focus-visible { box-shadow: var(--fs, 0 0 0 0 transparent), var(--halo); }
+.ll[data-skin="sage"] .ll-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 1px 2px rgba(16, 17, 21, .2), var(--halo); }
+
 @media (prefers-reduced-motion: reduce) {
   .ll *, .ll *::before, .ll *::after { transition-duration: 0s !important; animation: none !important; }
 }
@@ -1190,6 +1291,7 @@
 
   <div class="ll-tip" role="tooltip" hidden></div>
   <div class="ll-toast" role="status" aria-live="polite"></div>
+  <div class="ll-eased" role="status" hidden><span>Spaced out for you</span><button type="button" data-action="undo-ease">Undo</button></div>
 </div>`;
 
   /* =====================================================================
@@ -1220,6 +1322,9 @@
       this.gazeEased = new Map();                        // eased block -> its class attribute before / after
       this.gazeTip = { token: null, timer: 0 };          // the lens the eye tracker opened
       this.gazeHelp = { count: 0, last: null };
+      this.gazeNoEase = new WeakSet();                   // blocks the reader asked us to leave alone
+      this.easeChipFor = null;
+      this.easeChipTimer = 0;
     }
 
     async init() {
@@ -1404,6 +1509,8 @@
       this.panel = shadow.querySelector('.ll-panel');
       this.tipEl = shadow.querySelector('.ll-tip');
       this.toastEl = shadow.querySelector('.ll-toast');
+      this.easeChip = shadow.querySelector('.ll-eased');
+      this.shadow = shadow;
       this.$ = (selector) => shadow.querySelector(selector);
       this.$$ = (selector) => Array.from(shadow.querySelectorAll(selector));
 
@@ -1491,6 +1598,8 @@
         this.keepInView();
       } else if (el.dataset.action === 'collapse') {
         this.setOpen(false, event.detail === 0);
+      } else if (el.dataset.action === 'undo-ease') {
+        this.undoEase();
       } else if (el.dataset.action === 'gaze-calibrate') {
         this.calibrateGaze();
       }
@@ -1504,6 +1613,7 @@
     setOpen(open, moveFocus) {
       const focusInside = !!this.shadow.activeElement;
       this.open = open;
+      if (this.pill.offsetWidth) this.dock.style.setProperty('--pill-w', `${this.pill.offsetWidth}px`); // the panel folds to this
       this.dock.dataset.open = String(open);
       this.pillMain.setAttribute('aria-expanded', String(open));
       this.panel.toggleAttribute('inert', !open);
@@ -1545,6 +1655,15 @@
     toast(message) {
       clearTimeout(this.toastTimer);
       this.toastEl.textContent = message;
+      // Sit beside the dock, on its side of the screen, clear of the pill / panel.
+      const { h, v, x, y } = this.dockPos;
+      const clear = Math.max(8, Math.min(y + this.activeBox().offsetHeight + 10, window.innerHeight - 48));
+      const style = this.toastEl.style;
+      this.toastEl.dataset.h = h;
+      style.left = h === 'l' ? `${x}px` : 'auto';
+      style.right = h === 'r' ? `${x}px` : 'auto';
+      style.top = v === 't' ? `${clear}px` : 'auto';
+      style.bottom = v === 'b' ? `${clear}px` : 'auto';
       this.toastEl.dataset.show = 'true';
       this.toastTimer = setTimeout(() => { this.toastEl.dataset.show = 'false'; }, 2200);
     }
@@ -1656,6 +1775,7 @@
       document.addEventListener('scroll', () => {
         if (this.tip.token && !this.tip.pinned) this.hideTip(true);
         else if (this.tip.token) this.positionTip();
+        if (this.easeChipFor) this.positionEaseChip();
       }, { capture: true, passive: true });
       window.addEventListener('keydown', (event) => this.onPageKey(event), true);
     }
@@ -1850,7 +1970,7 @@
         this.holdGazeTip(token);
       } else if (d.reason === 'rereading' || d.reason === 'slow-paragraph') {
         if (el === document.documentElement || el === document.body) return;
-        this.easeBlock(el);
+        this.easeBlock(el, d.lineRect);
       } else {
         return;
       }
@@ -1892,12 +2012,106 @@
       }, GAZE_TIP_MS);
     }
 
-    /** Give one block a little more room. */
-    easeBlock(el) {
-      if (this.gazeEased.has(el)) return;
+    /** Give one block a little more room. `lineRect` is the line being read. */
+    easeBlock(el, lineRect) {
+      if (this.gazeEased.has(el) || this.gazeNoEase.has(el)) return;
+      const anchor = this.lineAnchor(el, lineRect);
       const before = el.getAttribute('class');
       el.classList.add('glider-ease');
       this.gazeEased.set(el, { before, after: el.getAttribute('class') });
+
+      // The spacing changes in one step about 0.35s after the class lands (see
+      // content.css). Wider lines push the rest of the block down, so measure
+      // the reader's line just before and just after and scroll by the
+      // difference: the line they are on stays where their eyes are.
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const top = () => (anchor.isConnected ? anchor.getBoundingClientRect().top : NaN);
+      let t0 = top();
+      const settle = () => {
+        if (this.dead || !this.gazeEased.has(el)) return;
+        const delta = top() - t0;
+        if (Number.isFinite(delta) && Math.abs(delta) >= 1 && Math.abs(delta) < innerHeight) window.scrollBy({ top: delta, behavior: 'instant' });
+        this.showEaseChip(el);
+      };
+      if (still) requestAnimationFrame(settle);
+      else setTimeout(() => { t0 = top(); setTimeout(settle, 110); }, 300);
+    }
+
+    /** The first word on the line being read, else the block itself. */
+    lineAnchor(el, lineRect) {
+      const top = lineRect ? Number(lineRect.top) - 4 : NaN;
+      const bottom = lineRect ? Number(lineRect.bottom) + 4 : NaN;
+      if (Number.isFinite(top) && Number.isFinite(bottom)) {
+        for (const token of el.querySelectorAll('.glider-token')) {
+          const rect = token.getClientRects()[0];
+          if (rect && (rect.top + rect.bottom) / 2 >= top && (rect.top + rect.bottom) / 2 <= bottom) return token;
+        }
+      }
+      return el;
+    }
+
+    /** Put one eased block back the way the page had it. */
+    uneaseBlock(el) {
+      const was = this.gazeEased.get(el);
+      if (!was) return;
+      // Restore the class attribute character for character when the page has
+      // not touched it since.
+      if (el.getAttribute('class') === was.after) {
+        if (was.before === null) el.removeAttribute('class');
+        else el.setAttribute('class', was.before);
+      } else {
+        el.classList.remove('glider-ease');
+      }
+      this.gazeEased.delete(el);
+    }
+
+    /** A small note beside the eased block: what happened, and a way back. */
+    showEaseChip(el) {
+      const chip = this.easeChip;
+      if (!chip || !el.isConnected) return;
+      this.easeChipFor = el;
+      chip.hidden = false;
+      this.positionEaseChip();
+      requestAnimationFrame(() => { if (this.easeChipFor === el) chip.dataset.show = 'true'; });
+      clearTimeout(this.easeChipTimer);
+      this.easeChipTimer = setTimeout(() => {
+        if (chip.matches(':hover') || chip.contains(this.shadow.activeElement)) { this.easeChipTimer = setTimeout(() => this.hideEaseChip(), 4000); return; }
+        this.hideEaseChip();
+      }, EASE_CHIP_MS);
+    }
+
+    positionEaseChip() {
+      const chip = this.easeChip;
+      const el = this.easeChipFor;
+      if (!chip || !el) return;
+      if (!el.isConnected) { this.hideEaseChip(); return; }
+      const rect = el.getBoundingClientRect();
+      const off = rect.bottom < 0 || rect.top > innerHeight;
+      chip.style.visibility = off ? 'hidden' : '';
+      if (off) return;
+      const width = chip.offsetWidth;
+      const height = chip.offsetHeight;
+      let top = rect.top - height - 14;
+      if (top < 8) top = Math.min(rect.bottom + 14, innerHeight - height - 8);
+      chip.style.left = `${Math.round(Math.min(innerWidth - width - 8, Math.max(8, rect.right - width)))}px`;
+      chip.style.top = `${Math.round(top)}px`;
+    }
+
+    hideEaseChip() {
+      clearTimeout(this.easeChipTimer);
+      this.easeChipFor = null;
+      if (!this.easeChip) return;
+      this.easeChip.dataset.show = 'false';
+      this.easeChip.hidden = true;
+    }
+
+    /** The reader said no thanks: undo this block and leave it alone from now on. */
+    undoEase() {
+      const el = this.easeChipFor;
+      if (!el) return;
+      this.gazeNoEase.add(el);
+      this.uneaseBlock(el);
+      this.hideEaseChip();
     }
 
     /** Undo everything the eye tracker's help added to the page. */
@@ -1906,18 +2120,8 @@
       const token = this.gazeTip.token;
       this.gazeTip.token = null;
       if (token && this.tip.token === token && !this.tip.pinned) this.hideTip(true);
-      if (!this.gazeEased.size) return;
-      for (const [el, was] of this.gazeEased) {
-        // Put the class attribute back character for character when the page
-        // has not touched it since.
-        if (el.getAttribute('class') === was.after) {
-          if (was.before === null) el.removeAttribute('class');
-          else el.setAttribute('class', was.before);
-        } else {
-          el.classList.remove('glider-ease');
-        }
-      }
-      this.gazeEased.clear();
+      this.hideEaseChip();
+      for (const el of Array.from(this.gazeEased.keys())) this.uneaseBlock(el);
     }
 
     /* ----------------------------------------------------------- word lens */
@@ -2064,6 +2268,7 @@
       let side = 'above';
       if (top < 8) { top = rect.bottom + 10; side = 'below'; }
       tip.dataset.side = side;
+      tip.style.setProperty('--ox', `${Math.round(Math.min(width, Math.max(0, centre - left)))}px`); // it grows out of the word
       tip.style.left = `${Math.round(left)}px`;
       tip.style.top = `${Math.round(top)}px`;
     }

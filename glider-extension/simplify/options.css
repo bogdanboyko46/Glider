@@ -1,0 +1,25 @@
+/* Settings page for "Simplify hard text". Tokens and .rc-* components come from assessment/assessment.css. */
+.so { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; display: grid; gap: 18px; }
+.so h1 { font-size: 32px; }
+.so h2 { font-size: 20px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.so-lead { margin-top: 8px; color: var(--rc-ink-2); max-width: 60ch; }
+.so-card { display: grid; gap: 14px; }
+.so-card p { max-width: 62ch; }
+.so-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.so-row small, .so-status { color: var(--rc-ink-2); font-size: 14px; }
+.so-check { width: 24px; height: 24px; accent-color: var(--rc-accent); flex: none; }
+.so input[type="range"] { width: 220px; accent-color: var(--rc-accent); }
+.so-note { background: var(--rc-info-bg); border-radius: 12px; padding: 12px 14px; font-size: 15px; }
+.so-key { display: grid; gap: 8px; }
+.so-key__row { display: flex; flex-wrap: wrap; gap: 10px; }
+.so-key input, .so textarea {
+  flex: 1 1 260px; min-height: 44px; padding: 10px 14px; border: 1.5px solid var(--rc-line-strong); border-radius: 12px;
+  background: #fff; color: var(--rc-ink); font: 16px/1.5 var(--rc-font);
+}
+.so-key input { font-family: var(--rc-mono); font-size: 14px; }
+.so textarea { width: 100%; resize: vertical; }
+.so-actions { display: flex; align-items: center; gap: 14px; }
+.so-out { background: var(--rc-well); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; justify-items: start; }
+.so-out p { font-size: 19px; line-height: 1.8; }
+.so-status[data-tone="bad"] { color: #8f3d05; font-weight: 700; }
+.so-status[data-tone="good"] { color: #1d4a32; font-weight: 700; }

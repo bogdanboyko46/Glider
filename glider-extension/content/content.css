@@ -105,7 +105,23 @@ html.glider-spacing .glider-ease :is(p, li, article, section, td, th, dd, dt, bl
   letter-spacing: calc(var(--glider-letter-spacing, 1px) + 0.02em) !important;
   word-spacing: calc(var(--glider-word-spacing, 3px) + 0.16em) !important;
   line-height: calc(var(--glider-line-height, 1.8) + 0.3) !important;
-  transition: letter-spacing 0.3s ease, word-spacing 0.3s ease, line-height 0.3s ease;
+  /* The reader is on this text right now, so the letters never drift: a soft
+     tint fades in first, then the spacing changes in a single step. */
+  transition: letter-spacing 0s linear 0.35s, word-spacing 0s linear 0.35s, line-height 0s linear 0.35s;
+}
+
+/* The eased block reads as one quiet card with a green edge on the reading
+   side, so it is clear which text changed and that Glider changed it. Both
+   are shadows: nothing here takes up space or moves the text. */
+html.glider-spacing .glider-ease {
+  background-color: rgba(47, 107, 74, 0.08);
+  box-shadow: 0 0 0 8px rgba(47, 107, 74, 0.08), -12px 0 0 0 rgba(47, 107, 74, 0.6);
+  border-radius: 6px;
+  animation: glider-ease-cue 0.35s ease backwards;
+}
+
+@keyframes glider-ease-cue {
+  from { background-color: transparent; box-shadow: 0 0 0 8px transparent, -12px 0 0 0 transparent; }
 }
 
 /* Optional hyperlegible reading face (bundled, loaded by content.js). */
@@ -137,6 +153,7 @@ html.glider-size :is(p, li, dd, dt, blockquote, figcaption) :is(p, li, dd, dt, b
   html.glider-spacing .glider-ease,
   html.glider-spacing .glider-ease * {
     transition: none !important;
+    animation: none !important;
   }
 }
 
