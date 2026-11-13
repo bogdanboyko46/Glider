@@ -161,7 +161,9 @@ export const SCENES = {
       await p.glide(t.x, t.top - 7, 900);                  // along the gap above the line
       await p.glide(t.x, t.y, 160 / PACE);                 // then onto the word
       await sleep(1500);                                    // the lens opens, then its sounds and parts arrive
-      await page.eval(`(() => { window.__said = []; speechSynthesis.speak = (u) => { setTimeout(() => u.onend && u.onend(), 260 + 30 * String(u.text).length); }; speechSynthesis.cancel = () => {}; })()`);
+      // A headless browser has no voice. Stand in for it inside Glider's own (isolated) world, where its
+      // content script calls speechSynthesis: each chunk "speaks" for about as long as a voice takes.
+      await page.evalGlider(`(() => { const t = new Set(); speechSynthesis.speak = (u) => { t.add(setTimeout(() => u.onend && u.onend(), 240 + 25 * String(u.text).length)); }; speechSynthesis.cancel = () => { t.forEach(clearTimeout); t.clear(); }; return 1; })()`);
       // Into the lens first, straight up from the word and quickly, so the pointer never rests on another
       // word on the way (which would rightly open that word's lens instead).
       const tip = await box(page, inDock('.ll-tip'));
@@ -170,7 +172,19 @@ export const SCENES = {
         await p.glide(t.x, below ? tip.top + 14 : tip.top + tip.h - 14, 220 / PACE);
       }
       const slow = await box(page, inDock('.ll-tip [data-say="slow"]'));
-      if (slow) { await p.glide(slow.x, slow.y, 650); await sleep(150); await p.click(); await sleep(2300); }
+      if (slow) {
+        await p.glide(slow.x, slow.y, 650); await sleep(150);
+        // log when Glider lights each chunk, to check the timing afterwards
+        await page.eval(`(() => { const tip = ${inDock('.ll-tip')}; const t0 = performance.now(); window.__lit = []; new MutationObserver(() => { const now = [...tip.querySelectorAll('.ll-part[data-now]')].map((e) => e.dataset.part).join(''); const last = __lit[__lit.length - 1]; if (!last || last[1] !== now) __lit.push([Math.round(performance.now() - t0), now]); }).observe(tip, { subtree: true, attributes: true, attributeFilter: ['data-now'] }); return 1; })()`);
+        await p.click();
+        // wait until Glider has sounded out every chunk and the whole word, then a short beat
+        for (let i = 0; i < 80; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          if (!(await page.eval(`(() => { const b = ${inDock('.ll-tip [data-say="slow"]')}; return !!(b && b.dataset.speaking); })()`))) break;
+        }
+        console.log('  sound it out (ms after the press, chunk lit):', JSON.stringify(await page.eval('window.__lit')));
+        await sleep(450);
+      }
       const def = await box(page, inDock('.ll-tip [data-act="define"]'));
       if (def) { await p.glide(def.x, def.y, 450); await sleep(120); await p.click(); }
       await sleep(1400);
@@ -208,10 +222,27 @@ async function setSettings(chrome, base, patch) {
   await tab.cdp.send('Page.close').catch(() => {});
 }
 
+/** Let page.evalGlider() run code in the content script's isolated world (Glider's own globals). */
+function trackGliderWorld(page) {
+  let ctx = null;
+  page.cdp.on('Runtime.executionContextCreated', ({ context }) => {
+    if (context.auxData && context.auxData.type === 'isolated' && /^chrome-extension:/.test(context.origin || '')) ctx = context.id;
+  });
+  page.cdp.on('Runtime.executionContextsCleared', () => { ctx = null; });
+  page.evalGlider = async (expression) => {
+    for (let i = 0; i < 40 && !ctx; i++) await new Promise((r) => setTimeout(r, 100));
+    if (!ctx) throw new Error("Glider's content-script world was not found");
+    const r = await page.cdp.send('Runtime.evaluate', { expression, contextId: ctx, awaitPromise: true, returnByValue: true });
+    if (r.exceptionDetails) throw new Error(r.exceptionDetails.text);
+    return r.result.value;
+  };
+}
+
 async function film(chrome, base, name) {
   const scene = SCENES[name];
   await setSettings(chrome, base, scene.settings);
   const page = await chrome.page();
+  trackGliderWorld(page);
   await page.cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
   await page.goto(URL_, 3500);
   await page.eval(IN_PAGE);
