@@ -17,10 +17,18 @@ const SETUP = `(async () => {
     __asked.push(m); return new Promise((r) => setTimeout(() => r(window.__claude), 400));
   };
   chrome.storage.onChanged = { addListener() {} };
-  for (const src of ['simplify/simplifier.js', 'simplify/bridge.js']) {
+  for (const src of ['simplify/simplifier.js', 'simplify/textscore.js', 'simplify/gate.js', 'simplify/bridge.js']) {
     await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = '/glider-extension/' + src; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
   }
   window.__before = document.body.innerHTML;
+  GliderSimplifyBridge._set({ gate: false });   // the first sections test the swap machinery itself, without the decision gate
+  // A tracker-shaped struggle: time on the paragraph as a multiple of what this reader's pace predicts.
+  window.__gated = (id, ratio, reason) => { const el = document.getElementById(id); const text = el.innerText.trim();
+    return GliderSimplifyBridge.handleStruggle({ element: el, lineIndex: 1, lineText: text.slice(0, 80), paragraphText: text, reason: reason || 'slow-paragraph', severity: 0.6, coarse: true,
+      metrics: { paragraphDwellMs: ratio * 10000, expectedParagraphMs: 10000, tau: 2, baselineWpm: 140, backtracks: 0 } }); };
+  window.__offer = () => { const h = document.getElementById('glider-simplify-offer'); if (!h) return null; const c = h.shadowRoot.querySelector('.chip'); const r = c.getBoundingClientRect();
+    return { text: c.textContent, x: r.left, y: r.top, w: r.width, inBody: document.body.contains(h) }; };
+  window.__offerClick = (cls) => { document.getElementById('glider-simplify-offer').shadowRoot.querySelector('button.' + cls).click(); };
   window.__struggle = (id) => { const el = document.getElementById(id); const text = el.innerText.trim();
     GliderSimplifyBridge.handleStruggle({ element: el, lineIndex: 1, lineText: text.slice(0, 80), paragraphText: text, reason: 'stuck-line', severity: 0.6 }); };
   window.__look = (id) => { const el = document.getElementById(id), c = el.nextElementSibling;
@@ -92,6 +100,53 @@ try {
   await page.sleep(1200);
   const clean = await page.eval(`document.querySelectorAll('[data-glider-simplified], [data-glider-hidden]').length`);
   check(clean === 0, 'when eye tracking stops, every paragraph is restored');
+
+  // ---- the decision gate: gentle help first, then an offer, a swap only when the reader accepts or chose automatic
+  await page.eval(`GliderSimplifyBridge.restoreAll(); GliderSimplifyBridge._set({ gate: true, hasService: false, auto: false }); 0`);
+  const before = await page.eval('document.body.innerHTML');
+  let ret = await page.eval(`String(__gated('p3', 2.1))`);
+  let dec = await page.eval('JSON.stringify(GliderSimplifyBridge.lastDecision())');
+  check(!(await look('p3')).is && (await page.eval('__offer()')) === null && /"gentle"/.test(dec) && ret === 'undefined', 'gate: the first sign of a slow paragraph changes nothing here (left to the gentle help)', dec);
+  await page.eval(`__gated('p3', 2.9); 0`);
+  await page.sleep(350);
+  let off = await page.eval('__offer()');
+  check(off && /Simpler version/.test(off.text) && !off.inBody && !(await look('p3')).is, 'gate: the reader stays slow, so a "Simpler version" button appears beside the paragraph; the text is untouched', JSON.stringify(off));
+  check((await page.eval('document.body.innerHTML')) === before, 'gate: offering adds nothing to the page content');
+  await page.shot(join(out, 'simplify-offer.png'));
+  await page.eval(`__offerClick('go'); 0`);
+  s = await look('p3');
+  check(s.is && s.text === (await offlineOf('p3')) && (await page.eval('__offer()')) === null, 'gate: pressing it swaps in the simplified paragraph');
+  await page.eval(`GliderSimplifyBridge.restoreAll(); 0`);
+
+  await page.eval(`__gated('p1', 2.1); 0`);
+  await page.sleep(13000);   // past the pause the gate keeps between two offers
+  await page.eval(`__gated('p1', 3.0); 0`);
+  await page.sleep(300);
+  check(!!(await page.eval('__offer()')), 'gate: another slow paragraph gets its own offer later');
+  await page.eval(`__offerClick('no'); 0`);
+  await page.eval(`__gated('p1', 4.0); 0`);
+  await page.sleep(200);
+  check((await page.eval('__offer()')) === null && !(await look('p1')).is, 'gate: "No thanks" leaves that paragraph alone from then on');
+
+  const easy = await page.eval(`(() => { const p = document.createElement('p'); p.id = 'easy'; p.textContent = 'Every morning the baker opens her shop before the sun comes up. She mixes flour, water and a little salt, then leaves the dough to rest. While it rises, she sweeps the floor.'; document.body.appendChild(p); __gated('easy', 3); __gated('easy', 6); const d = GliderSimplifyBridge.lastDecision(); p.remove(); return d.action + ' ' + d.why; })()`);
+  check(/^none text:/.test(easy), 'gate: easy text is never offered, however long the reader spends on it', easy);
+
+  await page.eval(`GliderSimplifyBridge._set({ gate: true, auto: true }); 0`);
+  await page.sleep(13000);
+  // The tracker's once-a-second sample: 30 s spent, half-way through a paragraph expected to take 12 s in all (pace 5).
+  await page.eval(`(() => { const p = document.getElementById('p2').cloneNode(true); p.id = 'p2b'; document.body.appendChild(p);
+    window.__pace = () => GliderSimplifyBridge.handleProgress({ element: p, paragraphDwellMs: 30000, expectedParagraphMs: 12000, progress: 0.5, coarse: true, baselineWpm: 140 }); __pace(); })()`);
+  await page.sleep(300);
+  check(!!(await page.eval('__offer()')) && !(await look('p2b')).is, 'gate, automatic mode: a very slow pace half-way down a paragraph first brings the offer');
+  await page.sleep(2000);
+  await page.eval(`__pace(); 0`);
+  check(!(await look('p2b')).is, 'gate, automatic mode: two seconds of slow pace is not enough to swap');
+  await page.sleep(2600);
+  await page.eval(`__pace(); 0`);
+  s = await look('p2b');
+  dec = await page.eval('JSON.stringify(GliderSimplifyBridge.lastDecision())');
+  check(s.is && (await page.eval('__offer()')) === null, 'gate, automatic mode: the pace stayed slow for four seconds, so the paragraph is swapped without asking', dec);
+  await page.eval(`GliderSimplifyBridge.restoreAll(); document.getElementById('p2b').remove(); GliderSimplifyBridge._set({ gate: false, auto: false }); 0`);
 
   // ---- switched off in settings
   await page.eval(`GliderSimplifyBridge._set({ enabled: false }); __struggle('p3'); 0`);

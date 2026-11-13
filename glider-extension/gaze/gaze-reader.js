@@ -451,7 +451,7 @@
   function resetCounters(st, n) {
     Object.assign(st, {
       nLines: n, lineDwell: new Float64Array(n), visits: new Uint16Array(n), totalDwell: 0, runMs: 0,
-      lastLine: -1, maxLine: -1, backtracks: [], triggers: 0,
+      lastLine: -1, maxLine: -1, backtracks: [], triggers: 0, prog: -1, progAt: 0,
     });
   }
 
@@ -532,6 +532,18 @@
       st.lastLine = L;
     }
     st.maxLine = Math.max(st.maxLine, L);
+    // Smoothed position in the paragraph: single decoded lines are noisy, their running mean much less so.
+    st.prog = st.prog < 0 ? L : st.prog + 0.15 * (L - st.prog);
+    if (listeners.progress && listeners.progress.length && fix.t - st.progAt >= 1000) {
+      st.progAt = fix.t;
+      const e = expectedMs(st, lines, -1);
+      const pitch = lines.length > 1 ? (lines[lines.length - 1].top - lines[0].top) / (lines.length - 1) : lines[0].bottom - lines[0].top;
+      emit('progress', {
+        element: el, t: fix.t, paragraphDwellMs: Math.round(st.totalDwell), expectedParagraphMs: Math.round(e.para),
+        progress: +((st.prog + 1) / lines.length).toFixed(3), lineCount: lines.length, coarse: S.sy > 0.6 * pitch,
+        baselineWpm: S.baseline ? Math.round(S.baseline.wpm) : null, readerWpm: Math.round(S.wpm), tau: +tau().toFixed(2),
+      });
+    }
     const changed = !S.cur || S.cur.el !== el || S.cur.line !== L;
     S.cur = { el, line: L, conf: r.conf };
     if (changed) emit('line', getCurrentLine());
@@ -576,7 +588,8 @@
     const coarse = S.sy > 0.6 * pitch;
     let reason = d.reason, severity = d.severity;
     if (coarse) {
-      const slow = st.triggers === 0 && st.totalDwell > Math.max(4000, T * exp.para);   // once per visit
+      // Up to three signs per visit, each needing clearly more time than the one before.
+      const slow = st.triggers < 3 && st.totalDwell > Math.max(4000, T * exp.para * (1 + 0.4 * st.triggers));
       reason = slow ? 'slow-paragraph' : null;
       severity = Math.min(1, st.totalDwell / (2.5 * T * Math.max(exp.para, 1)));
     } else if (reason === 'stuck-line' && conf < 0.5) {

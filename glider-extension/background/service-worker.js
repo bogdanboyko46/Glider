@@ -21,6 +21,8 @@ const CONTENT_JS = [
   'gaze/gaze-reader.js',
   'assessment/session-logger.js',
   'simplify/simplifier.js',
+  'simplify/textscore.js',
+  'simplify/gate.js',
   'simplify/bridge.js',
   'gaze/gaze-lab.js',
   'content/content.js',
