@@ -646,9 +646,9 @@
 .ll-say-btn[hidden] { display: none; }
 .ll-word { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
 
-.ll-pairs { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.ll-say + .ll-pairs { margin-top: 10px; padding-top: 8px; border-top: var(--divider); }
-.ll-pair { display: grid; grid-template-columns: 26px 1fr; align-items: center; column-gap: 9px; padding: 5px 8px 5px 5px; border-radius: var(--radius-ctl); }
+.ll-pairs { display: grid; gap: 6px; margin: 12px 0 2px; padding: 10px 0 0; list-style: none; border-top: var(--divider); }
+.ll-tip > .ll-pairs:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.ll-pair { display: grid; grid-template-columns: 26px 1fr; align-items: center; column-gap: 9px; padding: 7px 10px 7px 7px; border-radius: var(--radius-ctl); }
 .ll-pair[data-current="true"] { background: var(--well); box-shadow: inset 0 0 0 var(--bw) var(--line); }
 .ll-emoji { font-size: 19px; line-height: 1; text-align: center; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
 .ll-pair-word { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
