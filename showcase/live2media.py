@@ -40,7 +40,8 @@ def chrome_bar(width, url, title):
     bar = Image.new('RGB', (width, BAR), '#dee3ea')
     d = ImageDraw.Draw(bar)
     # tab strip
-    d.ellipse((14, 14, 24, 24), fill='#ff5f57'); d.ellipse((30, 14, 40, 24), fill='#febc2e'); d.ellipse((46, 14, 56, 24), fill='#28c840')
+    for x0 in (14, 30, 46):   # window buttons in plain grey, as on the deck's other windows
+        d.ellipse((x0, 14, x0 + 10, 24), fill='#bcc1c7')
     d.rounded_rectangle((70, 6, 330, 40), radius=9, fill='#ffffff')
     d.rectangle((70, 30, 330, 40), fill='#ffffff')
     d.rounded_rectangle((82, 14, 98, 30), radius=3, fill='#f3f3f3', outline='#c8c8c8')
