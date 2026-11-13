@@ -91,10 +91,10 @@
         word-spacing: .12em !important;
         text-align: left !important;
         hyphens: manual !important;
-        background: #fff6d6 !important;
+        background: #e9f0e4 !important;
         color: #1d241f !important;
         border-radius: 6px !important;
-        box-shadow: 0 0 0 10px #fff6d6, -14px 0 0 0 #2f6b4a !important;
+        box-shadow: 0 0 0 10px #e9f0e4, -14px 0 0 0 #2f6b4a !important;   /* flat: the spread is padding in the same tint, plus the bar */
         margin-top: 34px !important;
         margin-bottom: 26px !important;
         animation: glider-simple-in .5s ease both;

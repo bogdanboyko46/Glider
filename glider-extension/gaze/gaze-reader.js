@@ -48,6 +48,7 @@
     baselineText: null,     // override the reading-pace passage
     featureCount: 25,       // regression inputs: eye features + eye-look blendshapes. The raw head matrix and head
                             // position (25-43) barely vary in a keep-still calibration and wreck it after a small shift.
+    markWholeBlock: false,  // mark the whole paragraph the reader is stuck in, not just the line
     clickRefine: true,      // clicks add calibration samples (the lab turns this off to keep runs comparable)
     widget: true,           // false hides the camera widget and toasts (the camera keeps running)
   };
@@ -196,8 +197,8 @@
     .card .big + .meter { margin-top: -2px; }
 
     /* help on the page: the line being read, and the read-aloud pill */
-    .hl { position: fixed; border-radius: 8px; background: rgba(244, 223, 166, .5); pointer-events: none;
-          box-shadow: 0 0 0 2px rgba(214, 178, 84, .55); transition: top .1s, left .1s, width .1s; }
+    .hl { position: fixed; border-radius: 3px; background: rgba(47, 107, 74, .12); pointer-events: none;
+          border-left: 4px solid #2f6b4a; transition: top .1s, left .1s, width .1s; }
     .pill { position: fixed; display: flex; gap: 6px; pointer-events: auto; }
     .pill button { all: unset; cursor: pointer; padding: 6px 13px; border-radius: 999px; background: #2f6b4a; color: #fff;
                    font-size: 13.5px; font-weight: 700; box-shadow: 0 8px 18px -8px rgba(32, 53, 42, .5); }
@@ -755,10 +756,11 @@
     const pill = document.createElement('div');
     pill.className = 'pill';
     const read = document.createElement('button');
-    read.textContent = d.coarse ? 'Read this part aloud' : 'Read line aloud';
+    const whole = !!opts.markWholeBlock;
+    read.textContent = whole || d.coarse ? 'Read this part aloud' : 'Read line aloud';
     read.onclick = () => {
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(d.lineText || d.paragraphText);
+      const u = new SpeechSynthesisUtterance((whole ? d.paragraphText : d.lineText) || d.paragraphText);
       u.rate = 0.9;
       speechSynthesis.speak(u);
     };
@@ -766,7 +768,7 @@
     // In managed mode the host extension owns every change to the page's text.
     if (d.reason !== 'stuck-line' && !opts.managed) { d.element.classList.add('gr-assist'); S.assisted.add(d.element); }
     $('hlayer').append(hl, pill);
-    S.highlights.push({ el: d.element, idx: d.lineIndex, span: d.lineSpan || 0, until: performance.now() + 7000, hl, pill });
+    S.highlights.push({ el: d.element, idx: d.lineIndex, span: whole ? 999 : d.lineSpan || 0, until: performance.now() + 7000, hl, pill });
   }
 
   // --------------------------------------------------------- render loop

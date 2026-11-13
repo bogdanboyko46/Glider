@@ -1187,6 +1187,26 @@
 .ll[data-skin="sage"] .ll-dock[data-open="true"] .ll-panel > * { animation: ll-fade-in .2s ease .14s backwards; }
 .ll[data-skin="sage"] .ll-dock[data-open="false"] .ll-panel > * { opacity: 0; transition: opacity .08s ease; }
 
+/* Edge mark: the collapsed dock is the logo itself, five bare strokes flush on
+   the side of the screen. No box, no label, no switch: pressing it opens the
+   panel. When the lens is off the strokes draw back and the accent goes grey. */
+.ll[data-skin="sage"] .ll-pill { height: auto; padding: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.ll[data-skin="sage"] .ll-dock[data-h="r"]:not([data-dragging="true"]) .ll-pill { right: calc(-1 * var(--dock-x, 20px)); }
+.ll[data-skin="sage"] .ll-dock[data-h="l"]:not([data-dragging="true"]) .ll-pill { left: calc(-1 * var(--dock-x, 20px)); }
+.ll[data-skin="sage"] .ll-dock[data-dragging="true"] .ll-pill { scale: 1.08; box-shadow: none; }
+.ll[data-skin="sage"] .ll-pill-main { display: block; height: auto; padding: 10px 0 10px 14px; border-radius: 10px 0 0 10px; cursor: pointer; }
+.ll[data-skin="sage"] .ll-dock[data-h="l"] .ll-pill-main { padding: 10px 14px 10px 0; border-radius: 0 10px 10px 0; }
+.ll-strokes { display: grid; gap: 4px; justify-items: end; opacity: .78; translate: 5px 0; transition: opacity .16s ease, translate .2s var(--ease);
+  filter: drop-shadow(0 0 1.2px rgba(255, 255, 255, .9)) drop-shadow(0 0 1.2px rgba(255, 255, 255, .9)); }
+.ll-dock[data-h="l"] .ll-strokes { justify-items: start; translate: -5px 0; }
+.ll-pill:hover .ll-strokes, .ll-pill-main:focus-visible .ll-strokes { opacity: 1; translate: 0 0; }
+.ll-strokes i { display: block; height: 5px; width: 12px; border-radius: 2.5px; background: var(--ink); opacity: .5; transform-origin: right center; transition: transform .22s var(--ease), background-color .15s ease, opacity .15s ease; }
+.ll-dock[data-h="l"] .ll-strokes i { transform-origin: left center; }
+.ll-strokes i:nth-child(2), .ll-strokes i:nth-child(4) { width: 22px; }
+.ll-strokes i:nth-child(3) { width: 34px; background: var(--accent); opacity: 1; }
+.ll-pill[data-on="false"] .ll-strokes i { transform: scaleX(.5); }
+.ll-pill[data-on="false"] .ll-strokes i:nth-child(3) { background: var(--ink); opacity: .5; }
+
 /* Dragging the pill: it lifts while it is held. */
 .ll[data-skin="sage"] .ll-dock[data-dragging="true"] .ll-pill { scale: 1.05; box-shadow: 0 30px 54px -12px rgba(32, 53, 42, .45); }
 
@@ -1249,10 +1269,9 @@
 <div class="ll" data-skin="sage">
   <div class="ll-dock" data-open="false" data-h="r" data-v="b">
     <div class="ll-pill">
-      <button type="button" class="ll-pill-main" aria-expanded="false" aria-label="${APP_NAME}. Open the panel">
-        <span class="ll-pill-name">${APP_NAME}</span>
+      <button type="button" class="ll-pill-main" aria-expanded="false" aria-label="${APP_NAME}. Open the panel" title="Open ${APP_NAME}">
+        <span class="ll-strokes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
       </button>
-      <button type="button" class="ll-switch" role="switch" aria-checked="false" data-toggle="on" aria-label="Reading lens" title="Turn the reading lens on or off"></button>
     </div>
 
     <section class="ll-panel" role="dialog" aria-label="${APP_NAME}" inert>
@@ -1342,6 +1361,9 @@
           x: Math.max(8, Number(savedDock.x) || 20),
           y: Math.max(8, Number(savedDock.y) || 20),
         };
+      } else {
+        // First run: the edge mark starts a little above the middle of the right side.
+        this.dockPos.y = Math.max(20, Math.round(window.innerHeight * 0.4));
       }
 
       this.bindGaze();
@@ -1649,6 +1671,7 @@
 
       this.$('.ll-status').textContent = s.on ? 'On for every page' : 'Off. Pages are untouched';
       this.pillMain.setAttribute('aria-label', `${APP_NAME}, reading lens ${s.on ? 'on' : 'off'}. Open the panel`);
+      this.pill.dataset.on = String(s.on);
       this.renderGaze();
     }
 
@@ -1680,6 +1703,7 @@
       style.right = h === 'r' ? `${x}px` : 'auto';
       style.top = v === 't' ? `${y}px` : 'auto';
       style.bottom = v === 'b' ? `${y}px` : 'auto';
+      style.setProperty('--dock-x', `${x}px`); // the edge mark cancels this inset
     }
 
     activeBox() {
@@ -2015,6 +2039,10 @@
     /** Give one block a little more room. `lineRect` is the line being read. */
     easeBlock(el, lineRect) {
       if (this.gazeEased.has(el) || this.gazeNoEase.has(el)) return;
+      // Simplify may have swapped this block for a stand-in in the same struggle:
+      // the original is hidden then, and there is nothing here to space out.
+      const gone = () => el.hasAttribute('data-glider-hidden') || !el.getClientRects().length;
+      if (gone()) return;
       const anchor = this.lineAnchor(el, lineRect);
       const before = el.getAttribute('class');
       el.classList.add('glider-ease');
@@ -2029,6 +2057,7 @@
       let t0 = top();
       const settle = () => {
         if (this.dead || !this.gazeEased.has(el)) return;
+        if (gone()) { this.uneaseBlock(el); return; }
         const delta = top() - t0;
         if (Number.isFinite(delta) && Math.abs(delta) >= 1 && Math.abs(delta) < innerHeight) window.scrollBy({ top: delta, behavior: 'instant' });
         this.showEaseChip(el);
