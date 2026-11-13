@@ -25,6 +25,10 @@ Switching it on (the pill, the panel or the toolbar popup) applies all of this t
 | Bionic cadence | Bolds the start of each word (1 letter for short words, 2 for 4 to 5 letters, about 40% beyond) and adds a small pause after commas, semicolons and periods |
 | Hover lens | Hover a word of 6+ letters to see it broken into chunks, each with the sound it makes written underneath (the stressed chunk in bold). Tap a chunk to hear just that sound, **Hear word** for the whole word, or **Sound it out** to hear each chunk in turn, lit up as it is said, then the whole word. Double-click keeps it open |
 | Look-alike words | Commonly confused words get a dotted underline; hovering shows a short meaning for each word in the group (177 groups, 380 words) |
+| Reading difficulty | The lens says how hard the word is to **read**: **Easy**, **Medium** or **Hard**, and for Medium and Hard words why (for example *4 syllables · one part is not said*). It weighs length, how common the word is, spellings that do not match the sound (silent letters, "ough", "ph", a written part that is not said, as in *vegetable*) and look-alike words. Next to it a small tag gives the word's CEFR level (**A1** most common to **C2** rarest), which says how common the word is, not how hard it is to decode. **Word difficulty** on the Glider page turns both off |
+| Meaning | **Meaning** in the lens opens the word's definition (up to two senses, with an example) from WordNet, offline. *Show the meaning straight away* opens it with the lens. With an Anthropic key saved (see Simplify), **Explain simply** asks Claude for the meaning in this sentence in plain words; only the word and its sentence are sent |
+| Word parts | Prefixes, roots and suffixes get a small badge over the syllable chips they cover (*care* BASE, *ful* SUFFIX, *ly* SUFFIX). When the parts do not line up with the syllables (*per·spec·tive* is per + spect + ive), a **Word parts** row shows them instead. Press a badge to see what the part means (*-ful: full of*); a base word shows its dictionary meaning |
+| Save a word | The bookmark in the corner of the hover lens saves the word to **Your words** on the Glider page, with its reading difficulty, level, meaning, parts, syllables, sounds, the sentence it was in and the page it came from. Press it again to remove it |
 
 Switching it off puts the page back exactly as it was, with no reload.
 
@@ -32,7 +36,27 @@ The panel also has fine-tuning for the lens: four sliders (size 100 to 160%, let
 
 Shortcuts: `Alt L` open or minimise the dock, `Esc` minimise. It can be changed at `chrome://extensions/shortcuts`.
 
-Settings and the dock position are saved in `chrome.storage.local` and follow you across tabs and reloads.
+**Tuck it into the side.** The panel's side button (next to minimise) turns the floating pill into a slim tab on the screen edge that stays faded until you hover it; a dot on it shows whether the lens is on. Click the tab to open the panel from the edge, drag it up or down, or across the middle to the other edge. The same button, or *Style* on the Glider page, floats it again in its old corner.
+
+Settings, saved words and the dock position are saved in `chrome.storage.local` and follow you across tabs and reloads.
+
+## The Glider page
+
+The grid button in the dock's header, **Your words and settings** in the toolbar popup, or the extension's *Options* opens one Glider page with four parts:
+
+- **Analytics**: saved words counted by reading difficulty and by how common they are, your Reading Check results, and a placeholder for reading speed by word level, which will come once eye-tracking calibration is finished. Nothing new is tracked yet.
+- **Your words**: every saved word with its reading difficulty, level, meaning, word parts, syllables, sounds and the sentence it came from, with a link back to the page. Search, filter by reading difficulty or level, sort (easiest or hardest to read first), hear a word, or remove it (with undo).
+- **Settings**: the dock's settings plus *Word difficulty*, *Show the meaning straight away*, *Word parts*, the dock *Style* (floating or tucked into the side), eye tracking, a link to Simplify, and deleting saved words or resetting settings.
+- **Account**: a preview of the sign-in and create-account screens. Accounts are not switched on: nothing typed there is kept or sent, and the screen says so.
+
+Open `home/home.html?demo` from a local server (outside the extension) to see it filled with sample words and Reading Checks.
+
+How the word data is built (all offline, in `data/`, each with its licence notice):
+
+- **Reading difficulty** is worked out in the lens by `content/readingDifficulty.js` (weights in that file are a first estimate, to be tuned against reading time once eye tracking is calibrated).
+- **Meanings**: `data/dictionary.txt` (3.9 MB, about 31,000 words and 1,900 irregular forms such as *went → go*), built from Princeton WordNet 3.1 by `tools/make-dictionary.js`; `data/LICENSE-wordnet.txt`.
+- **Word parts**: `content/wordParts.js` is Glider's own list of about 200 common prefixes, roots and suffixes with plain meanings. `tools/make-wordparts.js` splits the word lists with it into `data/wordparts.txt` (about 7,500 words), using WordNet's word classes and its links between related words, and only accepts a split it can trust: a prefix needs a real word of the right kind after it (*re* + a verb), a short suffix needs the dictionary to link the two words (*teach → teacher*), and roots count only when known parts cover the whole word. So *uncle*, *relate* and *number* are left alone.
+- **CEFR levels** come from the CEFR-J Wordlist 1.5 (A1 to B2, Tono Laboratory, TUFS) and the Octanove Vocabulary Profile C1/C2 (Octanove Labs, CC BY-SA 4.0), merged into `data/levels.txt` by `tools/make-levels.js`; `data/LICENSE-levels.txt` has the attribution and terms for that file.
 
 ## Eye tracking (optional, off by default)
 
@@ -90,6 +114,8 @@ Use a long Wikipedia article (for example *Epistemology*) or `demo/sample-assign
 
 - [ ] The page loads with the lens on: spaced, left-aligned text, bold word starts.
 - [ ] Hover a long word: each chunk shows its sound underneath. Tap a chunk, press Hear word, then Sound it out, and listen. Hover a dotted-underlined word (their, affect, principal): the meanings appear.
+- [ ] Hover *accumulate*: the lens shows **Medium to read**, *4 syllables · a less common word (B2)*, and a **B2** tag. Press Meaning: *get or gather together*. Hover *carefully*: BASE, SUFFIX, SUFFIX badges; press SUFFIX over *ful*: *full of*. Press the bookmark, then open the Glider page from the dock's grid button: the word is under Your words with its sentence.
+- [ ] In the panel press the side button: the dock becomes a slim tab on the edge. Click it, drag it, then float it again from the Glider page's Settings.
 - [ ] Flip the switch on the pill: everything returns exactly as it was. Flip it back.
 - [ ] Drag the pill to another corner; click it and the panel opens inward from that corner.
 - [ ] In the panel: move the four sliders (Size enlarges body text without sideways scrolling), turn on Colour b d p q.
@@ -106,6 +132,12 @@ node tests/e2e.mjs      # 65 behaviour checks on the demo page (headless Chrome)
 node tests/live.mjs     # loads the unpacked extension in Edge and runs it on Wikipedia
 node tests/shots.mjs    # screenshots of the pill, panel and hover lens 
 node tests/popup-shots.mjs     # screenshots of the popup
+node tests/words.mjs    # word levels in the lens, saving words, the dock tucked into the edge (headless Chrome)
+node tests/extension-pages.mjs # the real extension in Edge: levels from the service worker, saved words on the Glider page
+node tests/levels.test.js      # word level list and lookup (plurals, -ed, -ing)
+node tests/difficulty.test.js  # reading difficulty on real words (vegetable, laud, photosynthesis ...)
+node tests/wordparts.test.js   # prefix/root/suffix rules and the bundled split list
+node tests/worddata.test.js    # definitions and word parts looked up from the bundled lists
 node tests/syllables.test.js   # syllable splitter accuracy on 345 words
 node tests/gaze-core.test.js   # gaze maths, baseline and tau
 node tests/gaze.mjs     # simulated camera: calibration, reading-pace baseline, planted struggles
@@ -115,6 +147,9 @@ node tests/analytics.test.js   # Reading Check metrics on simulated sessions wit
 node tests/assessment.mjs      # Reading Check dashboard in headless Chrome (demo and degraded data)
 node tests/assessment-live.mjs # the whole Reading Check with a simulated reader and fake camera
 node tools/make-demo-session.js  # regenerate assessment/demo-session.json
+node tools/make-levels.js <cefrj.csv> <octanove.csv>  # rebuild data/levels.txt from the two CSVs in openlanguageprofiles/olp-en-cefrj
+node tools/make-dictionary.js <wordnet dict/>        # rebuild data/dictionary.txt from WordNet 3.1 (wn3.1.dict.tar.gz)
+node tools/make-wordparts.js <wordnet dict/>         # rebuild data/wordparts.txt (run after the dictionary)
 ```
 
 ## Layout
@@ -123,8 +158,13 @@ node tools/make-demo-session.js  # regenerate assessment/demo-session.json
 glider-extension/
   manifest.json
   popup/           toolbar popup: lens switch, dock visibility
+  home/            the Glider page (also the options page): analytics, your words, settings, account preview
   content/
-    content.js       orchestrator, Shadow DOM dock, settings and storage sync
+    content.js       orchestrator, Shadow DOM dock, settings and storage sync, saved words
+    wordLevels.js    CEFR level lookup (shared with the service worker, the Glider page and the tests)
+    readingDifficulty.js  Easy / Medium / Hard to read, with reasons
+    wordParts.js     the prefix/root/suffix list and the careful splitter (used at build time)
+    wordData.js      definition and word-part lookups in the bundled lists
     domEngine.js     safe TreeWalker tokeniser, original-text cache, bionic, b/d/p/q, look-alike marking
     syllableParser.js  rule-based English syllable splitter
     homophones.js    confusion groups with icons and five-word meanings
@@ -135,10 +175,13 @@ glider-extension/
     frame.html/js    camera iframe running MediaPipe Face Landmarker (vendor/)
     permission.html  one-time camera permission page
   background/
-    service-worker.js  shortcut command; answers pronunciation lookups; injects into already-open tabs on install
+    service-worker.js  shortcut command; answers pronunciation, word level, meaning and word part lookups; opens the Glider page; injects into already-open tabs on install
   data/
     pronounce.txt    the sound of each chunk for about 94,700 words, built from the CMU Pronouncing Dictionary
     sounds.txt       for sounds that speech voices misread, a spelling they say correctly
+    levels.txt       CEFR level (A1 to C2) of 8,681 words, from CEFR-J and Octanove (see LICENSE-levels.txt)
+    dictionary.txt   definitions from WordNet 3.1 (see LICENSE-wordnet.txt)
+    wordparts.txt    prefixes, roots and suffixes of about 7,500 words
   fonts/           Lexend, Atkinson Hyperlegible, Instrument Serif, JetBrains Mono (SIL OFL)
 demo/              sample LMS-style assignment page
 tests/             dependency-free Chrome DevTools Protocol tests

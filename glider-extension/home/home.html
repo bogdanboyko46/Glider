@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glider</title>
+  <link rel="stylesheet" href="../assessment/assessment.css">
+  <link rel="stylesheet" href="home.css">
+</head>
+<body>
+  <div class="gh">
+    <aside class="gh-side">
+      <div class="gh-brand">
+        <span class="gh-logo" aria-hidden="true"></span>
+        <span class="gh-name">Glider</span>
+      </div>
+      <nav class="gh-nav" aria-label="Glider page">
+        <a href="#analytics" data-nav="analytics">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          <span>Analytics</span>
+        </a>
+        <a href="#words" data-nav="words">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>
+          <span>Your words</span>
+          <span class="gh-count" id="nav-count" hidden></span>
+        </a>
+        <a href="#settings" data-nav="settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>
+          <span>Settings</span>
+        </a>
+        <a href="#account" data-nav="account">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg>
+          <span>Account</span>
+        </a>
+      </nav>
+      <p class="gh-side-note">Everything stays on this device.</p>
+    </aside>
+
+    <main class="gh-main" id="main" tabindex="-1">
+
+      <!-- ===================================================== Analytics -->
+      <section class="gh-view" data-view="analytics" aria-labelledby="h-analytics" hidden>
+        <header class="gh-head">
+          <h1 id="h-analytics">Analytics</h1>
+          <p class="gh-lead">What you have saved and how your Reading Checks went. Tracking reading speed against word level comes later, once eye-tracking calibration is finished.</p>
+        </header>
+
+        <div class="gh-tiles" id="tiles"></div>
+
+        <div class="gh-grid">
+          <section class="rc-card gh-card" aria-labelledby="h-bands">
+            <div class="gh-card-head">
+              <h2 id="h-bands">Saved words by reading difficulty</h2>
+              <button type="button" class="gh-link" data-go="words">See your words</button>
+            </div>
+            <div id="band-bars"></div>
+            <p class="gh-fine">How hard a word is to read: its length, how common it is, and spellings that do not match the sound (silent letters, “ough”, a part that is not said).</p>
+          </section>
+
+          <section class="rc-card gh-card" aria-labelledby="h-levels">
+            <div class="gh-card-head">
+              <h2 id="h-levels">Saved words by how common they are</h2>
+            </div>
+            <div id="level-bars"></div>
+            <p class="gh-fine">CEFR levels, from A1 (one of the first words people learn) to C2 (rare or specialist), from the CEFR-J Wordlist and the Octanove Vocabulary Profile. They say how common a word is, not how hard it is to read.</p>
+          </section>
+
+          <section class="rc-card gh-card" aria-labelledby="h-checks">
+            <div class="gh-card-head">
+              <h2 id="h-checks">Reading Checks</h2>
+            </div>
+            <div id="checks"></div>
+            <div class="gh-actions">
+              <button type="button" class="rc-btn rc-btn--primary" data-open="assessment/assessment.html">Take a Reading Check</button>
+              <button type="button" class="rc-btn" data-open="assessment/assessment.html?last=1" id="open-last" hidden>Open the last result</button>
+            </div>
+          </section>
+        </div>
+
+        <section class="rc-card gh-card gh-soon" aria-labelledby="h-soon">
+          <span class="rc-chip">Coming next</span>
+          <h2 id="h-soon">Reading speed by word level</h2>
+          <p>With eye tracking calibrated, Glider will chart your pace on text of each level over time, so you can see where reading is getting easier. Nothing is tracked yet.</p>
+        </section>
+      </section>
+
+      <!-- ===================================================== Your words -->
+      <section class="gh-view" data-view="words" aria-labelledby="h-words" hidden>
+        <header class="gh-head">
+          <h1 id="h-words">Your words</h1>
+          <p class="gh-lead" id="words-lead">Words you saved from the hover lens, with their level and the sentence you met them in.</p>
+        </header>
+
+        <div class="gh-toolbar" id="words-tools">
+          <label class="gh-search">
+            <span class="rc-visually-hidden">Search your words</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+            <input type="search" id="search" placeholder="Search your words" autocomplete="off" spellcheck="false">
+          </label>
+          <div class="gh-filters" role="group" aria-label="Show words of level" id="filters"></div>
+          <label class="gh-sort">
+            <span>Sort</span>
+            <select id="sort">
+              <option value="new">Newest first</option>
+              <option value="old">Oldest first</option>
+              <option value="az">A to Z</option>
+              <option value="easy">Easiest first</option>
+              <option value="hard">Hardest first</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="gh-results" id="results" role="status"></p>
+        <ul class="gh-words" id="words"></ul>
+
+        <div class="gh-empty" id="words-empty" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>
+          <h2>No saved words yet</h2>
+          <p>On any page, hover a long word to open the lens, then press the bookmark in its corner. The word lands here with its level and the sentence it came from.</p>
+        </div>
+      </section>
+
+      <!-- ===================================================== Settings -->
+      <section class="gh-view" data-view="settings" aria-labelledby="h-settings" hidden>
+        <header class="gh-head">
+          <h1 id="h-settings">Settings</h1>
+          <p class="gh-lead">The same settings as the dock on each page. Changes apply to every open tab straight away.</p>
+        </header>
+
+        <section class="rc-card gh-card gh-set" aria-labelledby="s-lens">
+          <h2 id="s-lens">Reading lens</h2>
+          <div class="gh-row gh-row--lead">
+            <span><b>Reading lens</b><small>Spacing, bold word starts and the hover lens, on every page</small></span>
+            <button type="button" class="gh-switch" role="switch" data-key="on" aria-label="Reading lens"></button>
+          </div>
+          <div class="gh-lens-tuning" id="lens-tuning">
+            <div class="gh-sliders">
+              <label for="r-fontSize">Size</label><input type="range" id="r-fontSize" data-range="fontSize" min="100" max="160" step="10"><output for="r-fontSize" data-out="fontSize"></output>
+              <label for="r-letterSpacing">Letters</label><input type="range" id="r-letterSpacing" data-range="letterSpacing" min="0" max="4" step="0.5"><output for="r-letterSpacing" data-out="letterSpacing"></output>
+              <label for="r-wordSpacing">Words</label><input type="range" id="r-wordSpacing" data-range="wordSpacing" min="0" max="10" step="1"><output for="r-wordSpacing" data-out="wordSpacing"></output>
+              <label for="r-lineHeight">Lines</label><input type="range" id="r-lineHeight" data-range="lineHeight" min="1.4" max="2.4" step="0.1"><output for="r-lineHeight" data-out="lineHeight"></output>
+            </div>
+            <div class="gh-row">
+              <span><b id="n-levels">Word difficulty</b><small id="d-levels">Easy, Medium or Hard to read, with why, and how common the word is (A1 to C2)</small></span>
+              <button type="button" class="gh-switch" role="switch" data-key="showLevels" aria-labelledby="n-levels" aria-describedby="d-levels"></button>
+            </div>
+            <div class="gh-row">
+              <span><b id="n-defs">Show the meaning straight away</b><small id="d-defs">Open the definition in the lens without pressing Meaning</small></span>
+              <button type="button" class="gh-switch" role="switch" data-key="showDefinitions" aria-labelledby="n-defs" aria-describedby="d-defs"></button>
+            </div>
+            <div class="gh-row">
+              <span><b id="n-parts">Word parts</b><small id="d-parts">Mark prefixes, roots and suffixes; press one to see what it means</small></span>
+              <button type="button" class="gh-switch" role="switch" data-key="showWordParts" aria-labelledby="n-parts" aria-describedby="d-parts"></button>
+            </div>
+            <div class="gh-row">
+              <span><b id="n-mirror">Colour b d p q</b><small id="d-mirror">Tell mirrored letters apart</small></span>
+              <button type="button" class="gh-switch" role="switch" data-key="mirror" aria-labelledby="n-mirror" aria-describedby="d-mirror"></button>
+            </div>
+            <div class="gh-row">
+              <span><b id="n-font">Hyperlegible font</b><small id="d-font">Atkinson Hyperlegible for body text</small></span>
+              <button type="button" class="gh-switch" role="switch" data-key="font" aria-labelledby="n-font" aria-describedby="d-font"></button>
+            </div>
+          </div>
+        </section>
+
+        <section class="rc-card gh-card gh-set" aria-labelledby="s-dock">
+          <h2 id="s-dock">The dock</h2>
+          <div class="gh-row">
+            <span><b id="n-dock">Show the dock on pages</b><small id="d-dock">When it is hidden, Alt L brings it back</small></span>
+            <button type="button" class="gh-switch" role="switch" data-key="dockVisible" aria-labelledby="n-dock" aria-describedby="d-dock"></button>
+          </div>
+          <div class="gh-choice" role="radiogroup" aria-labelledby="n-mode">
+            <span class="gh-choice-label" id="n-mode"><b>Style</b><small>Tuck it away when it gets in the way of reading</small></span>
+            <button type="button" class="gh-option" role="radio" data-mode="float" aria-checked="false">
+              <span class="gh-option-art gh-option-art--float" aria-hidden="true"><i></i></span>
+              <span><b>Floating</b><small>A small pill in a corner</small></span>
+            </button>
+            <button type="button" class="gh-option" role="radio" data-mode="edge" aria-checked="false">
+              <span class="gh-option-art gh-option-art--edge" aria-hidden="true"><i></i></span>
+              <span><b>Tucked into the side</b><small>A slim tab on the screen edge</small></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="rc-card gh-card gh-set" aria-labelledby="s-gaze">
+          <h2 id="s-gaze">Eye tracking</h2>
+          <div class="gh-row">
+            <span><b id="n-gaze">Eye tracking</b><small id="d-gaze">Uses the webcam to notice a hard line and help. Calibrate from the dock on a page</small></span>
+            <button type="button" class="gh-switch" role="switch" data-key="gaze" aria-labelledby="n-gaze" aria-describedby="d-gaze"></button>
+          </div>
+          <div class="gh-sliders">
+            <label for="r-gazeSensitivity">Help</label><input type="range" id="r-gazeSensitivity" data-range="gazeSensitivity" min="1" max="5" step="1"><output for="r-gazeSensitivity" data-out="gazeSensitivity"></output>
+          </div>
+          <div class="gh-row">
+            <span><b>Simplify hard text</b><small>Swap a paragraph you are stuck on for a simpler one</small></span>
+            <button type="button" class="rc-btn" data-open="simplify/options.html">Open</button>
+          </div>
+        </section>
+
+        <section class="rc-card gh-card gh-set" aria-labelledby="s-data">
+          <h2 id="s-data">Your data</h2>
+          <div class="gh-row">
+            <span><b>Saved words</b><small id="data-words">Kept on this device only</small></span>
+            <button type="button" class="rc-btn rc-btn--danger" data-confirm="clear-words">Delete all</button>
+          </div>
+          <div class="gh-row">
+            <span><b>Settings</b><small>Put every setting back to how Glider started</small></span>
+            <button type="button" class="rc-btn" data-confirm="reset-settings">Reset</button>
+          </div>
+        </section>
+      </section>
+
+      <!-- ===================================================== Account -->
+      <section class="gh-view" data-view="account" aria-labelledby="h-account" hidden>
+        <header class="gh-head">
+          <h1 id="h-account">Account</h1>
+          <p class="gh-lead">Sign in to keep your words and settings on every device.</p>
+        </header>
+
+        <div class="gh-preview" role="note">
+          <b>Preview.</b> Accounts are not switched on yet. Nothing you type here is saved or sent anywhere, and Glider keeps your words and settings on this device.
+        </div>
+
+        <section class="rc-card gh-card gh-auth">
+          <div class="gh-auth-tabs" role="tablist" aria-label="Account">
+            <button type="button" role="tab" id="t-in" aria-controls="auth-form" aria-selected="true" data-auth="in">Sign in</button>
+            <button type="button" role="tab" id="t-up" aria-controls="auth-form" aria-selected="false" data-auth="up">Create account</button>
+          </div>
+          <form id="auth-form" role="tabpanel" aria-labelledby="t-in" novalidate>
+            <label class="gh-field" data-only="up" hidden>
+              <span>Name</span>
+              <input type="text" name="name" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="gh-field">
+              <span>Email</span>
+              <input type="email" name="email" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="gh-field">
+              <span>Password</span>
+              <input type="password" name="password" autocomplete="off">
+            </label>
+            <button type="submit" class="rc-btn rc-btn--primary gh-auth-submit" id="auth-submit">Sign in</button>
+            <button type="button" class="gh-link" data-only="in">Forgot your password?</button>
+            <p class="gh-auth-status" id="auth-status" role="status"></p>
+          </form>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="gh-toast" id="toast" role="status" aria-live="polite" hidden><span></span><button type="button" id="toast-undo" hidden>Undo</button></div>
+
+  <script src="../content/wordLevels.js"></script>
+  <script src="../content/wordParts.js"></script>
+  <script src="../content/wordData.js"></script>
+  <script src="../content/homophones.js"></script>
+  <script src="../content/readingDifficulty.js"></script>
+  <script src="home.js"></script>
+</body>
+</html>

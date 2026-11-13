@@ -23,6 +23,10 @@
     font: false,
     gaze: false,
     gazeSensitivity: 3,
+    showLevels: true,
+    showDefinitions: false,
+    showWordParts: true,
+    dockMode: 'float',
   });
 
   /* Light normalisation only; the content script does the strict sanitising. */
@@ -30,7 +34,8 @@
     const src = raw && typeof raw === 'object' ? raw : {};
     const s = {};
     for (const key of Object.keys(DEFAULTS)) s[key] = key in src ? src[key] : DEFAULTS[key];
-    for (const key of ['on', 'dockVisible', 'mirror', 'font', 'gaze']) s[key] = !!s[key];
+    for (const key of ['on', 'dockVisible', 'mirror', 'font', 'gaze', 'showLevels', 'showDefinitions', 'showWordParts']) s[key] = !!s[key];
+    if (s.dockMode !== 'edge') s.dockMode = 'float';
     s.skin = DEFAULTS.skin;
     return s;
   }
@@ -132,6 +137,15 @@
       const url = chrome.runtime.getURL(page);
       if (hasTabs && chrome.tabs.create) chrome.tabs.create({ url }); else window.open(url, '_blank');
     } catch (_) { window.open('../' + page, '_blank'); }
+    window.close();
+  });
+
+  /* The Glider page: saved words, analytics, settings and account. The service
+     worker reuses a tab that already shows it. */
+  $('#glider-page').addEventListener('click', async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'glider:open-page', section: '' });
+    } catch (_) { window.open('../home/home.html', '_blank'); }
     window.close();
   });
 

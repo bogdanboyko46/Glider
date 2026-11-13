@@ -15,6 +15,10 @@
 
 const CONTENT_JS = [
   'content/homophones.js',
+  'content/wordLevels.js',
+  'content/wordParts.js',
+  'content/wordData.js',
+  'content/readingDifficulty.js',
   'content/syllableParser.js',
   'content/domEngine.js',
   'gaze/gaze-core.js',
@@ -29,6 +33,10 @@ const CONTENT_CSS = ['content/content.css'];
 
 // Optional Claude rewrite of a hard paragraph; answers 'glider:simplify' messages (only with a saved API key).
 importScripts('/simplify/claude.js');
+// Word levels (CEFR A1..C2), word parts and the dictionary lookups.
+importScripts('/content/wordLevels.js', '/content/wordParts.js', '/content/wordData.js');
+
+const GLIDER_PAGE = 'home/home.html';
 
 const COMMANDS = new Set(['toggle-dock']);
 
@@ -105,6 +113,79 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     })
     .catch(() => sendResponse({ say: null }));
   return true; // answer asynchronously
+});
+
+/* ---- word levels ------------------------------------------------------ */
+
+let levelTable = null;
+
+function loadLevels() {
+  if (!levelTable) {
+    levelTable = fetch(chrome.runtime.getURL('data/levels.txt')).then((r) => r.text()).then((text) => GliderLevels.parse(text))
+      .catch((error) => { levelTable = null; throw error; });
+  }
+  return levelTable;
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!message || message.type !== 'glider:level' || typeof message.word !== 'string') return undefined;
+  loadLevels()
+    .then((table) => sendResponse(GliderLevels.lookup(table, message.word.slice(0, 60))))
+    .catch(() => sendResponse(null));
+  return true; // answer asynchronously
+});
+
+/* ---- definitions and word parts ------------------------------------------
+   data/dictionary.txt (WordNet, ~3.9 MB) loads the first time a definition is
+   asked for; data/wordparts.txt (~290 KB) the first time a word is hovered. */
+
+const lists = {};
+function loadList(file) {
+  if (!lists[file]) {
+    lists[file] = readList(file).then((text) => GliderWordData.prepare(text.slice(1)))
+      .catch((error) => { lists[file] = null; throw error; });
+  }
+  return lists[file];
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!message || typeof message.word !== 'string') return undefined;
+  const word = message.word.slice(0, 60);
+  if (message.type === 'glider:define') {
+    loadList('data/dictionary.txt').then((dict) => sendResponse(GliderWordData.define(dict, word)), () => sendResponse(null));
+    return true;
+  }
+  if (message.type === 'glider:parts') {
+    loadList('data/wordparts.txt').then((table) => sendResponse(GliderWordData.partsOf(table, word)), () => sendResponse(null));
+    return true;
+  }
+  return undefined;
+});
+
+/* ---- the Glider page ---------------------------------------------------- */
+
+/** Open (or bring forward) the Glider page, on one of its sections. */
+async function openGliderPage(section) {
+  const base = chrome.runtime.getURL(GLIDER_PAGE);
+  const url = base + (section ? '#' + encodeURIComponent(section) : '');
+  try {
+    // getContexts sees the extension's own pages without the "tabs" permission.
+    const contexts = await chrome.runtime.getContexts({ contextTypes: ['TAB'] });
+    const open = contexts.find((c) => c.tabId >= 0 && String(c.documentUrl || '').startsWith(base));
+    if (open) {
+      await chrome.tabs.update(open.tabId, { active: true, url });
+      if (open.windowId >= 0) await chrome.windows.update(open.windowId, { focused: true });
+      return;
+    }
+  } catch (_) { /* fall through to a new tab */ }
+  await chrome.tabs.create({ url });
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!message || message.type !== 'glider:open-page') return undefined;
+  const section = typeof message.section === 'string' && /^[a-z-]{1,20}$/.test(message.section) ? message.section : '';
+  openGliderPage(section).then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }));
+  return true;
 });
 
 chrome.runtime.onInstalled.addListener(async (details) => {
