@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" data-duration="4000">
+<head>
+<meta charset="utf-8">
+<title>Glider · s9 close (variation B)</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Closing card, variation B: mirrors the title page, big wordmark with the motto as the line under it. No green line under the text. All motion is CSS keyframes (no JS). */
+  @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Regular.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Bold.woff2") format("woff2"); font-weight: 700; }
+  html, body { margin: 0; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden; position: relative;
+    background: #eef2ea; color: #20352a;
+    font-family: "Atkinson", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  }
+  .glow {
+    position: absolute; left: -180px; top: 60px; width: 900px; height: 600px; border-radius: 50%;
+    background: radial-gradient(closest-side, #ffffff 0%, rgba(255, 255, 255, 0) 100%); opacity: .9;
+  }
+
+  /* the Reach mark, same geometry as the title scene (11px per unit) */
+  .reach { position: absolute; right: 0; top: 162px; width: 330px; height: 396px; }
+  .slot { position: absolute; right: -22px; height: 44px; transform-origin: right center; animation: ripple 700ms cubic-bezier(.4, 0, .2, 1) both; }
+  .slot:nth-child(1) { top: 0;     width: 132px; animation-delay: 2500ms; }
+  .slot:nth-child(2) { top: 88px;  width: 220px; animation-delay: 2600ms; }
+  .slot:nth-child(3) { top: 176px; width: 330px; animation-delay: 2700ms; }
+  .slot:nth-child(4) { top: 264px; width: 220px; animation-delay: 2800ms; }
+  .slot:nth-child(5) { top: 352px; width: 132px; animation-delay: 2900ms; }
+  .stroke { width: 100%; height: 100%; border-radius: 22px; background: #20352a; }
+  .slot:nth-child(3) .stroke { background: #2f6b4a; }
+  @keyframes ripple { 0%, 100% { transform: scaleX(1); } 45% { transform: scaleX(1.14); } }
+
+  .head {
+    position: absolute; left: 120px; top: 206px; margin: 0; white-space: nowrap;
+    font-size: 176px; font-weight: 700; line-height: 1; letter-spacing: -3px;
+    animation: rise 650ms 200ms cubic-bezier(.2, .8, .2, 1) both;
+  }
+  .tag {
+    position: absolute; left: 126px; top: 418px; margin: 0; white-space: nowrap;
+    font-size: 46px; line-height: 1.25; color: #566b5c;
+    animation: rise 650ms 900ms cubic-bezier(.2, .8, .2, 1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="reach" aria-hidden="true">
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+  </div>
+  <h1 class="head">Glider</h1>
+  <p class="tag">Made with dyslexia in mind</p>
+</body>
+</html>

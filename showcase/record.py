@@ -7,8 +7,9 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'out')
-FPS = 15
-SIZE = (960, 540)
+# REC_FPS / REC_W override the defaults, e.g. REC_FPS=25 REC_W=1920 SHOT_SCALE=1.5 for a full-HD recording
+FPS = int(os.environ.get('REC_FPS', 15))
+SIZE = (int(os.environ.get('REC_W', 960)), int(os.environ.get('REC_W', 960)) * 9 // 16)
 
 def record(name):
     src = os.path.join(HERE, name + '.html')

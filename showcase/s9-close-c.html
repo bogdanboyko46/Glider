@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-duration="4000">
+<head>
+<meta charset="utf-8">
+<title>Glider · s9 close (variation C)</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Closing card, variation C: "Read at your pace" stays, the motto sits beside the wordmark. No green line under the text. All motion is CSS keyframes (no JS). */
+  @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Regular.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Atkinson"; src: url("../glider-extension/fonts/AtkinsonHyperlegible-Bold.woff2") format("woff2"); font-weight: 700; }
+  html, body { margin: 0; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden; position: relative;
+    background: #eef2ea; color: #20352a;
+    font-family: "Atkinson", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  }
+  .glow {
+    position: absolute; left: -180px; top: 60px; width: 900px; height: 600px; border-radius: 50%;
+    background: radial-gradient(closest-side, #ffffff 0%, rgba(255, 255, 255, 0) 100%); opacity: .9;
+  }
+
+  /* the Reach mark, same geometry as the title scene (11px per unit) */
+  .reach { position: absolute; right: 0; top: 162px; width: 330px; height: 396px; }
+  .slot { position: absolute; right: -22px; height: 44px; transform-origin: right center; animation: ripple 700ms cubic-bezier(.4, 0, .2, 1) both; }
+  .slot:nth-child(1) { top: 0;     width: 132px; animation-delay: 2500ms; }
+  .slot:nth-child(2) { top: 88px;  width: 220px; animation-delay: 2600ms; }
+  .slot:nth-child(3) { top: 176px; width: 330px; animation-delay: 2700ms; }
+  .slot:nth-child(4) { top: 264px; width: 220px; animation-delay: 2800ms; }
+  .slot:nth-child(5) { top: 352px; width: 132px; animation-delay: 2900ms; }
+  .stroke { width: 100%; height: 100%; border-radius: 22px; background: #20352a; }
+  .slot:nth-child(3) .stroke { background: #2f6b4a; }
+  @keyframes ripple { 0%, 100% { transform: scaleX(1); } 45% { transform: scaleX(1.14); } }
+
+  .head {
+    position: absolute; left: 120px; top: 222px; margin: 0; white-space: nowrap;
+    font-size: 88px; font-weight: 700; line-height: 1.04; letter-spacing: -2px;
+    animation: rise 650ms 200ms cubic-bezier(.2, .8, .2, 1) both;
+  }
+  .sign {
+    position: absolute; left: 126px; top: 400px; display: flex; align-items: center; gap: 18px;
+    animation: rise 650ms 1700ms cubic-bezier(.2, .8, .2, 1) both;
+  }
+  /* small Reach mark beside the wordmark: 1.6px per unit */
+  .mini { display: grid; gap: 6.4px; justify-items: end; width: 46px; }
+  .mini i { display: block; height: 6.4px; border-radius: 3.2px; background: #20352a; width: 16px; }
+  .mini i:nth-child(2), .mini i:nth-child(4) { width: 28.8px; }
+  .mini i:nth-child(3) { width: 44.8px; background: #2f6b4a; }
+  .name { font-size: 54px; font-weight: 700; letter-spacing: -1px; line-height: 1; }
+  .what { font-size: 30px; color: #566b5c; margin-left: 6px; }
+  @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="reach" aria-hidden="true">
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+    <div class="slot"><div class="stroke"></div></div>
+  </div>
+  <h1 class="head">Read at your pace</h1>
+  <div class="sign">
+    <span class="mini" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    <span class="name">Glider</span>
+    <span class="what">Made with dyslexia in mind</span>
+  </div>
+</body>
+</html>

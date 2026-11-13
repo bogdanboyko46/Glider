@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glider</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* The opening slide, recorded from the REAL extension (640 x 360 viewport, captured at 2x).
+     The sentence is an ordinary cramped paragraph. Switching the real lens on restyles it in one step; resting the
+     pointer on "should" opens the real word lens. Then body.end plays the name card (pure CSS, started by the script). */
+  :root { color-scheme: light; }
+  html, body { margin: 0; }
+  body { width: 640px; height: 360px; overflow: hidden; position: relative; background: #eef2ea; color: #20352a; }
+  /* The sentence moves between three states, always by a smooth transition: as written, crowded (body.tight),
+     and the lens's own format (the real extension's rules take over when it switches on). */
+  #s { position: absolute; left: 55px; right: 40px; top: 168px; margin: 0; font: 400 41px/1.3 Georgia, "Times New Roman", serif; letter-spacing: 0; word-spacing: 0; text-align: left; color: #20352a;
+       transition: letter-spacing 1.15s cubic-bezier(.3, 0, .15, 1), word-spacing 1.15s cubic-bezier(.3, 0, .15, 1), line-height 1.15s cubic-bezier(.3, 0, .15, 1), color .9s ease; }
+  body.tight #s { letter-spacing: -2.1px; word-spacing: -5px; line-height: 1; color: #7f8c82; transition-duration: .95s; }
+  html.glider-spacing body #s { color: #20352a; }
+  /* the bold word starts arrive with the spacing, eased in so nothing snaps */
+  #s .glider-fix { animation: inkin .7s ease both; }
+  @keyframes inkin { from { opacity: .35; } }
+  body.end #s { animation: lift .5s ease forwards; }
+  @keyframes lift { to { opacity: 0; transform: translateY(-22px); } }
+  .card { position: absolute; inset: 0; pointer-events: none; }
+  .card h1 { position: absolute; left: 55px; top: 92px; margin: 0; font: 700 100px/1 "Lexend", sans-serif; letter-spacing: -.035em; opacity: 0; }
+  .card .motto { position: absolute; left: 59px; top: 214px; margin: 0; font: 400 23px/1.25 "Atkinson", sans-serif; color: #566b5c; opacity: 0; }
+  .card .motto b { color: #20352a; }
+  .mark { position: absolute; right: 0; top: 89px; display: grid; gap: 18px; justify-items: end; }
+  .mark i { display: block; height: 22px; border-radius: 11px; background: #20352a; transform-origin: right center; transform: scaleX(0); }
+  .mark i:nth-child(1), .mark i:nth-child(5) { width: 65px; } .mark i:nth-child(2), .mark i:nth-child(4) { width: 117px; }
+  .mark i:nth-child(3) { width: 182px; background: #2f6b4a; }
+  body.end .card h1 { animation: rise .7s cubic-bezier(.2, 0, 0, 1) .25s forwards; }
+  body.end .card .motto { animation: rise .6s cubic-bezier(.2, 0, 0, 1) .95s forwards; }
+  body.end .mark i { animation: reach .6s cubic-bezier(.2, 0, 0, 1) forwards; }
+  body.end .mark i:nth-child(1) { animation-delay: .35s; } body.end .mark i:nth-child(2) { animation-delay: .43s; } body.end .mark i:nth-child(3) { animation-delay: .51s; }
+  body.end .mark i:nth-child(4) { animation-delay: .59s; } body.end .mark i:nth-child(5) { animation-delay: .67s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes reach { to { transform: scaleX(1); } }
+</style>
+</head>
+<body>
+<p id="s">Reading should not be this much work.</p>
+<div class="card" data-glider-ignore>
+  <h1>Glider</h1>
+  <div class="motto">Made with <b>dyslexia</b> in mind.</div>
+  <div class="mark"><i></i><i></i><i></i><i></i><i></i></div>
+</div>
+<script>
+  // The real content scripts, lens off to begin with (the recording script hides the edge mark so the slide stays clean),
+  // spacing set toward the top of the app's own sliders so the change reads from the back of a room.
+  try {
+    localStorage.setItem('glider:settings:v2', JSON.stringify({ on: false, dockVisible: true, gaze: false, letterSpacing: 3, wordSpacing: 10, lineHeight: 1.9 }));
+    localStorage.removeItem('glider:dock');
+  } catch (e) {}
+  var base = '../glider-extension/';
+  window.chrome = window.chrome || {};
+  window.chrome.runtime = window.chrome.runtime || { getURL: function (p) { return base + p; } };
+  var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = base + 'content/content.css'; document.head.appendChild(css);
+  var files = ['content/homophones', 'content/wordLevels', 'content/wordParts', 'content/wordData', 'content/readingDifficulty', 'content/syllableParser', 'content/domEngine', 'content/content'];
+  (function next(i) { if (i >= files.length) return; var s = document.createElement('script'); s.src = base + files[i] + '.js'; s.onload = s.onerror = function () { next(i + 1); }; document.body.appendChild(s); })(0);
+</script>
+</body>
+</html>

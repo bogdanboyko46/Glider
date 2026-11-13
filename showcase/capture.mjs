@@ -40,7 +40,7 @@ export async function glide(page, x, y, ms = 500) {
 /** Centre of an element: sel inside the dock's shadow root when shadow is true, else on the page. */
 export const centre = (page, sel, shadow = false) => page.eval(`(() => { const el = ${shadow ? `document.querySelector('#glider-root').shadowRoot.querySelector(${JSON.stringify(sel)})` : `document.querySelector(${JSON.stringify(sel)})`}; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height, left: r.left, top: r.top }; })()`);
 
-export async function capture({ name, url, width = 1280, height = 720, seconds = 7, settle = 1500, before, run }) {
+export async function capture({ name, url, width = 1280, height = 720, seconds = 7, settle = 1500, scale = 1, before, run }) {
   try {
     const n = execSync(`powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \\"Name='chrome.exe' OR Name='msedge.exe'\\" | Where-Object { $_.CommandLine -match 'glider-chrome|lexilens-chrome' } | Measure-Object).Count"`, { encoding: 'utf8' }).trim();
     if (Number(n) > 0) { console.error('BUSY: another test browser is running; wait a few seconds and retry.'); process.exit(3); }
@@ -64,7 +64,7 @@ export async function capture({ name, url, width = 1280, height = 720, seconds =
     while (!done || Date.now() - t0 < seconds * 1000) {
       const t = Date.now() - t0;
       if (t > seconds * 1000 + 200) break;
-      await page.shot(join(dir, `f${String(i).padStart(4, '0')}.png`));
+      await page.shot(join(dir, `f${String(i).padStart(4, '0')}.png`), scale === 1 ? undefined : { x: 0, y: 0, width, height, scale });   // scale > 1: a small viewport recorded large, so the UI reads big
       times.push(t); i += 1;
     }
     await actor.catch((e) => console.error('run failed:', e.message));

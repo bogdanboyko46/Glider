@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" data-duration="5000">
+<head>
+<meta charset="utf-8">
+<title>Glider title: the statement</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* Title variation 3. Dark, full bleed, one statement in very large type, word by word. The loudest of the set.
+   Timeline (ms): 200 "Built" · 500 "for" · 900 "dyslexic" · 1300 "readers." · 1700 strokes sweep in · 2500 middle stroke brightens · 2900 name · 5000 end */
+body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: relative; background: #1b2d24; color: #f1f5ec; }
+.big { position: absolute; left: 96px; top: 74px; margin: 0; font: 700 150px/1.04 "Lexend", sans-serif; letter-spacing: -.035em; }
+.big span { display: inline-block; animation: up .55s cubic-bezier(.2, 0, 0, 1) both; }
+.big span:nth-child(1) { animation-delay: .2s; } .big span:nth-child(2) { animation-delay: .5s; }
+.big span:nth-child(4) { animation-delay: .9s; color: #a8e3bd; } .big span:nth-child(5) { animation-delay: 1.3s; }
+@keyframes up { from { opacity: 0; transform: translateY(50px); } }
+.mark { position: absolute; right: 0; top: 176px; display: grid; gap: 34px; justify-items: end; }
+.mark i { display: block; height: 40px; border-radius: 20px; background: #f1f5ec; opacity: .28; transform-origin: right center; animation: reach .6s cubic-bezier(.2, 0, 0, 1) both; }
+.mark i:nth-child(1) { width: 110px; animation-delay: 1.7s; } .mark i:nth-child(2) { width: 198px; animation-delay: 1.78s; }
+.mark i:nth-child(3) { width: 308px; animation: reach .6s cubic-bezier(.2, 0, 0, 1) 1.86s both, bright .4s ease 2.5s forwards; }
+.mark i:nth-child(4) { width: 198px; animation-delay: 1.94s; } .mark i:nth-child(5) { width: 110px; animation-delay: 2.02s; }
+@keyframes reach { from { transform: scaleX(0); } }
+@keyframes bright { to { background: #a8e3bd; opacity: 1; } }
+.name { position: absolute; left: 104px; top: 612px; margin: 0; display: flex; align-items: baseline; gap: 20px; font: 700 52px/1 "Lexend", sans-serif; letter-spacing: -.02em; animation: up .6s cubic-bezier(.2, 0, 0, 1) 2.9s both; }
+.name small { font: 400 28px/1 "Atkinson", sans-serif; letter-spacing: 0; color: #b9c9bd; }
+</style>
+</head>
+<body>
+<p class="big"><span>Built</span> <span>for</span><br><span>dyslexic</span><br><span>readers.</span></p>
+<div class="mark"><i></i><i></i><i></i><i></i><i></i></div>
+<p class="name">Glider <small>a reading lens for the web</small></p>
+</body>
+</html>

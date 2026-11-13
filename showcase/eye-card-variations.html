@@ -1,0 +1,226 @@
+<title>Glider Eye Tracking Card</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: the one slide, repeated once per student treatment, each at full slide proportions with a short caption. */
+:root { --bg: #e6ebe1; --fg: #20352a; --fg2: #566b5c; --card: #f8faf5; --rule: #cfd8c7; --accent: #2f6b4a; --accent-ink: #fff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #131a16; --fg: #e8f0e8; --fg2: #9db0a2; --card: #1b2520; --rule: #2c3a31; --accent: #8fd0a6; --accent-ink: #10201a; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #131a16; --fg: #e8f0e8; --fg2: #9db0a2; --card: #1b2520; --rule: #2c3a31; --accent: #8fd0a6; --accent-ink: #10201a; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.55 "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  padding-block: 32px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1500px; margin: 0 auto; display: grid; gap: 22px; }
+h1 { margin: 0; font: 700 clamp(28px, 4.4vw, 40px)/1.1 "Lexend", sans-serif; letter-spacing: -.02em; text-wrap: balance; }
+.lede { margin: 8px 0 0; max-width: 74ch; color: var(--fg2); }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.bar button { all: unset; cursor: pointer; padding: 9px 18px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 15px/1 "Lexend", sans-serif; }
+.bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bar span { font-size: 14.5px; color: var(--fg2); }
+.grid { display: grid; grid-template-columns: minmax(0, 1100px); gap: 22px; }
+.opt { display: grid; gap: 10px; min-width: 0; align-content: start; }
+.opt h2 { margin: 0; font: 700 19px/1.25 "Lexend", sans-serif; }
+.opt p { margin: 0; color: var(--fg2); font-size: 15px; max-width: 64ch; }
+.fit { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 14px; background: #eef2ea; box-shadow: 0 0 0 1px var(--rule), 0 28px 56px -30px rgba(20, 40, 30, .5); }
+
+/* #bare in the address shows only the slide, edge to edge, for recording it into the deck */
+body.bare { padding: 0; } body.bare .wrap { max-width: 1280px; margin: 0; gap: 0; } body.bare header, body.bare .bar, body.bare .opt > h2, body.bare .opt > p { display: none; }
+body.bare .fit { border-radius: 0; box-shadow: none; } body.bare .grid { grid-template-columns: 1280px; }
+
+/* ===================== the slide, 1280 x 720, always light ===================== */
+.stage { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; overflow: hidden; zoom: var(--s, .5); background: #eef2ea; color: #20352a; font-family: "Atkinson Hyperlegible", "Segoe UI", sans-serif; }
+.h { position: absolute; left: 850px; top: 84px; width: 390px; margin: 0; font: 700 50px/1.05 "Lexend", sans-serif; letter-spacing: -.028em; color: #20352a; }
+.stage p.l { position: absolute; left: 852px; top: 318px; width: 360px; max-width: none; margin: 0; font-size: 21px; line-height: 1.45; color: #566b5c; }
+.window { position: absolute; left: 52px; top: 40px; width: 754px; height: 639px; display: grid; grid-template-rows: 42px 1fr; overflow: hidden; border-radius: 18px; background: #fcfcfb; box-shadow: 0 0 0 1px rgba(32, 53, 42, .1), 0 40px 80px -30px rgba(32, 53, 42, .45); }
+.wbar { display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #e9eee4; border-bottom: 1px solid #dbe3d4; }
+.wbar i { width: 11px; height: 11px; border-radius: 50%; background: #c3cfbc; }
+.wbar span { flex: 1; height: 24px; margin-left: 12px; padding: 0 12px; overflow: hidden; border-radius: 12px; background: #f6f8f3; font-size: 13px; line-height: 24px; color: #7f8f83; white-space: nowrap; }
+.page { position: relative; overflow: hidden; }
+.col { position: absolute; left: 50px; top: 40px; width: 640px; height: 420px; font: 21px/37px Georgia, "Times New Roman", serif; color: #24292c; }
+.line { position: absolute; left: 0; height: 37px; white-space: nowrap; }
+/* tD = the moment the re-reading is detected, tS = the simpler version arrives (set per timeline in the script) */
+.mark { position: absolute; left: -18px; top: 129px; width: 664px; height: 119px; border-radius: 6px; background: rgba(47, 107, 74, .11); box-shadow: inset 5px 0 0 #2f6b4a; animation: fin-in .4s ease var(--tD) both, fin-out .35s ease var(--tS) forwards; }
+.dot { position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle, rgba(224, 165, 43, .38) 0 34%, rgba(224, 165, 43, .16) 35% 100%); box-shadow: 0 0 0 2.5px rgba(224, 165, 43, .55); animation: gaze-path var(--T) linear both, fin-in .4s ease .45s both; }
+.line.hard { animation: fin-out .4s ease calc(var(--tS) - 200ms) both; }
+.simple { position: absolute; left: -18px; top: 129px; width: 664px; height: 119px; border-radius: 8px; background: #f1f6ec; box-shadow: inset 6px 0 0 #2f6b4a, 0 10px 26px rgba(32, 53, 42, .14), 0 0 0 1px rgba(47, 107, 74, .16); transform-origin: 6px 50%; animation: simple-in .7s cubic-bezier(.2, .9, .25, 1) var(--tS) both; }
+.simple span.t { position: absolute; left: 22px; white-space: nowrap; font: 400 24px/42px "Atkinson Hyperlegible", Verdana, sans-serif; letter-spacing: .01em; color: #1d2a22; }
+.simple span.t:nth-of-type(1) { top: 20px; animation: fin-rise .5s ease calc(var(--tS) + 350ms) both; }
+.simple span.t:nth-of-type(2) { top: 62px; animation: fin-rise .5s ease calc(var(--tS) + 500ms) both; }
+.simple .back { position: absolute; right: 12px; top: -13px; padding: 5px 12px; border-radius: 999px; background: #fcfcfb; color: #2f6b4a; box-shadow: 0 0 0 1px rgba(47, 107, 74, .35); font: 600 13px/1 "Segoe UI", system-ui, sans-serif; animation: fin-rise .45s ease calc(var(--tS) + 700ms) both; }
+.edge { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: grid; gap: 5px; justify-items: end; padding: 8px 0 8px 8px; }
+.edge i { display: block; width: 15px; height: 6px; border-radius: 3px; background: #20352a; opacity: .5; }
+.edge i:nth-child(2), .edge i:nth-child(4) { width: 27px; }
+.edge i:nth-child(3) { width: 42px; background: #2f6b4a; opacity: 1; }
+@keyframes fin-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fin-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes fin-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes simple-in { from { opacity: 0; transform: scale(.965); } to { opacity: 1; transform: none; } }
+
+/* ---- the student: flat shapes only (circles, rounded bars, no outlines), the same vocabulary as the page.
+   The eyes follow the reading; brows and mouth change when stuck and when it gets simpler. Nothing is drawn on the face. ---- */
+.hs { position: absolute; }
+.hs svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* Everything on the face moves by changing its geometry (cx, cy, ry, d), never by transform or opacity,
+   so the browser redraws it sharp on every frame instead of stretching a cached picture of it. */
+.pl { animation: pupil-l var(--T) linear both, blink-p 3100ms linear infinite; }
+.pr { animation: pupil-r var(--T) linear both, blink-p 3100ms linear infinite; }
+.ew { animation: blink-w 3100ms linear infinite; }
+@keyframes blink-w { 0%, 92%, 100% { ry: 8.6px; } 96% { ry: .8px; } }
+@keyframes blink-p { 0%, 92%, 100% { ry: 4.3px; } 96% { ry: .4px; } }
+.expr .bl { animation: brow-l var(--T) ease both; } .expr .br { animation: brow-r var(--T) ease both; }
+.expr .mo { animation: mouth var(--T) ease both; }
+.head { transform-box: fill-box; transform-origin: 50% 92%; }
+.framed { overflow: hidden; box-shadow: 0 0 0 5px #f8faf5, 0 18px 34px -14px rgba(32, 53, 42, .5); }
+
+.v-a .hs { left: 1058px; top: 508px; width: 176px; height: 176px; border-radius: 50%; background: #c4dfc0; }
+.v-a .hs svg, .v-d .hs svg, .v-g .hs svg { transform: scale(1.16) translateY(6%); }
+.v-b .hs { left: 990px; top: 512px; width: 246px; height: 172px; border-radius: 22px; background: #c4dfc0; }
+.v-b .hs svg { width: 200px; height: 200px; margin: -6px auto 0; }
+.v-b .lens { position: absolute; left: 1107px; top: 500px; width: 12px; height: 12px; border-radius: 50%; background: #20352a; box-shadow: 0 0 0 3px #f8faf5; }
+.v-b .head { animation: sway 5200ms ease-in-out infinite alternate; }
+@keyframes sway { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }
+.v-c .hs { left: 1018px; top: 440px; width: 216px; height: 252px; border-radius: 30px; background: #f4dfa6; transform: rotate(2deg); }
+.v-c .hs svg { width: 250px; height: 250px; margin: 14px 0 0 -17px; }
+.v-d .hs { left: 1058px; top: 508px; width: 176px; height: 176px; border-radius: 50%; background: #c4dfc0; overflow: hidden; }
+.v-d .ring { position: absolute; left: 1046px; top: 496px; width: 200px; height: 200px; border-radius: 50%; border: 6px solid #cfd9c7; animation: ring var(--T) ease both; }
+.v-e .hs { left: 1044px; top: 496px; width: 190px; height: 190px; border-radius: 58px; background: #2f6b4a; }
+.v-e .hs svg { transform: scale(1.1) translateY(7%); }
+.v-f .hs { left: 892px; top: 362px; width: 400px; height: 400px; }
+.v-f .hs { transform-origin: 50% 92%; animation: lean var(--T) ease both; }
+.v-g .hs { left: 1058px; top: 508px; width: 176px; height: 176px; border-radius: 50%; background: #c4dfc0; }
+.v-h .hs { left: 1040px; top: 492px; width: 194px; height: 194px; border-radius: 36px; animation: moodbg var(--T) ease both; }
+.v-h .hs svg { transform: scale(1.1) translateY(7%); }
+
+@media (prefers-reduced-motion: reduce) { .stage *, .stage *::before, .stage *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Eye tracking card, with a student</h1>
+    <p class="lede">The chosen take: no frame, the student rises from the corner and leans toward the page when the lines get hard. The hair was redrawn by Gemini so it sits naturally on the head, and the eyes stay sharp the whole way through. When the same lines are read a second time, the simpler version appears by itself. Nothing is drawn on the face.</p>
+  </header>
+  <div class="bar"><button type="button" id="replay">Replay all</button><span id="len"></span></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+(() => {
+  /* ---- timeline: fixations [x, y, ms] in the text column, with a short jump between each ---- */
+  const JUMP = 70, EASY = 170, HARD = 280;
+  const row = (y, xs, ms) => xs.map((x) => [x, y, ms]);
+  const BEFORE = [...row(19, [30, 180, 335, 485], EASY), ...row(55, [30, 200, 372, 545], EASY), ...row(92, [20, 276], EASY),
+    ...row(151, [24, 145, 268, 398, 517], HARD), ...row(188, [22, 152], HARD)];              // the hard lines: slower
+  const BACK1 = [...row(151, [241, 375, 518], HARD), ...row(188, [22, 278], HARD)];           // goes back over them
+  const BACK2 = row(151, [150, 330], HARD);                                                    // and back again: this is what gets noticed
+  const AFTER = [...row(171, [27, 153, 279, 407, 523], EASY), ...row(211, [30, 155, 284, 413, 536], EASY)];
+  const fix = [];
+  let t = 600;
+  const lay = (list) => { for (const [x, y, ms] of list) { fix.push({ t, end: t + ms, x, y }); t += ms + JUMP; } };
+  lay(BEFORE); const tBack1 = t; lay(BACK1); const tBack2 = t; lay(BACK2);
+  const tD = tBack2 + 220;                              // re-reading detected: the lines are marked
+  const tS = tD + 650;                                  // and the simpler version arrives by itself
+  fix[fix.length - 1].end = tS + 550; t = tS + 550 + JUMP;
+  lay(AFTER);
+  fix[fix.length - 1].end += 900;
+  const T = fix[fix.length - 1].end + 400;
+
+  const pc = (ms) => (Math.max(0, Math.min(T, ms)) / T * 100).toFixed(3) + '%';
+  const frames = (name, pts, fmt) => `@keyframes ${name}{` + pts.map(([ms, v]) => `${pc(ms)}{${fmt(v)}}`).join('') + '}';
+  const path = fix.flatMap((f) => [[f.t, f], [f.end, f]]);
+  path.unshift([0, fix[0]]); path.push([T, fix[fix.length - 1]]);
+  const stuck0 = tBack1, stuck1 = tBack1 + 500, ease0 = tS + 300, ease1 = tS + 1100;   // when the face tightens and when it relaxes
+  const mood = (calm, stuck, relieved) => [[0, calm], [stuck0, calm], [stuck1, stuck], [ease0, stuck], [ease1, relieved], [T, relieved]];
+  const dpath = (v) => `d:path("${v}")`;
+  const css =
+    frames('gaze-path', path, (f) => `transform:translate(${f.x}px,${f.y}px)`) +
+    frames('pupil-l', path, (f) => `cx:${(82 + (f.x - 275) / 275 * 3.6).toFixed(2)}px;cy:${(97.6 + (f.y - 150) / 190 * 1.6).toFixed(2)}px`) +
+    frames('pupil-r', path, (f) => `cx:${(118 + (f.x - 275) / 275 * 3.6).toFixed(2)}px;cy:${(97.6 + (f.y - 150) / 190 * 1.6).toFixed(2)}px`) +
+    frames('brow-l', mood('M74.5 80.5 L88.5 80.5', 'M74.5 81.5 L88.5 85.5', 'M74.5 78.5 L88.5 78.5'), dpath) +
+    frames('brow-r', mood('M111.5 80.5 L125.5 80.5', 'M111.5 85.5 L125.5 81.5', 'M111.5 78.5 L125.5 78.5'), dpath) +
+    frames('mouth', mood('M92 122 Q100 126 108 122', 'M93 124.5 Q100 123.2 107 122', 'M90 120 Q100 131 110 120'), dpath) +
+    frames('ring', [[0, '#cfd9c7'], [stuck0, '#cfd9c7'], [stuck1 + 300, '#e0a52b'], [ease0, '#e0a52b'], [ease1, '#2f6b4a'], [T, '#2f6b4a']], (v) => `border-color:${v}`) +
+    frames('moodbg', [[0, '#dbe6d3'], [stuck0, '#dbe6d3'], [stuck1 + 300, '#f4dfa6'], [ease0, '#f4dfa6'], [ease1, '#c4dfc0'], [T, '#c4dfc0']], (v) => `background-color:${v}`) +
+    frames('lean', [[0, 'rotate(-3deg)'], [stuck0, 'rotate(-3deg)'], [stuck1 + 300, 'rotate(-7deg) translate(-4px,3px)'], [ease0, 'rotate(-7deg) translate(-4px,3px)'], [ease1 + 300, 'rotate(-2deg)'], [T, 'rotate(-2deg)']], (v) => `transform:${v}`);
+  const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
+
+  /* ---- one student, drawn from options. skin2 is the same skin a step darker (ears, under the chin, nose). ---- */
+  const HAIR = {
+    short: (c) => `<path d="M55 90 C48 40 80 26 104 26 C134 26 152 46 145 90 C142 72 134 62 122 57 C104 70 80 69 64 62 C59 70 57 80 55 90 Z" fill="${c}"/>`,
+    curly: (c) => `<g fill="${c}"><circle cx="64" cy="62" r="17"/><circle cx="80" cy="46" r="18"/><circle cx="100" cy="39" r="19"/><circle cx="120" cy="46" r="18"/><circle cx="136" cy="62" r="17"/><circle cx="58" cy="82" r="12"/><circle cx="142" cy="82" r="12"/><rect x="66" y="44" width="68" height="26" rx="12"/></g>`,
+    bob: (c) => `<path d="M60 84 C58 46 82 34 100 34 C122 34 142 48 140 84 C130 68 114 60 100 60 C86 60 70 68 60 84 Z" fill="${c}"/>`,
+    bun: (c) => `<circle cx="100" cy="22" r="15" fill="${c}"/><path d="M56 88 C50 42 80 30 100 30 C122 30 150 44 144 88 C138 66 122 56 100 56 C78 56 62 66 56 88 Z" fill="${c}"/>`,
+  };
+  // The chosen student: the head, hair and jumper are a picture touched up by Gemini (natural hair); the eyes, brows
+  // and mouth are drawn on top as crisp shapes so they can move. The inner group maps the 200-unit face onto the picture.
+  const face = (o) => `<path class="bl" d="M74.5 80.5 L88.5 80.5" fill="none" stroke="${o.hc}" stroke-width="5" stroke-linecap="round"/>
+      <path class="br" d="M111.5 80.5 L125.5 80.5" fill="none" stroke="${o.hc}" stroke-width="5" stroke-linecap="round"/>
+      <ellipse class="ew" cx="82" cy="97" rx="8.6" ry="8.6" fill="#fff"/><ellipse class="ew" cx="118" cy="97" rx="8.6" ry="8.6" fill="#fff"/>
+      <ellipse class="pl" cx="82" cy="97" rx="4.3" ry="4.3" fill="#1d2a22"/><ellipse class="pr" cx="118" cy="97" rx="4.3" ry="4.3" fill="#1d2a22"/>
+      <path class="mo" d="M92 122 Q100 126 108 122" fill="none" stroke="${o.lip}" stroke-width="3.2" stroke-linecap="round"/>`;
+  const pictured = (o) => `<svg viewBox="0 0 1024 1024" aria-hidden="true"><g class="head">
+      <image href="char/flat-kai.png" width="1024" height="1024"/>
+      <g transform="translate(-8 -9.4) scale(5.2)">
+        ${face(o)}
+      </g></g></svg>`;
+  const student = (o) => o.picture ? pictured(o) : `<svg viewBox="0 0 200 200" aria-hidden="true">
+    <path d="M16 200 C16 168 46 150 78 146 L122 146 C154 150 184 168 184 200 Z" fill="${o.top}"/>
+    <path d="M80 146 Q100 163 120 146" fill="none" stroke="${o.rib}" stroke-width="7" stroke-linecap="round"/>
+    <g class="head">
+      ${o.hair === 'bob' ? `<rect x="48" y="40" width="104" height="112" rx="46" fill="${o.hc}"/>` : ''}
+      <rect x="84" y="112" width="32" height="42" rx="13" fill="${o.skin}"/>
+      <ellipse cx="100" cy="137" rx="15" ry="6" fill="${o.skin2}"/>
+      <circle cx="59" cy="97" r="9" fill="${o.skin2}"/><circle cx="141" cy="97" r="9" fill="${o.skin2}"/>
+      <rect x="60" y="42" width="80" height="96" rx="38" fill="${o.skin}"/>
+      ${HAIR[o.hair](o.hc)}
+      ${o.blush ? `<circle cx="72" cy="113" r="6.5" fill="${o.blush}"/><circle cx="128" cy="113" r="6.5" fill="${o.blush}"/>` : ''}
+      ${face(o)}
+      <rect x="98.2" y="102" width="3.6" height="9" rx="1.8" fill="${o.skin2}"/>
+    </g></svg>`;
+  const P = {   // people
+    kai:  { skin: '#d9a273', skin2: '#c58c5e', hc: '#20352a', hair: 'short', top: '#2f6b4a', rib: '#20352a', lip: '#6b3a28', blush: 'rgba(214, 106, 84, .22)' },
+    amara: { skin: '#8f5b3d', skin2: '#7a4b31', hc: '#241a16', hair: 'curly', top: '#2f6b4a', rib: '#20352a', lip: '#3d2118', blush: 'rgba(160, 60, 50, .2)' },
+    mei:  { skin: '#f0c7a0', skin2: '#dfb089', hc: '#2c2622', hair: 'bob', top: '#2f6b4a', rib: '#20352a', lip: '#8a4a3a', blush: 'rgba(224, 120, 100, .25)' },
+    noor: { skin: '#c98f63', skin2: '#b47b50', hc: '#3a2418', hair: 'bun', top: '#2f6b4a', rib: '#20352a', lip: '#5e3022', blush: 'rgba(200, 90, 70, .2)' },
+    kaiPic: { picture: true, hc: '#20352a', lip: '#6b3a28' },
+    gold: { skin: '#e3b58a', skin2: '#cf9e73', hc: '#20352a', hair: 'short', top: '#f4dfa6', rib: '#e0c57e', lip: '#6b3a28', blush: 'rgba(214, 106, 84, .22)' },
+    sage: { skin: '#eef2ea', skin2: '#d5dfcc', hc: '#20352a', hair: 'bob', top: '#2f6b4a', rib: '#20352a', lip: '#20352a', blush: '' },   // two-tone, in the page's own greens
+  };
+
+  const LINES = [[0, 'Photosynthesis is how plants turn light into food. It'], [37, 'happens in tiny green parts of the leaf called chloroplasts,'], [74, 'which catch the light of the sun.'],
+    [133, 'Inside the chloroplast, chlorophyll absorbs approximately', 1], [170, 'all of the red and blue light and subsequently reflects the', 1], [207, 'green, which is the reason that leaves appear green to us.', 1],
+    [266, 'The energy from that light splits water. The plant keeps'], [303, 'what it needs and lets the oxygen go.']];
+  const slide = (o) => `<div class="stage v-${o.v}" style="--T:${T}ms;--tD:${tD}ms;--tS:${tS}ms">
+    <div class="window"><div class="wbar"><i></i><i></i><i></i><span>en.wikipedia.org/wiki/Photosynthesis</span></div>
+      <div class="page"><div class="col"><div class="mark"></div>
+        ${LINES.map(([top, text, hard]) => `<span class="line${hard ? ' hard' : ''}" style="top:${top}px">${text}</span>`).join('')}
+        <div class="simple"><span class="t">Chlorophyll takes in red and blue light. It bounces</span><span class="t">the green light back. That is why leaves look green.</span><span class="back">Show original</span></div>
+        <div class="dot"></div></div>
+        <div class="edge"><i></i><i></i><i></i><i></i><i></i></div></div></div>
+    <h1 class="h">It sees you stuck. Then it gets simpler.</h1>
+    <p class="l">Your camera notices the lines that slow your eyes, and shows them again in plainer words.</p>
+    ${o.extra || ''}<div class="hs${o.expr ? ' expr' : ''}${o.frame === false ? '' : ' framed'}">${student(P[o.who])}</div></div>`;
+
+  const OPTIONS = [
+    { v: 'a', who: 'kai', name: 'A. Bubble, eyes only', desc: 'A round portrait. Only the eyes move. The quietest take.' },
+    { v: 'b', who: 'amara', expr: 1, extra: '<i class="lens"></i>', name: 'B. Camera tile', desc: 'A webcam-style tile with a small lens above it. The head shifts slightly and the face tightens when stuck, then relaxes.' },
+    { v: 'c', who: 'mei', expr: 1, name: 'C. Tall card on gold', desc: 'The largest framed take: a tilted portrait card on the gold used for the word chips.' },
+    { v: 'd', who: 'noor', expr: 1, extra: '<i class="ring"></i>', name: 'D. Bubble with a mood ring', desc: 'A ring around the portrait (not on the face) turns amber while stuck and green once the text is simpler.' },
+    { v: 'e', who: 'gold', expr: 1, name: 'E. Forest squircle', desc: 'A rounded square in the accent green with the student in a gold jumper. The strongest colour block on the slide.' },
+    { v: 'f', who: 'kaiPic', expr: 1, frame: false, name: 'Cut-out, leaning in', desc: 'No frame. A big student rises from the corner and leans toward the page when the lines get hard.' },
+    { v: 'g', who: 'sage', name: 'G. Two-tone', desc: 'Drawn only in the page\'s own greens, eyes only. Closest to the logo and the interface; least like a portrait.' },
+    { v: 'h', who: 'amara', expr: 1, name: 'H. Mood tile', desc: 'The tile itself changes: pale sage while reading, gold while stuck, green when it gets simpler.' },
+  ];
+  if (location.hash === '#bare') document.body.classList.add('bare');
+  const CHOSEN = ['f'];   // the owner picked F; the other takes stay in OPTIONS in case they are wanted again
+  const grid = document.getElementById('grid');
+  grid.innerHTML = OPTIONS.filter((o) => CHOSEN.includes(o.v)).map((o) => `<section class="opt"><div class="fit" data-v="${o.v}"></div><h2>${o.name}</h2><p>${o.desc}</p></section>`).join('');
+  document.getElementById('len').textContent = `Each runs ${(T / 1000).toFixed(1)} seconds, then starts again. The second re-read is noticed at ${(tD / 1000).toFixed(1)} s and the simpler lines arrive ${((tS - tD) / 1000).toFixed(1)} s later.`;
+  const fits = [...grid.querySelectorAll('.fit')];
+  const scale = () => fits.forEach((f) => f.style.setProperty('--s', f.clientWidth / 1280));
+  const play = () => { fits.forEach((f) => { f.innerHTML = slide(OPTIONS.find((x) => x.v === f.dataset.v)); }); scale(); };
+  let loop = 0;
+  const start = () => { clearInterval(loop); play(); loop = setInterval(play, T + 1800); };
+  if (window.ResizeObserver) new ResizeObserver(scale).observe(grid); else addEventListener('resize', scale);
+  document.getElementById('replay').onclick = start;
+  start();
+})();
+</script>

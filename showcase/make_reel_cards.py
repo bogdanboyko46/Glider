@@ -7,16 +7,16 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'out')
 rects = {int(k): v for k, v in json.load(open(os.path.join(OUT, 'cards.json'))).items()}
-for n in (2, 3, 4):
+for n in (2, 3):
     Image.open(os.path.join(OUT, f'card-{n:02d}.png')).convert('RGB').resize((1280, 720), Image.LANCZOS).save(os.path.join(OUT, f'cardweb-{n:02d}.jpg'), quality=88)
-for name in ('s0-title', 's9-close'):
+Image.open(os.path.join(OUT, 't2-gemini-poster.png')).convert('RGB').resize((1280, 720), Image.LANCZOS).save(os.path.join(OUT, 't2-gemini-thumb.jpg'), quality=85)
+for name in ('s9-close',):
     im = Image.open(os.path.join(OUT, name + '.gif')); im.seek(im.n_frames - 1); im.convert('RGB').save(os.path.join(OUT, name + '-thumb.jpg'), quality=85)
 cards = [
-    dict(name='Glider', secs=4.6, bg='s0-title.gif', thumb='s0-title-thumb.jpg', recs=[]),
-    dict(name='The lens, tuned from the edge', secs=7.8, bg='cardweb-02.jpg', thumb='cardweb-02.jpg', recs=[dict(gif=f'card-02-{i + 1}.gif', **r) for i, r in enumerate(rects[2])]),
-    dict(name='Help with the hard words', secs=7.8, bg='cardweb-03.jpg', thumb='cardweb-03.jpg', recs=[dict(gif=f'card-03-{i + 1}.gif', **r) for i, r in enumerate(rects[3])]),
-    dict(name='Stuck, then simpler', secs=14.3, bg='cardweb-04.jpg', thumb='cardweb-04.jpg', recs=[dict(gif=f'card-04-{i + 1}.gif', **r) for i, r in enumerate(rects[4])]),
-    dict(name='Read at your pace', secs=4.6, bg='s9-close.gif', thumb='s9-close-thumb.jpg', recs=[]),
+    dict(name='Glider', secs=9.3, bg='t2-gemini.mp4', thumb='t2-gemini-thumb.jpg', recs=[]),
+    dict(name='Lines stop crowding you', secs=24.9, bg='cardweb-02.jpg', thumb='cardweb-02.jpg', recs=[dict(gif='live-panel.mp4', **rects[2][0])]),
+    dict(name='Help with the hard words', secs=12.2, bg='cardweb-03.jpg', thumb='cardweb-03.jpg', recs=[dict(gif='live-wordlens.mp4', **rects[3][0]), dict(gif='live-lookalike.mp4', **rects[3][1])]),
+    dict(name='Made with dyslexia in mind', secs=4.6, bg='s9-close.gif', thumb='s9-close-thumb.jpg', recs=[]),
 ]
 HTML = r'''<title>Glider Showcase Reel</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -36,8 +36,8 @@ h2 { margin: 8px 0 0; font: 700 22px/1.2 "Lexend", sans-serif; }
 .facts { display: flex; flex-wrap: wrap; gap: 10px; }
 .facts span { padding: 6px 13px; border-radius: 999px; background: var(--card); box-shadow: 0 0 0 1px var(--rule); font-size: 14.5px; color: var(--fg); }
 .screen { position: relative; border-radius: 16px; overflow: hidden; background: #eef2ea; box-shadow: 0 0 0 1px var(--rule), 0 30px 60px -30px rgba(20, 40, 30, .5); aspect-ratio: 16 / 9; }
-.screen img.bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.screen img.rec { position: absolute; display: block; border-radius: 1.3%; }
+.screen img.bg, .screen video.bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.screen .rec { position: absolute; display: block; border-radius: 1.3%; }
 .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .bar button { all: unset; cursor: pointer; padding: 9px 18px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 15px/1 "Lexend", sans-serif; }
 .bar button.quiet { background: var(--card); color: var(--fg); box-shadow: 0 0 0 1px var(--rule); }
@@ -52,22 +52,14 @@ h2 { margin: 8px 0 0; font: 700 22px/1.2 "Lexend", sans-serif; }
 </style>
 <div class="wrap">
   <header style="display:grid;gap:10px">
-    <h1>Glider showcase: five cards</h1>
-    <p>The first deck's look, condensed to five cards with connected features sharing a card, and each card composed differently. Press play to run it the way PowerPoint will.</p>
+    <h1>Glider showcase: four cards</h1>
+    <p>Everything pushed so far, together: the new opening, the two cards filmed live from the real extension, and the close. The eye-tracking and simplify card is left out. Press play to run it the way PowerPoint will.</p>
     <div class="facts" id="facts"></div>
   </header>
   <section style="display:grid;gap:12px">
-    <div class="screen" id="screen"><img class="bg" id="bg" alt=""></div>
+    <div class="screen" id="screen"><img class="bg" id="bg" alt=""><video class="bg" id="vid" muted playsinline preload="auto" hidden></video></div>
     <div class="bar"><button id="play">Play the deck</button><button class="quiet" id="prev">Back</button><button class="quiet" id="next">Next</button><span class="now" id="now"></span></div>
     <div class="strip" id="strip"></div>
-  </section>
-  <section style="display:grid;gap:10px">
-    <h2>Known differences from the app, to nitpick next</h2>
-    <ul>
-      <li>The windows are the first deck's drawn scenes, not recordings of the extension. The edge mark in them is right, but the panel, the word lens and the look-alike card are simplified versions of the real ones.</li>
-      <li>Card 2 still shows a power button beside the logo for a moment; the app now opens the panel from the logo itself.</li>
-      <li>Card 4 uses the earlier simulated gaze dot and the three-line correction, not the newer take with the student in the camera box and the whole-sentence correction.</li>
-    </ul>
   </section>
 </div>
 <script>
@@ -80,10 +72,14 @@ document.getElementById('strip').innerHTML = CARDS.map((s, i) => `<button class=
 function show(i) {
   at = (i + CARDS.length) % CARDS.length;
   const s = CARDS[at], stamp = '?' + Date.now();
-  bg.src = ''; bg.src = s.bg + (s.bg.endsWith('.gif') ? stamp : ''); bg.alt = s.name;
+  const vid = document.getElementById('vid'), isVid = s.bg.endsWith('.mp4');
+  vid.hidden = !isVid; bg.hidden = isVid;
+  if (isVid) { if (!vid.src.endsWith(s.bg)) vid.src = s.bg; vid.currentTime = 0; vid.play().catch(() => {}); }
+  else { vid.pause(); bg.src = ''; bg.src = s.bg + (s.bg.endsWith('.gif') ? stamp : ''); bg.alt = s.name; }
   screen.querySelectorAll('.rec').forEach((x) => x.remove());
   for (const r of s.recs) {
-    const im = document.createElement('img'); im.className = 'rec'; im.alt = ''; im.src = r.gif + stamp;
+    const v = r.gif.endsWith('.mp4'), im = document.createElement(v ? 'video' : 'img'); im.className = 'rec';
+    if (v) { im.muted = true; im.playsInline = true; im.src = r.gif; im.play().catch(() => {}); } else { im.alt = ''; im.src = r.gif + stamp; }
     im.style.left = (r.x / 12.8) + '%'; im.style.top = (r.y / 7.2) + '%'; im.style.width = (r.w / 12.8) + '%'; im.style.height = (r.h / 7.2) + '%';
     screen.appendChild(im);
   }

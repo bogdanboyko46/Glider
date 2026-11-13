@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-duration="6500">
+<head>
+<meta charset="utf-8">
+<title>Glider title: the question</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* Title variation 4. Opens on a question every dyslexic reader knows, and acts it out: the line is read, and read again, and again.
+   Timeline (ms): 200 question · 900-1700 first pass under the line · 1900-2700 second · 2900-3700 third · 3900 question lifts
+   · 4100 "Glider" · 4800 "It notices. Then it helps." · 6500 end */
+body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: relative; background: var(--bg); color: var(--ink); }
+.q { position: absolute; left: 110px; top: 262px; margin: 0; white-space: nowrap; font: 400 58px/1.2 Georgia, "Times New Roman", serif; letter-spacing: .01em; animation: rise .6s cubic-bezier(.2, 0, 0, 1) .2s both, lift .5s ease 3.9s forwards; }
+.q em { font-style: normal; font-weight: 700; }
+.pass { position: absolute; left: 112px; height: 7px; border-radius: 4px; background: var(--ink); width: 0; animation: read .8s cubic-bezier(.4, 0, .6, 1) both, lift .4s ease 3.9s forwards; }
+.pass.a { top: 348px; opacity: .28; animation-delay: .9s, 3.9s; }
+.pass.b { top: 364px; opacity: .5; animation-delay: 1.9s, 3.9s; }
+.pass.c { top: 380px; opacity: .9; animation-delay: 2.9s, 3.9s; }
+@keyframes read { to { width: 960px; } }
+.n { position: absolute; left: 116px; top: 414px; margin: 0; font: 700 26px/1 "Lexend", sans-serif; color: var(--muted); opacity: 0; animation: tick .01s linear both, lift .4s ease 3.9s forwards; }
+.n.a { animation-delay: 1.7s, 3.9s; } .n.b { left: 196px; animation-delay: 2.7s, 3.9s; } .n.c { left: 284px; color: var(--ink); animation-delay: 3.7s, 3.9s; }
+@keyframes tick { to { opacity: 1; } }
+@keyframes lift { to { opacity: 0; transform: translateY(-36px); } }
+h1 { position: absolute; left: 110px; top: 190px; margin: 0; font: 700 200px/1 "Lexend", sans-serif; letter-spacing: -.035em; animation: rise .7s cubic-bezier(.2, 0, 0, 1) 4.1s both; }
+p.t { position: absolute; left: 118px; top: 430px; margin: 0; font: 400 44px/1.25 "Atkinson", sans-serif; color: var(--muted); animation: rise .6s cubic-bezier(.2, 0, 0, 1) 4.8s both; }
+p.t b { color: var(--ink); }
+.mark { position: absolute; right: 0; top: 178px; display: grid; gap: 36px; justify-items: end; }
+.mark i { display: block; height: 44px; border-radius: 22px; background: var(--ink); transform-origin: right center; animation: reach .6s cubic-bezier(.2, 0, 0, 1) both; }
+.mark i:nth-child(1) { width: 130px; animation-delay: 4.2s; } .mark i:nth-child(2) { width: 234px; animation-delay: 4.28s; }
+.mark i:nth-child(3) { width: 364px; background: var(--accent); animation-delay: 4.36s; }
+.mark i:nth-child(4) { width: 234px; animation-delay: 4.44s; } .mark i:nth-child(5) { width: 130px; animation-delay: 4.52s; }
+@keyframes reach { from { transform: scaleX(0); } }
+@keyframes rise { from { opacity: 0; transform: translateY(26px); } }
+</style>
+</head>
+<body>
+<p class="q">Ever read the same line <em>three times?</em></p>
+<i class="pass a"></i><i class="pass b"></i><i class="pass c"></i>
+<p class="n a">once</p><p class="n b">twice</p><p class="n c">three times</p>
+<h1>Glider</h1>
+<p class="t">It notices. Then it <b>helps</b>.</p>
+<div class="mark"><i></i><i></i><i></i><i></i><i></i></div>
+</body>
+</html>

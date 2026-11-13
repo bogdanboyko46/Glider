@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-duration="6500">
+<head>
+<meta charset="utf-8">
+<title>Glider title: the sentence opens up</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* Title variation 2. One sentence, set the way a hard page is set: tight and grey. It opens up the way the lens opens a page:
+   room between letters, words and lines, and a bold start to every word. Then the name.
+   Timeline (ms): 0 cramped sentence · 1400-2600 it opens · 2700 word starts go bold · 3900 sentence lifts away · 4100 "Glider" · 4800 line · 6500 end */
+body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: relative; background: var(--bg); color: var(--ink); }
+.s { position: absolute; left: 110px; right: 110px; top: 200px; margin: 0; font: 400 86px/1 Georgia, "Times New Roman", serif; color: #8a968c;
+  animation: open 1.2s cubic-bezier(.2, 0, 0, 1) 1.4s both, lift .5s ease 3.9s forwards; }
+@keyframes open { from { letter-spacing: -.055em; word-spacing: -.18em; line-height: .92; color: #8a968c; } to { letter-spacing: .03em; word-spacing: .22em; line-height: 1.5; color: var(--ink); } }
+.s b { font-weight: 400; animation: bold .01s linear 2.7s both; }
+@keyframes bold { to { font-weight: 700; } }
+@keyframes lift { to { opacity: 0; transform: translateY(-40px); } }
+h1 { position: absolute; left: 110px; top: 190px; margin: 0; font: 700 200px/1 "Lexend", sans-serif; letter-spacing: -.035em; animation: rise .7s cubic-bezier(.2, 0, 0, 1) 4.1s both; }
+p.t { position: absolute; left: 118px; top: 430px; margin: 0; font: 400 44px/1.25 "Atkinson", sans-serif; color: var(--muted); animation: rise .6s cubic-bezier(.2, 0, 0, 1) 4.8s both; }
+p.t b { color: var(--ink); }
+.mark { position: absolute; right: 0; top: 178px; display: grid; gap: 36px; justify-items: end; }
+.mark i { display: block; height: 44px; border-radius: 22px; background: var(--ink); transform-origin: right center; animation: reach .6s cubic-bezier(.2, 0, 0, 1) both; }
+.mark i:nth-child(1) { width: 130px; animation-delay: 4.2s; } .mark i:nth-child(2) { width: 234px; animation-delay: 4.28s; }
+.mark i:nth-child(3) { width: 364px; background: var(--accent); animation-delay: 4.36s; }
+.mark i:nth-child(4) { width: 234px; animation-delay: 4.44s; } .mark i:nth-child(5) { width: 130px; animation-delay: 4.52s; }
+@keyframes reach { from { transform: scaleX(0); } }
+@keyframes rise { from { opacity: 0; transform: translateY(26px); } }
+</style>
+</head>
+<body>
+<p class="s" id="s">Reading should not be this much work.</p>
+<h1>Glider</h1>
+<p class="t">Built for <b>dyslexic readers</b>.</p>
+<div class="mark"><i></i><i></i><i></i><i></i><i></i></div>
+<script>
+const s = document.getElementById('s');
+s.innerHTML = s.textContent.replace(/[A-Za-z]+/g, (w) => { const n = w.length <= 3 ? 1 : w.length <= 5 ? 2 : Math.ceil(w.length * .4); return '<b>' + w.slice(0, n) + '</b>' + w.slice(n); });
+</script>
+</body>
+</html>

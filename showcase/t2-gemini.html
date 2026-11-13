@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en" data-duration="9300">
+<head>
+<meta charset="utf-8">
+<title>Glider title: the sentence opens up</title>
+<link rel="stylesheet" href="base.css">
+<style>
+/* Title variation 2. One sentence, set the way a hard page is set: tight and grey. It opens up the way the lens opens a page:
+   room between letters, words and lines, and a bold start to every word. Then the name. */
+body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: relative; background: var(--bg); color: var(--ink); }
+
+/* Sentence opening */
+.s { position: absolute; left: 110px; right: 40px; top: 200px; margin: 0; font: 400 86px/1 Georgia, "Times New Roman", serif; color: #8a968c;
+  animation: open 0.9s cubic-bezier(.2, 0, 0, 1) 1.0s both, lift .5s ease 5.1s both; }
+@keyframes open { 
+  from { letter-spacing: -.055em; word-spacing: -.18em; line-height: .92; color: #8a968c; } 
+  to { letter-spacing: .073em; word-spacing: .24em; line-height: 1.9; color: var(--ink); } 
+}
+@keyframes lift { to { opacity: 0; transform: translateY(-40px); } }
+
+/* Word bolding crossfade */
+.wd { white-space: nowrap; }
+.st { display: inline-block; position: relative; }
+.st b { font-weight: 700; opacity: 0; animation: fade-in 0.9s linear 1.0s both; }
+.st i { font-style: normal; font-weight: 400; position: absolute; left: 0; top: 0; white-space: nowrap; animation: fade-out 0.9s linear 1.0s both; }
+@keyframes fade-in { 
+  0%, 10% { opacity: 0; } 
+  40%, 100% { opacity: 1; } 
+}
+@keyframes fade-out { 
+  0%, 15% { opacity: 1; } 
+  40%, 100% { opacity: 0; } 
+}
+
+/* Letter colors and feet */
+.c-d, .c-b, .foot-d, .foot-b { display: inline; }
+.c-d, .foot-d { animation: color-d 0.9s cubic-bezier(.2, 0, 0, 1) 1.0s both; }
+.c-b, .foot-b { animation: color-b 0.9s cubic-bezier(.2, 0, 0, 1) 1.0s both; }
+
+.foot-d, .foot-b { position: relative; background: none; }
+.foot-d::after, .foot-b::after {
+   content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; box-sizing: border-box; pointer-events: none;
+   border: 0 solid transparent; border-bottom-width: .13em;
+   opacity: 0;
+   animation: foot-fade 0.9s cubic-bezier(.2, 0, 0, 1) 1.0s both;
+}
+.foot-d::after { border-bottom-color: rgba(180,83,9,.45); border-radius: 0 0 .3em 0; }
+.foot-b::after { border-bottom-color: rgba(29,78,216,.45); border-radius: 0 0 0 .3em; }
+
+@keyframes color-d {
+  from { color: #8a968c; }
+  to { color: rgb(128, 73, 21); }
+}
+@keyframes color-b {
+  from { color: #8a968c; }
+  to { color: rgb(30, 69, 155); }
+}
+@keyframes foot-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Hover highlight */
+.target { position: relative; border-radius: 17px; padding: 0 .06em; margin: 0 -.06em; animation: hl-anim 2.8s 2.15s both; }
+@keyframes hl-anim {
+  0% { background-color: transparent; animation-timing-function: ease-out; }
+  15% { background-color: rgba(255, 216, 77, 0.45); }
+  85% { background-color: rgba(255, 216, 77, 0.45); animation-timing-function: ease-in; }
+  100% { background-color: transparent; }
+}
+
+/* Pointer */
+.ptr {
+  position: absolute; top: 40px; left: 75%; width: 26px; height: 26px;
+  opacity: 0; transform: translate(150px, 150px);
+  animation: ptr-anim 2.8s 2.15s both;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3));
+  z-index: 20;
+}
+@keyframes ptr-anim {
+  0% { opacity: 0; transform: translate(150px, 150px); animation-timing-function: cubic-bezier(.2, 0, 0, 1); }
+  15% { opacity: 1; transform: translate(0, 0); }
+  85% { opacity: 1; transform: translate(0, 0); animation-timing-function: ease-in; }
+  100% { opacity: 0; transform: translate(150px, 150px); }
+}
+
+/* Word Lens */
+.lens-wrapper {
+  position: absolute; top: 100%; left: 50%; margin-top: 14px;
+  transform-origin: top center; z-index: 10;
+  letter-spacing: normal; word-spacing: normal; line-height: normal; text-transform: none;
+  font-family: "Atkinson", sans-serif; color: #20352a; pointer-events: none;
+  opacity: 0; transform: translateX(-50%) scale(1.8);
+  animation: lens-anim 2.4s 2.35s both;
+}
+@keyframes lens-anim {
+  0% { opacity: 0; transform: translateX(-50%) scale(1.8); animation-timing-function: cubic-bezier(.2, 0, 0, 1); }
+  10% { opacity: 1; transform: translateX(-50%) scale(2.1); }
+  90% { opacity: 1; transform: translateX(-50%) scale(2.1); animation-timing-function: ease-in; }
+  100% { opacity: 0; transform: translateX(-50%) scale(1.8); }
+}
+
+.ll-tip {
+  width: 236.84px; height: 147.14px; padding: 11px 12px 12px; border-radius: 14px;
+  background: rgb(238, 242, 234); color: rgb(32, 53, 42);
+  box-shadow: rgba(32, 53, 42, 0.08) 0px 0px 0px 1px, rgba(32, 53, 42, 0.34) 0px 22px 50px -14px;
+  font: 400 13px/18.2px "Atkinson", sans-serif; box-sizing: border-box;
+}
+.ll-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  min-height: 28px; margin: -3px -3px 8px 0;
+}
+.ll-diff {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px;
+  padding: 0 10px 0 8px; border-radius: 999px;
+  background: rgb(224, 232, 217); color: rgb(86, 107, 92);
+  font: 600 12px/1 "Atkinson", sans-serif; box-sizing: border-box;
+}
+.ll-diff::before {
+  content: ""; display: block; width: 8px; height: 8px;
+  border-radius: 50%; background: rgb(79, 154, 107);
+}
+.ll-diff b {
+  font-weight: 900; font-size: 13px; color: rgb(32, 53, 42);
+}
+.ll-level {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px;
+  border-radius: 6px; color: rgb(86, 107, 92); width: 27.4px;
+  font: 600 11px/1 "Atkinson", sans-serif; letter-spacing: 0.44px;
+  box-shadow: inset 0 0 0 1px rgb(147, 165, 147); box-sizing: border-box;
+}
+.ll-parts {
+  display: flex; gap: 5px; height: 49.14px;
+}
+.ll-part {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 6px 10px 7px; border-radius: 999px; margin: 0; border: none;
+  background: rgb(196, 223, 192); width: 75.6px; height: 49.14px;
+  box-sizing: border-box;
+}
+.ll-part-letters {
+  font: 600 17px/19.55px "Atkinson", sans-serif; letter-spacing: 0.34px; color: rgb(32, 53, 42);
+}
+.ll-part-sound {
+  font: 400 13px/15.6px "Atkinson", sans-serif; letter-spacing: 0.26px; opacity: 0.78; color: rgb(32, 53, 42);
+}
+.ll-say {
+  display: flex; align-items: center; gap: 7px; margin-top: 10px; height: 32px;
+}
+.ll-say-btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 32px;
+  padding: 0 13px 0 10px; border-radius: 999px; margin: 0; border: none;
+  font: 600 13px/18.2px "Atkinson", sans-serif; box-sizing: border-box;
+}
+.ll-say-btn svg {
+  width: 16px; height: 16px; flex-shrink: 0;
+}
+.ll-say-btn.filled {
+  background: rgb(47, 107, 74); color: #fff; width: 107.8px;
+}
+.ll-say-btn.outlined {
+  background: rgb(224, 232, 217); color: rgb(32, 53, 42);
+  box-shadow: inset 0 0 0 1px rgb(147, 165, 147); width: 98.0px;
+}
+
+/* End card */
+h1 { position: absolute; left: 110px; top: 190px; margin: 0; font: 700 200px/1 "Lexend", sans-serif; letter-spacing: -.035em; animation: rise .7s cubic-bezier(.2, 0, 0, 1) 5.3s both; }
+p.t { position: absolute; left: 118px; top: 430px; margin: 0; font: 400 44px/1.25 "Atkinson", sans-serif; color: var(--muted); animation: rise .6s cubic-bezier(.2, 0, 0, 1) 5.5s both; }
+p.t b { color: var(--ink); }
+.mark { position: absolute; right: 0; top: 178px; display: grid; gap: 36px; justify-items: end; }
+.mark i { display: block; height: 44px; border-radius: 22px; background: var(--ink); transform-origin: right center; animation: reach .6s cubic-bezier(.2, 0, 0, 1) both; }
+.mark i:nth-child(1) { width: 130px; animation-delay: 5.4s; } .mark i:nth-child(2) { width: 234px; animation-delay: 5.48s; }
+.mark i:nth-child(3) { width: 364px; background: var(--accent); animation-delay: 5.56s; }
+.mark i:nth-child(4) { width: 234px; animation-delay: 5.64s; } .mark i:nth-child(5) { width: 130px; animation-delay: 5.72s; }
+@keyframes reach { from { transform: scaleX(0); } }
+@keyframes rise { from { opacity: 0; transform: translateY(26px); } }
+</style>
+</head>
+<body>
+<p class="s" id="s">Reading should not be this much work.</p>
+<h1>Glider</h1>
+<p class="t">Made with <b>dyslexia</b> in mind.</p>
+<div class="mark"><i></i><i></i><i></i><i></i><i></i></div>
+<script>
+const s = document.getElementById('s');
+
+function colorLetters(str, isOverlay) {
+  return str.replace(/b/g, isOverlay ? '<span class="c-b">b</span>' : '<span class="foot-b">b</span>')
+            .replace(/d/g, isOverlay ? '<span class="c-d">d</span>' : '<span class="foot-d">d</span>');
+}
+
+s.innerHTML = s.textContent.replace(/[A-Za-z]+/g, (w) => { 
+  const n = w.length <= 3 ? 1 : w.length <= 5 ? 2 : Math.ceil(w.length * .4); 
+  const startInFlow = colorLetters(w.slice(0, n), false);
+  const startOverlay = colorLetters(w.slice(0, n), true);
+  const rest = colorLetters(w.slice(n), false);
+  const inner = `<span class="st"><b>${startInFlow}</b><i>${startOverlay}</i></span>${rest}`;
+  
+  if (w === 'should') {
+    return `<span class="wd target">${inner}` +
+      `<div class="lens-wrapper">` +
+        `<div class="ll-tip">` +
+          `<div class="ll-meta">` +
+            `<span class="ll-diff"><b>Easy</b> to read</span>` +
+            `<span class="ll-level">A1</span>` +
+          `</div>` +
+          `<div class="ll-parts">` +
+            `<div class="ll-part">` +
+              `<span class="ll-part-letters">should</span>` +
+              `<span class="ll-part-sound">shuud</span>` +
+            `</div>` +
+          `</div>` +
+          `<div class="ll-say">` +
+            `<div class="ll-say-btn filled">` +
+              `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4z"></path><path d="M15.5 9a4 4 0 0 1 0 6"></path><path d="M18 6.5a7.5 7.5 0 0 1 0 11"></path></svg>` +
+              `<span>Hear word</span>` +
+            `</div>` +
+            `<div class="ll-say-btn outlined">` +
+              `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"></path><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H13v16h5.5c.8 0 1.5-.7 1.5-1.5z"></path></svg>` +
+              `<span>Meaning</span>` +
+            `</div>` +
+          `</div>` +
+        `</div>` +
+      `</div>` +
+      `<svg class="ptr" viewBox="0 0 24 24"><path d="M5.5 3.5L19 12l-6.5 1.5L9.5 21z" fill="#20352a" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>` +
+    `</span>`;
+  }
+  return `<span class="wd">${inner}</span>`; 
+});
+
+document.querySelectorAll('.st').forEach(st => {
+  const b = st.querySelector('b'), i = st.querySelector('i');
+  i.style.transformOrigin = 'left';
+  i.style.transform = 'scaleX(' + (b.getBoundingClientRect().width / i.getBoundingClientRect().width) + ')';
+});
+</script>
+</body>
+</html>
