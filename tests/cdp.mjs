@@ -56,13 +56,28 @@ export async function launch({ width = 1280, height = 800, extension = false, he
   const proc = spawn(extension ? EXTENSION_BROWSER : CHROME, args, { stdio: ['ignore', 'ignore', 'pipe'] });
   const wsUrl = await new Promise((ok, fail) => {
     let buffer = '';
-    const timer = setTimeout(() => fail(new Error('Chrome did not start: ' + buffer.slice(-400))), 20000);
+    let settled = false;
+    const done = (fn, v) => { if (!settled) { settled = true; clearTimeout(timer); fn(v); } };
+    const timer = setTimeout(() => done(fail, new Error('Chrome did not start: ' + buffer.slice(-400))), 20000);
     proc.stderr.on('data', (chunk) => {
       buffer += chunk;
       const m = /DevTools listening on (ws:\/\/\S+)/.exec(buffer);
-      if (m) { clearTimeout(timer); ok(m[1]); }
+      if (m) done(ok, m[1]);
     });
-    proc.on('exit', (code) => { clearTimeout(timer); fail(new Error('Chrome exited early: ' + code)); });
+    proc.on('exit', async (code) => {
+      // Newer Edge builds hand the browser to a background process and the launcher exits 0 at once.
+      // The browser still writes its DevTools address into the profile: wait for it there.
+      if (code === 0) {
+        for (let i = 0; i < 60 && !settled; i++) {
+          try {
+            const [p, path] = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).trim().split('\n');
+            if (p && path) return done(ok, `ws://127.0.0.1:${p.trim()}${path.trim()}`);
+          } catch { /* not written yet */ }
+          await sleep(250);
+        }
+      }
+      done(fail, new Error('Chrome exited early: ' + code));
+    });
   });
 
   const port = new URL(wsUrl).port;

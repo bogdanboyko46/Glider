@@ -14,6 +14,7 @@ body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: rela
 .l { position: absolute; margin: 0; font-size: 21px; line-height: 1.45; color: var(--muted); }
 .tag { position: absolute; margin: 0; font: 600 15px/1 "Lexend", sans-serif; color: var(--accent); display: flex; align-items: center; gap: 8px; }
 .tag::before { content: ""; width: 22px; height: 5px; border-radius: 3px; background: var(--accent); }
+.l.live { font-size: 15px; font-weight: 700; color: var(--accent); }
 .screen { position: absolute; border-radius: 16px; background: var(--page); box-shadow: 0 0 0 1px rgba(32, 53, 42, .1), 0 34px 60px -30px rgba(32, 53, 42, .45); }
 </style>
 </head>
@@ -32,11 +33,13 @@ const CARDS = {
         <p class="l" style="left:62px;top:116px;width:1100px">More space and a bold start to every word. Then set size and spacing from the side of the screen.</p>`);
     screen(60, 186, 566); el(`<p class="tag" style="left:64px;top:680px">One switch</p>`);
     screen(654, 206, 566); el(`<p class="tag" style="left:658px;top:164px">Tuned from the edge</p>`);
+    el(`<p class="l live" style="left:${654 + 566 - 420}px;top:692px;width:420px;text-align:right">Filmed live: the real extension on a course page</p>`);
   },
   // 3 Word help: words down the left, two windows overlapping on a diagonal at the right.
   3() {
     el(`<h1 class="h" style="left:60px;top:150px;width:400px">Help with the hard words.</h1>
-        <p class="l" style="left:62px;top:356px;width:340px">Long words split into chunks you can hear. Look-alike words come with a quick meaning.</p>`);
+        <p class="l" style="left:62px;top:356px;width:340px">Long words split into chunks you can hear, with how hard they are and what they mean. Look-alike words come with a quick meaning.</p>
+        <p class="l live" style="left:62px;top:540px;width:340px">Filmed live: the real extension on a course page</p>`);
     screen(440, 32, 500); el(`<p class="tag" style="left:960px;top:60px">Hear any word</p>`);
     screen(736, 268, 500); el(`<p class="tag" style="left:500px;top:668px">Words that look alike</p>`);
   },
