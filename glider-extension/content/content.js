@@ -2324,7 +2324,8 @@
     const at = list.indexOf(key);
     if (at < 0) return null;
     const end = list.indexOf('\n', at + key.length);
-    return list.slice(at + key.length, end < 0 ? undefined : end);
+    // A Windows checkout can turn the list's line ends into CRLF: trim the end.
+    return list.slice(at + key.length, end < 0 ? undefined : end).trimEnd();
   }
 
   /** Resolves to { say: "fuh-LAH-suh-fee", speak: [what to feed the voice per part] }, or null. */

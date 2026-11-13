@@ -1,0 +1,2 @@
+# The pronunciation lists are looked up by exact line; never convert their line ends.
+glider-extension/data/*.txt -text
