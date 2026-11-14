@@ -27,24 +27,19 @@ const rects = [];
 const screen = (x, y, w) => { const h = Math.round(w * 624 / 736); el(`<div class="screen" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>`); rects.push({ x, y, w, h }); };
 
 const CARDS = {
-  // 2 The lens, and tuning it: headline across the top, one large window in the middle, the steps it
-  //   walks through listed down the left, the note that it is filmed live at the right.
+  // 2 and 3 are layout A from the Gemini variations (cards-gemini.html, v=1): headline and one line on the left,
+  //   the live footage large on the right, nothing else in the empty space.
   2() {
-    el(`<h1 class="h" style="left:60px;top:40px">Lines stop crowding you.</h1>
-        <p class="l" style="left:62px;top:110px;width:1100px">Turn Glider on from the side of the screen, then set colours, font, size and spacing to suit you.</p>`);
-    screen(330, 168, 620);
-    el(`<p class="tag" style="left:64px;top:300px">Colour b d p q</p>
-        <p class="tag" style="left:64px;top:360px">Hyperlegible font</p>
-        <p class="tag" style="left:64px;top:420px">Size and spacing</p>
-        <p class="l live" style="left:982px;top:600px;width:250px">Filmed live: the real extension on a course page</p>`);
+    el(`<h1 class="h" style="left:60px;top:240px;width:400px">Lines stop crowding you.</h1>
+        <p class="l" style="left:62px;top:384px;width:380px">Set colours to tell letters apart, switch to a clearer font, and tune the spacing to suit you.</p>`);
+    screen(520, 55, 720);
   },
-  // 3 Word help: words down the left, two windows overlapping on a diagonal at the right.
+  // 3 two windows staggered; the second covers only the first one's lower-right corner, clear of its word lens
   3() {
-    el(`<h1 class="h" style="left:60px;top:150px;width:400px">Help with the hard words.</h1>
-        <p class="l" style="left:62px;top:356px;width:340px">Long words split into chunks you can hear, with how hard they are and what they mean. Look-alike words come with a quick meaning.</p>
-        <p class="l live" style="left:62px;top:540px;width:340px">Filmed live: the real extension on a course page</p>`);
-    screen(440, 32, 500); el(`<p class="tag" style="left:960px;top:60px">Hear any word</p>`);
-    screen(736, 268, 500); el(`<p class="tag" style="left:500px;top:668px">Words that look alike</p>`);
+    el(`<h1 class="h" style="left:60px;top:240px;width:380px">Help with the hard words.</h1>
+        <p class="l" style="left:62px;top:384px;width:360px">Rest on a hard word to hear it sounded out and see what it means. Look-alike words get a quick definition to help you choose.</p>`);
+    screen(456, 32, 500);
+    screen(760, 276, 480);
   },
   // 4 Eye tracking, then the simpler version: one large window at the left, headline stacked at the right.
   4() {

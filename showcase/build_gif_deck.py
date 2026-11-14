@@ -109,7 +109,7 @@ if __name__ == '__main__':
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         slide.shapes.add_picture(os.path.join(OUT, f'deck-{i + 1}.gif'), 0, 0, width=prs.slide_width, height=prs.slide_height)
         slide.notes_slide.notes_text_frame.text = NOTES[i]
-        tr = etree.Element('{%s}transition' % P, spd='med', advClick='1', advTm=str(int(s * 1000)))
+        tr = etree.Element('{%s}transition' % P, spd='med', advClick='1')   # click to advance: the speaker sets the pace; the GIFs loop meanwhile
         etree.SubElement(tr, '{%s}fade' % P)
         anchor = slide._element.find('{%s}clrMapOvr' % P)
         (anchor if anchor is not None else slide._element.find('{%s}cSld' % P)).addnext(tr)

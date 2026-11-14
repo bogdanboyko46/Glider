@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glider deck card</title>
+<link rel="stylesheet" href="base.css">
+<style>
+body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: relative; background: var(--bg); color: var(--ink); font-family: "Atkinson", "Segoe UI", sans-serif; }
+.h { position: absolute; margin: 0; font: 700 54px/1.05 "Lexend", sans-serif; letter-spacing: -.028em; }
+.h.large { font-size: 72px; line-height: 1; letter-spacing: -.03em; }
+.l { position: absolute; margin: 0; font-size: 21px; line-height: 1.45; color: var(--muted); }
+.screen { position: absolute; border-radius: 16px; background: var(--page); box-shadow: 0 0 0 1px rgba(32, 53, 42, .1), 0 34px 60px -30px rgba(32, 53, 42, .45); }
+</style>
+</head>
+<body>
+<script>
+const n = Number(new URLSearchParams(location.search).get('n') || 2);
+const v = Number(new URLSearchParams(location.search).get('v') || 1);
+const el = (html) => document.body.insertAdjacentHTML('beforeend', html);
+const rects = [];
+const screen = (x, y, w, z = 1) => { 
+  const h = Math.round(w * 624 / 736); 
+  el(`<div class="screen" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:${z}"></div>`); 
+  rects.push({ x, y, w, h }); 
+};
+
+if (n === 2) {
+  if (v === 1) {
+    el(`<h1 class="h" style="left:60px;top:240px;width:400px">Lines stop crowding you.</h1>
+        <p class="l" style="left:62px;top:384px;width:380px">Set colours to tell letters apart, switch to a clearer font, and tune the spacing to suit you.</p>`);
+    screen(520, 55, 720);
+  } else if (v === 2) {
+    el(`<h1 class="h" style="text-align:center;left:0;right:0;top:40px">Lines stop crowding you.</h1>
+        <p class="l" style="text-align:center;left:320px;top:115px;width:640px">Set colours to tell letters apart, switch to a clearer font, and tune the spacing to suit you.</p>`);
+    screen(350, 194, 580);
+  } else if (v === 3) {
+    el(`<h1 class="h large" style="left:60px;top:120px;width:550px">Lines stop<br>crowding you.</h1>
+        <p class="l" style="left:62px;top:320px;width:420px">Set colours to tell letters apart, switch to a clearer font, and tune the spacing to suit you.</p>`);
+    screen(580, 80, 640);
+  }
+} else if (n === 3) {
+  if (v === 1) {
+    el(`<h1 class="h" style="left:60px;top:240px;width:380px">Help with the hard words.</h1>
+        <p class="l" style="left:62px;top:384px;width:360px">Rest on a hard word to hear it sounded out and see what it means. Look-alike words get a quick definition to help you choose.</p>`);
+    screen(456, 32, 500, 1);
+    screen(760, 276, 480, 2);
+  } else if (v === 2) {
+    el(`<h1 class="h" style="text-align:center;left:0;right:0;top:40px">Help with the hard words.</h1>
+        <p class="l" style="text-align:center;left:290px;top:115px;width:700px">Rest on a hard word to hear it sounded out and see what it means. Look-alike words get a quick definition to help you choose.</p>`);
+    screen(90, 210, 520, 1);
+    screen(670, 210, 520, 2);
+  } else if (v === 3) {
+    el(`<h1 class="h large" style="left:60px;top:80px;width:380px">Help with<br>the hard<br>words.</h1>
+        <p class="l" style="left:62px;top:360px;width:360px">Rest on a hard word to hear it sounded out and see what it means. Look-alike words get a quick definition to help you choose.</p>`);
+    screen(456, 32, 500, 1);
+    screen(760, 276, 480, 2);
+  }
+}
+
+document.body.dataset.rects = JSON.stringify(rects);
+</script>
+</body>
+</html>
