@@ -66,6 +66,7 @@ With eye tracking on, Glider learns your normal reading pace through the webcam.
 ## Contents
 
 - [Install](#install)
+  - [Try eye tracking on another computer](#try-eye-tracking-on-another-computer)
 - [Features](#features)
   - [The reading lens](#the-reading-lens)
   - [Word help](#word-help)
@@ -92,6 +93,26 @@ Glider is a Manifest V3 extension. It isn't on the Chrome Web Store yet, so you 
 
 > [!TIP]
 > To try it on a local file such as `demo/sample-assignment.html`, also switch on **Allow access to file URLs** on the extension's details page.
+
+### Try eye tracking on another computer
+
+Eye tracking is the **Adaptive** switch in the panel and the popup. To measure how well it works on a given computer and camera, use the Gaze Lab, a local page that runs short tasks and saves the results as numbers (no pictures).
+
+You need Git, [Node.js](https://nodejs.org) (LTS or newer) and Chrome. There is nothing to install with npm.
+
+```bash
+git clone -b ui/current-look https://github.com/bogdanboyko46/Glider.git
+cd Glider
+node tests/lab/server.mjs
+```
+
+1. Load the `glider-extension` folder as described above. After a `git pull`, press the extension's reload arrow.
+2. Leave the server running and open <http://127.0.0.1:8377/> in the same Chrome profile. Allow the camera when asked. A red banner means the extension didn't answer: reload the extension, then the page.
+3. Run **camera** first. It reports the frame rate; under about 20 a second, put more light on your face.
+4. Run **calibrate** once, then **lines-paced**, **lines-self** and **stall**, sitting as you normally would. In stall, when asked to re-read, read both marked lines, press `R`, and jump back to the first of them.
+5. Each run is saved as one JSON file in `tests/lab/recordings/` (not committed). `node tests/lab/analyze.mjs tests/lab/recordings/<file>` prints its figures. To compare computers, copy that folder across.
+
+More on the tasks and the recording format is in [`tests/lab/README.md`](tests/lab/README.md).
 
 ---
 
@@ -252,6 +273,9 @@ node tests/worddata.test.js    # definitions and word parts looked up from the b
 node tests/syllables.test.js   # syllable splitter accuracy on 345 words
 node tests/gaze-core.test.js   # gaze maths, baseline and tau
 node tests/gaze.mjs            # simulated camera: calibration, reading-pace baseline, planted struggles
+node tests/bench/gaze-bench.mjs --compare   # gaze accuracy on a synthetic camera against the saved baseline (tests/bench/RESULTS.md)
+node tests/bench/bench.test.mjs             # checks of that benchmark and of its synthetic person
+node tests/gaze-camera-smoke.mjs            # the real camera path: unpacked extension in headless Edge, the browser's fake camera playing a public-domain portrait (fetched at run time)
 node tests/simplify.test.js    # offline text simplifier
 node tests/simplify.mjs        # struggle -> simplify bridge in headless Chrome (canned rewrite-service reply)
 node tests/proxy.test.mjs      # the rewrite service's request handling, with a fake Anthropic client
