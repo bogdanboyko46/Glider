@@ -42,16 +42,21 @@ export function replayShipped(fixes, blocks, P = {}) {
   const T = clamp((P.tau || C.TAU_DEFAULT) * (P.sensitivity || 1), 1.3, 4);
   const regressionRate = P.regressionRate || 0;
   const drift = { y: 0 }; const states = new Map();
-  let cur = null, prevBlockBottom = null, prevFixEnd = 0;
+  let cur = null, lastRead = null, prevBlockBottom = null, prevFixEnd = 0;
   const dec = [], triggers = [];
-  const reset = (st, n) => Object.assign(st, { nLines: n, lineDwell: new Float64Array(n), visits: new Uint16Array(n), totalDwell: 0, runMs: 0, lastLine: -1, maxLine: -1, backtracks: [], triggers: 0 });
+  const reset = (st, n) => Object.assign(st, { nLines: n, lineDwell: new Float64Array(n), visits: new Uint16Array(n), totalDwell: 0, runMs: 0, lastLine: -1, maxLine: -1, backtracks: [], triggers: 0, pend: null });
   const state = (b) => { let st = states.get(b); if (!st) { st = { hmm: new C.LineHMM(drift), words: blocks[b].words, leftAt: -1e9, lastTrigger: -1e9 }; reset(st, 0); states.set(b, st); } return st; };
   const normDist = (r, x, y) => { const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0; return Math.hypot(dx / sx, dy / sy); };
   const pick = (x, y) => {
     let best = null, bd = Infinity;
     blocks.forEach((b, i) => { const d = normDist(b.rect, x, y); if (d < bd) { bd = d; best = i; } });
-    if (cur !== null) { const dc = normDist(blocks[cur].rect, x, y); if (dc < 1.2 && dc <= bd + 0.8) return cur; }
-    return bd <= 2 ? best : null;
+    const stays = (r) => {   // level with the paragraph but beside it still counts, as in the reader
+      if (normDist(r, x, y) < 1.2) return true;
+      const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0, dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+      return dy / sy < 1.2 && dx <= Math.max(3.5 * sx, Math.min(300, 0.3 * (r.right - r.left)));
+    };
+    if (cur !== null && stays(blocks[cur].rect) && normDist(blocks[cur].rect, x, y) <= bd + 0.8) return cur;
+    return bd <= 2 || (best !== null && stays(blocks[best].rect)) ? best : null;
   };
   const expected = (st, lines, L) => {
     const widths = lines.map((l) => l.right - l.left), total = widths.reduce((a, v) => a + v, 0) || 1; const mpw = 60000 / wpm;
@@ -68,7 +73,7 @@ export function replayShipped(fixes, blocks, P = {}) {
         }
       }
       cur = b;
-      if (b !== null) { const st = state(b); if (fix.t - st.leftAt > 5000) reset(st, st.nLines); st.hmm.reset(); st.justEntered = true; }
+      if (b !== null) { const st = state(b); if (fix.t - st.leftAt > 5000) reset(st, st.nLines); const resumed = b === lastRead && fix.t - st.leftAt < 3000; lastRead = b; if (!resumed) { st.hmm.reset(); st.justEntered = true; } }
     }
     if (b === null) { dec.push(null); continue; }
     const st = state(b), lines = blocks[b].lines;
@@ -80,13 +85,20 @@ export function replayShipped(fixes, blocks, P = {}) {
     const dwell = prevFixEnd && end - prevFixEnd < 1200 ? end - prevFixEnd : fix.dur;
     prevFixEnd = end;
     st.totalDwell += dwell; st.lineDwell[L] += dwell;
-    if (L === st.lastLine) st.runMs += dwell;
+    // As in the reader: a line change is held as pending until the tracker has settled on it.
+    const settled = r.conf > 0.55 || st.lastLine < 0;
+    const pend = st.pend || null;
+    if (pend && pend.line !== L) { st.lineDwell[pend.line] = Math.max(0, st.lineDwell[pend.line] - pend.ms); st.lineDwell[L] += pend.ms; }
+    if (L === st.lastLine) { st.runMs += dwell + (pend ? pend.ms : 0); st.pend = null; }
+    else if (!settled) st.pend = { line: L, ms: (pend ? pend.ms : 0) + dwell };
     else {
+      const held = pend ? pend.ms : 0;
+      st.pend = null;
       if (st.lastLine >= 0 && L < st.lastLine && L <= st.maxLine && r.conf > 0.55) st.backtracks.push(fix.t);
-      if (st.visits[L] > 0 && st.runMs >= 500 && r.conf > 0.55) st.lineDwell[L] = dwell;
-      st.visits[L]++; st.runMs = dwell; st.lastLine = L;
+      if (st.visits[L] > 0 && st.runMs >= 500 && r.conf > 0.55) st.lineDwell[L] = dwell + held;
+      st.visits[L]++; st.runMs = dwell + held; st.lastLine = L;
     }
-    st.maxLine = Math.max(st.maxLine, L);
+    if (settled || L === st.lastLine) st.maxLine = Math.max(st.maxLine, L);
     dec.push({ b, line: L, conf: r.conf });
     // checkStruggle
     const now = fix.t;

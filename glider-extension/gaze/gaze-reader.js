@@ -594,15 +594,26 @@
     return Math.hypot(dx / S.sx, dy / S.sy);
   }
 
+  /* Whether a fixation belongs to a paragraph. The sideways estimate is the weak one (measured 100 to 200 px
+     off at line starts), so a fixation level with the paragraph but beside it still counts, up to 0.3 of the
+     paragraph's width and at most BLOCK_SIDE_MAX px. pickBlock only uses this for the nearest block. */
+  const BLOCK_SIDE_SX = 3.5, BLOCK_SIDE_WIDTH = 0.3, BLOCK_SIDE_MAX = 300;
+  function stays(r, x, y) {
+    if (normDist(r, x, y) < 1.2) return true;
+    const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
+    const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    return dy / S.sy < 1.2 && dx <= Math.max(BLOCK_SIDE_SX * S.sx, Math.min(BLOCK_SIDE_MAX, BLOCK_SIDE_WIDTH * (r.right - r.left)));
+  }
+
   function pickBlock(x, y) {
     const blocks = getBlocks();
-    let best = null, bd = Infinity;
-    for (const b of blocks) { const dd = normDist(b.r, x, y); if (dd < bd) { bd = dd; best = b.el; } }
+    let best = null, bestR = null, bd = Infinity;
+    for (const b of blocks) { const dd = normDist(b.r, x, y); if (dd < bd) { bd = dd; best = b.el; bestR = b.r; } }
     if (S.block) {   // hysteresis: don't hop paragraphs on one noisy fixation
       const cur = blocks.find((b) => b.el === S.block);
-      if (cur) { const dc = normDist(cur.r, x, y); if (dc < 1.2 && dc <= bd + 0.8) return S.block; }
+      if (cur && stays(cur.r, x, y) && normDist(cur.r, x, y) <= bd + 0.8) return S.block;
     }
-    return bd <= 2 ? best : null;
+    return bd <= 2 || (bestR && stays(bestR, x, y)) ? best : null;
   }
 
   function getLines(el) {
@@ -668,11 +679,17 @@
     }
   }
 
+  const BLOCK_RESUME_MS = 3000;
   function enterBlock(el, t) {
     S.block = el;
     if (!el) return;
     const st = blockState(el);
     if (t - st.leftAt > 5000) resetCounters(st, st.nLines);
+    // A brief step outside the paragraph and straight back (a fixation estimated past its edge) is still the
+    // same reading: the line tracker keeps its place. It starts afresh after a real absence or another block.
+    const resumed = el === S.lastReadEl && t - st.leftAt < BLOCK_RESUME_MS;
+    S.lastReadEl = el;
+    if (resumed) return;
     st.hmm.reset();
     st.justEntered = true;
   }
