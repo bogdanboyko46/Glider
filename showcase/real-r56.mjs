@@ -20,7 +20,7 @@ const FULL = process.env.FULL === '1';
 const FRAME = `document.querySelector('[data-gaze-reader]').shadowRoot.querySelector('iframe').contentWindow`;
 const CAL = `(() => { const h = document.querySelector('[data-gaze-reader]'); if (!h) return null; const r = h.shadowRoot;
   const d = r.getElementById('cdot'), i = r.getElementById('instr');
-  return { dot: d.style.display === 'block' ? [parseFloat(d.style.left), parseFloat(d.style.top)] : null,
+  return { dot: d.style.display === 'block' ? [parseFloat(d.dataset.x), parseFloat(d.dataset.y)] : null,
            card: i.style.display !== 'none' ? i.innerText.slice(0, 40) : '', status: GazeReader.getState().status, done: !!window.__calDone, err: window.__calErr || null }; })()`;
 
 const READER = `(async () => {

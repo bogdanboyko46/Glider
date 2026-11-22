@@ -22,8 +22,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // which still responds at its real speed: PACE=1.4 node showcase/live-capture.mjs lens ...
 const PACE = Number(process.env.PACE || 1);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms * PACE));
-const W = 800, H = 600;                       // page size; the frame adds a 78 px bar: 800 x 678 (the card boxes are 1.18 : 1)
-const PAGE = '/demo/sample-assignment.html';
+// Page size; the frame adds a 78 px bar: 800 x 678 (the card boxes are 1.18 : 1). A stand-alone clip can ask for
+// another size, sharper pixels and another page: LIVE_W=1280 LIVE_H=642 LIVE_DSF=1.5 LIVE_PAGE=/demo/reading.html
+const W = Number(process.env.LIVE_W || 800), H = Number(process.env.LIVE_H || 600);
+const DSF = Number(process.env.LIVE_DSF || 1);
+const PAGE = process.env.LIVE_PAGE || '/demo/sample-assignment.html';
 let URL_ = '';   // set once the local server is up
 
 const SETTINGS = (patch) => ({
@@ -41,6 +44,35 @@ const CURSOR = `(() => {
   c.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 2.5l15.5 9.2-6.6 1.3-3.4 6.5z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
   document.documentElement.appendChild(c);
   addEventListener('mousemove', (e) => { c.style.transform = 'translate(' + (e.clientX - 4) + 'px,' + (e.clientY - 2) + 'px)'; }, true);
+})()`;
+
+/* A gaze dot, for scenes that stage eye tracking: a soft amber circle that glides along the points it is given. */
+const GAZE = `(() => {
+  if (window.__gaze) return 1;
+  const d = document.createElement('div');
+  d.id = 'demo-gaze'; d.setAttribute('data-glider-ignore', '');
+  d.style.cssText = 'position:fixed;left:0;top:0;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;background:rgba(255,196,60,.34);box-shadow:0 0 0 2px rgba(214,150,20,.6);z-index:2147483646;pointer-events:none;opacity:0;transition:opacity .25s ease';
+  document.documentElement.appendChild(d);
+  const put = (x, y) => { d.style.transform = 'translate(' + x + 'px,' + y + 'px)'; };
+  window.__gaze = {
+    show(v, x, y) { if (x !== undefined) put(x, y); d.style.opacity = v ? '1' : '0'; return 1; },
+    /* path: [[x, y, ms, eased?], ...]; the first point is where it starts */
+    run(path) {
+      return new Promise((done) => {
+        let i = 0, from = path[0], t0 = performance.now();
+        const step = (now) => {
+          const to = path[i + 1];
+          if (!to) { done(1); return; }
+          const k = to[2] ? Math.min(1, (now - t0) / to[2]) : 1, e = to[3] ? k * k * (3 - 2 * k) : k;
+          put(from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e + Math.sin(now / 95) * 1.6);
+          if (k >= 1) { from = to; i += 1; t0 = now; }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    },
+  };
+  return 1;
 })()`;
 
 /* Wait for the page's text, then start at the top, as a reader would. */
@@ -229,6 +261,156 @@ export const SCENES = {
       await sleep(1400);
     },
   },
+  // A stand-alone clip, quick: the plain page, Glider opened from the edge, the lens on, colours for b d p q and the
+  // Hyperlegible font, the panel closed, then rest on a long word and have it sounded out.
+  //   LIVE_W=1280 LIVE_H=642 LIVE_DSF=1.5 LIVE_PAGE=/demo/reading.html node showcase/live-capture.mjs quick
+  quick: {
+    settings: { on: false, fontSize: 130, wordSpacing: 4, lineHeight: 2 }, seconds: 9, word: 'Photosynthesis',
+    async run(page, p, scene) {
+      await sleep(350);
+      const mark = await box(page, inDock('.ll-pill-main'));
+      await p.glide(mark.x, mark.y, 600); await sleep(120); await p.click();
+      await sleep(450);
+      const on = await box(page, inDock('.ll-head [data-toggle="on"]'));
+      await p.glide(on.x, on.y, 380); await sleep(100); await p.click();
+      await sleep(750);
+      for (const key of ['mirror', 'font']) {
+        const sw = await box(page, inDock(`.ll-body [data-toggle="${key}"]`));
+        await p.glide(sw.x, sw.y, 340); await sleep(90); await p.click();
+        await sleep(520);
+      }
+      const close = await box(page, inDock('[data-action="collapse"]'));
+      await p.glide(close.x, close.y, 320); await p.click();
+      await sleep(250);
+      const t = await word(page, scene.word);
+      if (!t) throw new Error('word not visible: ' + scene.word);
+      await p.glide(t.x + t.w / 2 + 60, t.top - 8, 600);   // along the gap above the line
+      await p.glide(t.x, t.top - 8, 260);
+      await p.glide(t.x, t.y, 140);                         // then onto the word
+      await sleep(1100);                                    // the lens opens, then its sounds and parts arrive
+      await page.evalGlider(`(() => { const t = new Set(); speechSynthesis.speak = (u) => { t.add(setTimeout(() => u.onend && u.onend(), 150 + 16 * String(u.text).length)); }; speechSynthesis.cancel = () => { t.forEach(clearTimeout); t.clear(); }; return 1; })()`);
+      const tip = await box(page, inDock('.ll-tip'));
+      if (tip) {
+        const below = tip.top + tip.h > t.y;
+        await p.glide(t.x, below ? tip.top + 14 : tip.top + tip.h - 14, 200);
+      }
+      const slow = await box(page, inDock('.ll-tip [data-say="slow"]'));
+      if (slow) {
+        await p.glide(slow.x, slow.y, 420); await sleep(100); await p.click();
+        for (let i = 0; i < 60; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          if (!(await page.eval(`(() => { const b = ${inDock('.ll-tip [data-say="slow"]')}; return !!(b && b.dataset.speaking); })()`))) break;
+        }
+      }
+      await sleep(700);
+    },
+  },
+  // The whole story on a page built to be hard to read (demo/hard-reading.html): the controls, briefly; then two words
+  // and what each means: a hard word (chunks, sounds, word parts) and a word that looks like others.
+  //   LIVE_W=1280 LIVE_H=582 LIVE_DSF=1.5 GLIDER_DSF=1.5 LIVE_PAGE=/demo/hard-reading.html node showcase/live-capture.mjs showcase
+  // Nothing in the page is staged. A headless browser has no voice, so "Sound it out" is timed by a stand-in.
+  showcase: {
+    settings: { on: false, fontSize: 100, wordSpacing: 4, lineHeight: 2 }, seconds: 27, words: ['photographic', 'wear'],
+    async run(page, p, scene) {
+      const cue = (text) => scene.cues.push({ t: Date.now() - scene.t0, text });
+      cue('Small print, as it arrives');
+      await sleep(450);
+      const mark = await box(page, inDock('.ll-pill-main'));
+      await p.glide(mark.x, mark.y, 550); await sleep(100); await p.click();
+      await sleep(380);
+      cue('Turn the lens on: room to read, and a bold start to every word');
+      const on = await box(page, inDock('.ll-head [data-toggle="on"]'));
+      await p.glide(on.x, on.y, 340); await sleep(90); await p.click();
+      await sleep(750);
+      cue('Make it your size');
+      const k = await knob(page, 'fontSize');
+      await p.glide(k.x, k.y, 380); await sleep(80);
+      const x120 = await page.eval(`(() => { const el = ${inDock('[data-range="fontSize"]')}; const r = el.getBoundingClientRect(); const f = (120 - el.min) / (el.max - el.min); return r.left + 11 + f * (r.width - 22); })()`);
+      await p.drag(x120, k.y, 600);
+      console.log('  size ends on', await page.eval(`${inDock('[data-range="fontSize"]')}.value`));
+      await sleep(450);
+      cue('Tell b, d, p and q apart, in a font made to be legible');
+      for (const key of ['mirror', 'font']) {
+        const sw = await box(page, inDock(`.ll-body [data-toggle="${key}"]`));
+        await p.glide(sw.x, sw.y, 320); await sleep(80); await p.click();
+        await sleep(480);
+      }
+      const close = await box(page, inDock('[data-action="collapse"]'));
+      await p.glide(close.x, close.y, 300); await p.click();
+      await sleep(300);
+
+      // two words, and what each one means
+      const visit = async (w, caption, soundOut) => {
+        const t = await word(page, w);
+        if (!t) throw new Error('word not visible: ' + w);
+        cue(caption);
+        await p.glide(t.x + t.w / 2 + 70, t.top - 8, 600);   // along the gap above the line
+        await p.glide(t.x, t.top - 8, 260);
+        await p.glide(t.x, t.y, 140);                         // then onto the word
+        await sleep(1200);                                    // the lens opens, then its sounds and parts arrive
+        const tip = await box(page, inDock('.ll-tip'));
+        if (tip) { const below = tip.top + tip.h > t.y; await p.glide(t.x, below ? tip.top + 14 : tip.top + tip.h - 14, 200); }
+        const slow = soundOut ? await box(page, inDock('.ll-tip [data-say="slow"]')) : null;
+        if (slow) {
+          await p.glide(slow.x, slow.y, 420); await sleep(100); await p.click();
+          for (let i = 0; i < 60; i++) {
+            await new Promise((r) => setTimeout(r, 100));
+            if (!(await page.eval(`(() => { const b = ${inDock('.ll-tip [data-say="slow"]')}; return !!(b && b.dataset.speaking); })()`))) break;
+          }
+          await sleep(250);
+        }
+        const def = await box(page, inDock('.ll-tip [data-act="define"]'));
+        if (def) { await p.glide(def.x, def.y, 450); await sleep(350); await p.click(); }
+        await sleep(1700);
+        console.log('  ' + w + ':', await page.eval(`(() => { const el = ${inDock('.ll-tip')}; return el ? el.innerText.replace(/\s+/g, ' ').slice(0, 260) : ''; })()`));
+        // Asking for the meaning pins the lens open. Esc lets it go, as a reader would, and the pointer stays where it is.
+        const open = () => page.eval(`(() => { const el = ${inDock('.ll-tip')}; return !!(el && !el.hidden && el.dataset.show === 'true'); })()`);
+        await page.key('Escape'); await sleep(450);
+        if (await open()) { await page.key('Escape'); await sleep(450); }
+        if (await open()) console.log('  the lens for ' + w + ' is still open');
+        // Esc hands keyboard focus to the edge mark, which then shows its focus ring: a mouse user never sees that.
+        await page.eval(`(() => { const r = document.querySelector('#glider-root').shadowRoot; if (r.activeElement) r.activeElement.blur(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); return 1; })()`);
+      };
+      await page.evalGlider(`(() => { const t = new Set(); speechSynthesis.speak = (u) => { t.add(setTimeout(() => u.onend && u.onend(), 150 + 16 * String(u.text).length)); }; speechSynthesis.cancel = () => { t.forEach(clearTimeout); t.clear(); }; return 1; })()`);
+      await visit(scene.words[0], 'A hard word: its chunks, how each one sounds, and what it means', true);
+      await visit(scene.words[1], 'A word that looks like others: each one, with its meaning', false);
+      await sleep(500);
+    },
+  },
+  // One still of the page as the extension leaves it: node showcase/live-capture.mjs still -> showcase/out/still.png
+  still: {
+    settings: { on: true, mirror: true, font: true, fontSize: 120, wordSpacing: 4, lineHeight: 2, seeOriginal: true }, seconds: 1,
+    async run(page) {
+      await sleep(1200);
+      await page.eval(`document.getElementById('demo-cursor').style.opacity = '0'`);
+      await page.shot(join(HERE, 'out', 'still.png'), { x: 0, y: 0, width: W, height: H, scale: 2 });
+      console.log('  adapted blocks:', await page.eval(`document.querySelectorAll('[data-glider-adapted], .glider-adapt-indent').length`), '| text:', await page.eval(`document.querySelectorAll('main p')[1].textContent.slice(0, 90)`));
+    },
+  },
+  // Stills of the real word lens, as the extension draws it: one PNG per word, at twice the size.
+  //   LIVE_W=1280 LIVE_H=720 LIVE_PAGE=/demo/hard-reading.html node showcase/live-capture.mjs popup   -> showcase/out/popup-<word>.png
+  popup: {
+    settings: { on: true, mirror: true, font: true, fontSize: 120, wordSpacing: 4, lineHeight: 2 }, seconds: 1,
+    words: ['dilapidation', 'photographic', 'proportionate', 'deposit', 'burden', 'inventory', 'through'],
+    async run(page, p, scene) {
+      for (const w of scene.words) {
+        const t = await word(page, w);
+        if (!t) { console.log('  ' + w + ': not on screen'); continue; }
+        await page.move(t.x, t.top - 8); await sleep(60); await page.move(t.x, t.y);
+        await sleep(1500);
+        const tip = await page.eval(`(() => { const el = ${inDock('.ll-tip')}; if (!el || el.hidden || el.dataset.show !== 'true') return null; const r = el.getBoundingClientRect(); const d = el.querySelector('.ll-diff'); return { x: r.left, y: r.top, w: r.width, h: r.height, band: d && !d.hidden ? d.dataset.band + ' / ' + d.textContent : '', text: el.innerText.replace(/\s+/g, ' ').slice(0, 160) }; })()`);
+        if (!tip) { console.log('  ' + w + ': no lens'); } else {
+          const x0 = Math.max(0, Math.min(tip.x, t.left) - 28), y0 = Math.max(0, Math.min(tip.y, t.top) - 28);
+          const x1 = Math.min(W, Math.max(tip.x + tip.w, t.left + t.w) + 28), y1 = Math.min(H, Math.max(tip.y + tip.h, t.top + t.h) + 44);
+          await page.eval(`document.getElementById('demo-cursor').style.opacity = '0'`);
+          await page.shot(join(HERE, 'out', 'popup-' + w + '.png'), { x: x0, y: y0, width: x1 - x0, height: y1 - y0, scale: 2 });
+          await page.eval(`document.getElementById('demo-cursor').style.opacity = '1'`);
+          console.log('  ' + w + ': ' + tip.band + ' | ' + tip.text);
+        }
+        await page.move(30, H - 20); await sleep(700);
+      }
+    },
+  },
   // Card 3, right: a word that is easy to mix up; the lens lists the look-alike words with a short meaning each.
   lookalike: {
     settings: { on: true, mirror: true, font: true }, seconds: 6.4, target: null, start: { x: 330, y: 585 },
@@ -258,6 +440,8 @@ async function setSettings(chrome, base, patch) {
   const tab = await chrome.page();
   await tab.goto(`${base}simplify/options.html`, 500);
   await tab.eval(`chrome.storage.local.set({ 'glider:settings:v2': ${JSON.stringify(SETTINGS(patch))} }).then(() => chrome.storage.local.remove('glider:dock')).then(() => 1)`);
+  // LIVE_ADAPT=on|learn|off sets how Adaptive lays text out ahead of the reader (glider:adapt); unset leaves it alone
+  if (process.env.LIVE_ADAPT) await tab.eval(`chrome.storage.local.set({ 'glider:adapt': { mode: ${JSON.stringify(process.env.LIVE_ADAPT)} } }).then(() => 1)`);
   await tab.cdp.send('Page.close').catch(() => {});
 }
 
@@ -282,7 +466,7 @@ async function film(chrome, base, name) {
   await setSettings(chrome, base, scene.settings);
   const page = await chrome.page();
   trackGliderWorld(page);
-  await page.cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
+  await page.cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: DSF, mobile: false });
   await page.goto(URL_, 3500);
   await page.eval(IN_PAGE);
   if (!(await page.eval(READY))) throw new Error('page text not found');
@@ -308,19 +492,20 @@ async function film(chrome, base, name) {
     frames.push({ t: f.metadata.timestamp * 1000, data: f.data });
     page.cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
   });
-  await page.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: W, maxHeight: H, everyNthFrame: 1 });
+  await page.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: Math.round(W * DSF), maxHeight: Math.round(H * DSF), everyNthFrame: 1 });
   const t0 = Date.now();
+  scene.t0 = t0; scene.cues = [];                    // a scene may note captions: scene.cues.push({ t, text })
   // a repaint at the very start, so the first frame is the page at rest
   await page.eval(`document.getElementById('demo-cursor').style.opacity = '0.999'`);
   await scene.run(page, p, scene);
-  while (Date.now() - t0 < scene.seconds * PACE * 1000) await sleep(50);
+  if (!scene.cues.length) while (Date.now() - t0 < scene.seconds * PACE * 1000) await sleep(50);   // a captioned scene ends when its script does
   await page.cdp.send('Page.stopScreencast');
   await sleep(200);
   if (!frames.length) throw new Error('no frames');
   const start = frames[0].t;
   const times = frames.map((f) => Math.round(f.t - start));
   frames.forEach((f, i) => writeFileSync(join(dir, `f${String(i).padStart(4, '0')}.jpg`), Buffer.from(f.data, 'base64')));
-  writeFileSync(join(dir, 'times.json'), JSON.stringify({ times, length: Math.round(scene.seconds * PACE * 1000), url: URL_, title: await page.eval('document.title') }));
+  writeFileSync(join(dir, 'times.json'), JSON.stringify({ times, length: Math.round(Math.max(scene.seconds * PACE * 1000, Date.now() - t0)), url: URL_, title: await page.eval('document.title'), cues: scene.cues, width: W }));
   console.log(`${name}: ${frames.length} frames over ${(times[times.length - 1] / 1000).toFixed(1)} s, errors ${JSON.stringify(page.errors.filter((e) => !/movePinnableElement/.test(e)))}`);
   await page.cdp.send('Page.close').catch(() => {});
 }

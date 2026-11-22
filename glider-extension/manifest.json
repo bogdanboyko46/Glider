@@ -46,6 +46,10 @@
         "simplify/textscore.js",
         "simplify/gate.js",
         "simplify/bridge.js",
+        "adapt/splitter.js",
+        "adapt/reorder.js",
+        "adapt/profile.js",
+        "adapt/adapt.js",
         "gaze/gaze-lab.js",
         "content/content.js"
       ],

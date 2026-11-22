@@ -4,6 +4,7 @@
   'use strict';
 
   const FAKE = new URLSearchParams(location.search).has('fake');
+  const LANDMARKS = new URLSearchParams(location.search).has('landmarks');
   const BLOCK_ID = 'lab-p1';
   const now = () => performance.now();
   const r1 = (n) => Math.round(n * 10) / 10;
@@ -62,6 +63,7 @@
   function installFake() {
     let streaming = false;
     let batch = [];
+    let fakeCalAt = null;
     let lastFix = 0;
     let lastStatus = 0;
     let fixN = 0;
@@ -80,10 +82,18 @@
         if (streaming) batch.push({ k: 'camera', t: now(), settings: { width: 640, height: 480, frameRate: 30, fake: true } });
         return reply(id, { streaming });
       }
-      if (cmd === 'calibrate') return reply(id, { accuracy: state().accuracy }, 800);
+      if (cmd === 'calibrate') {
+        // as the extension does: one 'caldot' event per dot (two of the calibration, two of the check after the fit)
+        const t = now();
+        [['dots', 'cal', 0, 0.06, 0.08], ['dots', 'val', 100, 0.25, 0.22], ['check', 'check', 300, 0.4, 0.4], ['check', 'check', 301, 0.84, 0.3]].forEach(([seg, role, g, fx, fy], i) => {
+          batch.push({ k: 'caldot', t: t + 150 * i, i, g, seg, role, x: Math.round(fx * innerWidth), y: Math.round(fy * innerHeight), tShow: t + 150 * i, tSampleStart: t + 150 * i + 50, tSampleEnd: t + 150 * i + 140, frames: 3, settled: true });
+        });
+        fakeCalAt = Date.now();
+        return reply(id, { accuracy: state().accuracy }, 800);
+      }
       if (cmd === 'state') return reply(id, state());
       if (cmd === 'dump') {
-        return reply(id, { state: state(), accuracy: state().accuracy, model: { fake: true }, train: { X: [], Y: [], G: [] }, calibHead: null, calibScreen: null, baseline: null, camera: { width: 640, height: 480, frameRate: 30 }, tau: 0 });
+        return reply(id, { state: state(), accuracy: state().accuracy, model: { fake: true }, train: { X: [], Y: [], G: [] }, calibHead: null, calibScreen: null, baseline: null, camera: { width: 640, height: 480, frameRate: 30 }, tau: 0, calibratedAt: fakeCalAt });
       }
       return reply(id, null);
     });
@@ -206,6 +216,9 @@
         <label>Lighting<input type="text" data-p="lighting" placeholder="e.g. daylight, lamp left"></label>
         <label>Label<input type="text" data-p="label" placeholder="free label"></label>
       </div>
+      <h2>Benchmark session</h2>
+      <div class="row"><button data-a="session">Run the benchmark session (about 6 minutes)</button>
+        <span class="desc">camera 15 s, calibrate, validate, read along at 64 px and at 32 px line spacing, four head positions, validate again. Seven recordings; then run <code>node tests/bench/gaze-bench.mjs --real-only</code>.</span></div>
       <h2>Tasks</h2>
       <div class="tasks"></div>
       <h2>Last result</h2>
@@ -554,13 +567,23 @@
           ctx.extra.error = String(err.message);
         }
         ctx.truth.push({ kind: 'phase', name: 'calibrate', t0, t1: now() });
+        // The calibration's own dots as truth: where each dot was and which stretch of it counted ('caldot'
+        // events from the extension). The five dots of the check after the fit were never shown to the
+        // model, so they are 'target' entries as well (phase 'check'): the analyzer and
+        // tests/bench/gaze-bench.mjs score them like a short validate task.
+        await new Promise((r) => setTimeout(r, 250)); // the last batch of events
+        for (const e of ctx.events.filter((ev) => ev.k === 'caldot')) {
+          ctx.truth.push({ kind: 'caldot', id: `${e.seg}-${e.g}`, seg: e.seg, role: e.role, x: e.x, y: e.y, tShow: e.tShow, tSettle: e.tSampleStart, tEnd: e.tSampleEnd, frames: e.frames, settled: e.settled });
+          if (e.seg === 'check') ctx.truth.push({ kind: 'target', id: `check-${e.g}`, x: e.x, y: e.y, tShow: e.tShow, tSettle: e.tSampleStart, tEnd: e.tSampleEnd, phase: 'check' });
+        }
         ui.stage.hidden = false;
         ctx.noAbort = false;
       },
       summary(ctx, rec) {
         const accuracy = (rec.dump && rec.dump.accuracy) ?? (ctx.extra.result && ctx.extra.result.accuracy) ?? null;
-        const data = { accuracy, result: ctx.extra.result ?? null, error: ctx.extra.error ?? null };
-        return { data, lines: [ctx.extra.error ? `calibrate failed: ${ctx.extra.error}` : 'calibration finished', `accuracy: ${JSON.stringify(accuracy)}`] };
+        const data = { accuracy, result: ctx.extra.result ?? null, error: ctx.extra.error ?? null, caldots: ctx.truth.filter((t) => t.kind === 'caldot').length };
+        const v = accuracy && accuracy.validation;
+        return { data, lines: [ctx.extra.error ? `calibrate failed: ${ctx.extra.error}` : 'calibration finished', v ? `check: ${v.message} (typical error ${v.errPx} px, about ${v.errDeg} deg)` : 'check: none', `${data.caldots} calibration dots stored as truth`, `accuracy: ${JSON.stringify(accuracy)}`] };
       },
     },
     validate: {
@@ -764,6 +787,8 @@
       resetStage();
       showMsg('Saving...');
       rec.dump = await bridge.cmd('dump', {}, 15000).catch((err) => ({ error: String(err.message) }));
+      rec.session = sessionOf(rec.dump);
+      if (opts.sequence) rec.sequence = opts.sequence;
       rec.truth = ctx.truth;
       rec.layout = ctx.layout;
       rec.events = ctx.events;
@@ -789,9 +814,46 @@
     }
   }
 
+  /* Which calibration a recording was made on. The id comes from the calibration itself (the time it
+     was finished, which the extension keeps with it and gives back in every dump), so every recording
+     made on one calibration carries the same id, across page reloads too. Before any calibration: null. */
+  function sessionOf(dump) {
+    const at = dump && dump.calibratedAt;
+    return at ? { id: 'cal-' + at, calibratedAt: new Date(at).toISOString() } : { id: null, calibratedAt: null };
+  }
+
+  /* The benchmark session: the fixed sequence that gives tests/bench/gaze-bench.mjs its REAL rows.
+     About six minutes: camera 15 s, calibrate, validate, read along at a 64 px and at a 32 px line
+     spacing, the four head positions, validate again. Every step is saved as its own recording, with
+     `sequence: { name: 'benchmark', step, of, run }`. A step that fails or is aborted ends the session. */
+  const SESSION = [
+    ['camera', { durationMs: 15000 }],
+    ['calibrate', { baseline: false }],
+    ['validate', {}],
+    ['lines-paced', { pitch: 64, fontPx: 22 }],
+    ['lines-paced', { pitch: 32, fontPx: 18 }],
+    ['headshift', {}],
+    ['validate', {}],
+  ];
+  async function runSession(opts = {}) {
+    const run = Date.now().toString(36), out = [];
+    for (let i = 0; i < SESSION.length; i += 1) {
+      const [name, params] = SESSION[i];
+      const res = await runTask(name, params, { ...opts, sequence: { name: 'benchmark', step: i + 1, of: SESSION.length, run } }).catch((err) => ({ ok: false, error: String(err.message) }));
+      out.push({ task: name, ...res });
+      if (!res || !res.ok) {
+        showResult(`Benchmark session stopped at step ${i + 1} of ${SESSION.length} (${name}): ${res && res.aborted ? 'aborted' : (res && res.error) || 'failed'}.`, 'err', out.map((r, k) => `${k + 1}. ${r.task}: ${r.ok ? r.file : 'not saved'}`));
+        return { ok: false, steps: out };
+      }
+    }
+    showResult(`Benchmark session saved: ${out.length} recordings.`, 'saved', [...out.map((r, k) => `${k + 1}. ${r.task}: ${r.file}`), '', 'Now, in a terminal at the checkout root:', '  node tests/bench/gaze-bench.mjs --real-only     (the REAL rows alone, in a second)', '  node tests/bench/gaze-bench.mjs                 (the whole benchmark with the REAL rows under it)']);
+    return { ok: true, steps: out };
+  }
+
   async function dumpNow() {
     const rec = baseRecording('dump', {});
     rec.dump = await bridge.cmd('dump', {}, 15000).catch((err) => ({ error: String(err.message) }));
+    rec.session = sessionOf(rec.dump);
     const d = rec.dump || {};
     return saveAndShow(rec, { data: { accuracy: d.accuracy ?? null }, lines: [d.error ? `dump failed: ${d.error}` : `accuracy: ${JSON.stringify(d.accuracy ?? null)}`] });
   }
@@ -841,7 +903,8 @@
       // Coach params that have no form field ride along; the form wins for the rest.
       const coachParams = coach.inst && coach.inst.task === t.dataset.run ? coach.inst.params || {} : {};
       start(t.dataset.run, { ...coachParams, ...readParams(t.dataset.run) });
-    } else if (t.dataset.a === 'dump') dumpNow();
+    } else if (t.dataset.a === 'session') runSession().catch((err) => { console.error(err); });
+    else if (t.dataset.a === 'dump') dumpNow();
     else if (t.dataset.a === 'start') bridge.cmd('start', {}, 20000).then(() => refreshState(), (err) => showResult('start failed: ' + err.message, 'err'));
     else if (t.dataset.a === 'stop') bridge.cmd('stop', {}, 8000).then(() => refreshState(), (err) => showResult('stop failed: ' + err.message, 'err'));
     else if (t.dataset.a === 'note') sendNote();
@@ -890,6 +953,14 @@
         ui.banner.hidden = true;
         chip('ext', `extension: ${FAKE ? 'FAKE' : 'detected'}${res && res.version ? ' v' + res.version : ''}`, 'ok');
         showState(res && res.state);
+        // ?landmarks=1 (lab only, off by default): every raw frame also carries 24 face landmarks (`lmk`: eye corners,
+        // lids, both irises, nose bridge and tip, cheeks, forehead, chin; x, y, z as MediaPipe gives them). It adds
+        // about 0.6 KB a frame to a recording. The camera frame learns of it when it starts, so a running tracker is restarted.
+        if (LANDMARKS && !FAKE) {
+          await bridge.cmd('init', { labLandmarks: true }).catch(() => {});
+          if (res && res.state && !['idle', 'error', 'needs-permission'].includes(res.state.status)) { await bridge.cmd('stop', {}, 8000).catch(() => {}); await bridge.cmd('start', {}, 30000).catch(() => {}); }
+          chip('ext', `extension: detected${res && res.version ? ' v' + res.version : ''}, landmarks on`, 'ok');
+        }
         if (!current) await bridge.cmd('stream', { on: true }).catch(() => {});
         return;
       } catch {
@@ -951,6 +1022,8 @@
     bridge, TASKS, fake: FAKE,
     /** run(task, params, { auto: true }) skips every "press a key" step. Resolves with { ok, file, summary }. */
     run: (task, params, opts) => runTask(task, params, opts),
+    /** session({ auto: true }): the benchmark session; resolves with { ok, steps: [{ task, ok, file }] }. */
+    session: (opts) => runSession(opts), SESSION,
     dump: dumpNow,
     get last() { return lastRecording; },
     get connected() { return connected; },

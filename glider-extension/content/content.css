@@ -153,6 +153,75 @@ html.glider-size :is(p, li, dd, dt, blockquote, figcaption) :is(p, li, dd, dt, b
   zoom: 1;
 }
 
+/* ------------------------------------------------------------ adapt ahead */
+
+/* Long sentences set out one part per line (adapt/adapt.js). Each later part sits
+   in a block of its own, so every line of it is indented, also the lines it wraps
+   onto. Nothing here is animated: the text is set out before the reader reaches it. */
+.glider-adapt-part {
+  all: unset;
+  display: block;
+  padding-left: 1.5em;
+}
+
+/* Where a part cannot be boxed (it starts inside a link and ends outside it), an
+   empty <br class="glider-adapt-br"> and this empty box indent its first line. */
+.glider-adapt-indent {
+  all: unset;
+  display: inline-block;
+  width: 1.5em;
+  height: 0;
+}
+
+/* A sentence shown main clause first: an ordinary run of text. */
+.glider-adapt-moved {
+  all: unset;
+}
+
+/* "See original": three small bars at the end of the block, faint until it is
+   pointed at or reached with the keyboard. Pressed (the text is set out for
+   reading) the lower bars step in; not pressed they are flush, like a paragraph. */
+.glider-adapt-toggle {
+  all: unset;
+  display: inline-block;
+  box-sizing: content-box;
+  width: 0.8em;
+  height: 0.62em;
+  margin-left: 0.3em;
+  padding: 0.2em;
+  border-radius: 0.2em;
+  vertical-align: baseline;
+  cursor: pointer;
+  opacity: 0.4;
+  background:
+    linear-gradient(currentColor, currentColor) left top / 100% 0.12em no-repeat content-box,
+    linear-gradient(currentColor, currentColor) left center / 100% 0.12em no-repeat content-box,
+    linear-gradient(currentColor, currentColor) left bottom / 100% 0.12em no-repeat content-box;
+}
+
+.glider-adapt-toggle[aria-pressed="true"] {
+  background:
+    linear-gradient(currentColor, currentColor) left top / 100% 0.12em no-repeat content-box,
+    linear-gradient(currentColor, currentColor) right center / 68% 0.12em no-repeat content-box,
+    linear-gradient(currentColor, currentColor) right bottom / 68% 0.12em no-repeat content-box;
+}
+
+.glider-adapt-toggle:hover,
+.glider-adapt-toggle:focus-visible {
+  opacity: 1;
+}
+
+.glider-adapt-toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+@media print {
+  .glider-adapt-toggle {
+    display: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html.glider-syllables .glider-long,
   html.glider-spacing .glider-ease,

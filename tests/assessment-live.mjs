@@ -51,14 +51,14 @@ const IN_PAGE = `
     state() {
       const sr = this.sr();
       const d = sr && sr.getElementById('cdot'), i = sr && sr.getElementById('instr'), cal = sr && sr.getElementById('calib'), cam = sr && sr.getElementById('cam');
-      const x = d ? parseFloat(d.style.left) : NaN, y = d ? parseFloat(d.style.top) : NaN;
+      const x = d ? parseFloat(d.dataset.x) : NaN, y = d ? parseFloat(d.dataset.y) : NaN;
       const calOn = !!cal && cal.classList.contains('show');
       return {
         reader: typeof GazeReader === 'object',
         status: typeof GazeReader === 'object' ? GazeReader.getState().status : null,
         dot: calOn && d && d.style.display === 'block' && isFinite(x) && isFinite(y) ? [x, y] : null,
         card: calOn && i && i.style.display !== 'none' ? i.innerText.trim().slice(0, 60) : '',
-        camHidden: cam ? (getComputedStyle(cam).opacity === '0' || getComputedStyle(cam).display === 'none') : null,
+        camHidden: cam ? (parseFloat(getComputedStyle(cam).opacity) <= 0.05 || getComputedStyle(cam).display === 'none') : null,
         toast: sr && sr.getElementById('toast') ? getComputedStyle(sr.getElementById('toast')).display !== 'none' : false,
         reading: !!document.querySelector('.rcf-read--live'),
         panel: (document.querySelector('#rc-root h1, #rc-root h2') || {}).textContent || '',

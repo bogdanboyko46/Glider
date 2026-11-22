@@ -1,0 +1,21 @@
+canonical_face_model.obj
+
+What it is: the canonical 3D face mesh of MediaPipe Face Geometry (468 vertices, centimetres).
+tests/bench/synth3d.mjs reads the vertex positions as the resting positions of the face
+landmarks of its synthetic person. It is test data only: it is not part of the extension and is
+not listed in glider-extension/manifest.json.
+
+Source:  https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/modules/face_geometry/data/canonical_face_model.obj
+Fetched: 2026-11-20 from
+         https://raw.githubusercontent.com/google-ai-edge/mediapipe/master/mediapipe/modules/face_geometry/data/canonical_face_model.obj
+         unmodified, 45,999 bytes.
+Licence: Apache License, Version 2.0. Copyright The MediaPipe Authors.
+         https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE
+         https://www.apache.org/licenses/LICENSE-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+except in compliance with the License. You may obtain a copy of the License at the address
+above. Unless required by applicable law or agreed to in writing, software distributed under
+the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+either express or implied. See the License for the specific language governing permissions and
+limitations under the License.

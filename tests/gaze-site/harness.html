@@ -20,10 +20,19 @@ window.chrome = {
         }
         return Promise.resolve(out);
       },
-      set: (o) => { Object.assign(_store, o); return Promise.resolve(); },
+      set: (o) => {
+        const changes = {};
+        for (const k of Object.keys(o)) changes[k] = { oldValue: _store[k], newValue: o[k] };
+        Object.assign(_store, o);
+        for (const fn of _onChanged) { try { fn(changes, "local"); } catch (_) { /* a listener's own problem */ } }
+        return Promise.resolve();
+      },
     },
+    // (step 4) change events, as in the extension: gaze-reader.js listens for the permission page's flag here
+    onChanged: { addListener: (fn) => { _onChanged.push(fn); } },
   },
 };
+const _onChanged = [];
 </script></head>
 <body>
 <h1>Photosynthesis</h1>

@@ -38,12 +38,16 @@
   function subscribe() {
     if (subs.length) return;
     subs = [
-      G.on('raw', (r) => push({ k: 'raw', t: r.t, face: r.face, blink: r.blink, f: r.f ? r.f.map((v) => round(v, 1e6)) : undefined, head: r.head, fps: r.fps })),
+      // lmk: a small subset of the face landmarks, only after init({ labLandmarks: true }) and a restart of the tracker
+      G.on('raw', (r) => push({ k: 'raw', t: r.t, face: r.face, blink: r.blink, f: r.f ? r.f.map((v) => round(v, 1e6)) : undefined, head: r.head, fps: r.fps, lids: r.lids || undefined, lmk: r.lmk || undefined })),
+      // one per calibration dot, the five dots of the check after the fit included (seg 'check'): the truth of a calibration
+      G.on('caldot', (d) => push({ k: 'caldot', t: now(), ...d })),
+      G.on('accuracy', (a) => push({ k: 'accuracy', t: now(), accuracy: a })),
       G.on('gaze', (g) => push({ k: 'gaze', t: g.t, x: round(g.x, 10), y: round(g.y, 10), rawX: round(g.rawX, 10), rawY: round(g.rawY, 10) })),
       G.on('fixation', (f) => push({ k: 'fix', t: f.t, x: round(f.x, 10), y: round(f.y, 10), dur: Math.round(f.dur), n: f.n })),
       G.on('line', (l) => push({ k: 'line', t: now(), el: l && l.element ? (l.element.id || null) : null, line: l ? l.lineIndex : -1, conf: l ? l.confidence : 0 })),
       G.on('status', (state) => push({ k: 'status', t: now(), state })),
-      G.on('camera', (c) => push({ k: 'camera', t: c.t, settings: c.settings })),
+      G.on('camera', (c) => push({ k: 'camera', t: c.t, settings: c.settings, delegate: c.delegate, fps: c.fps, modelFps: c.modelFps, warnings: c.warnings })),
       G.on('struggle', (d) => push({ k: 'struggle', t: now(), reason: d.reason, el: d.element ? (d.element.id || null) : null, line: d.lineIndex, severity: d.severity, metrics: d.metrics })),
       G.on('struggling', (s) => push({ k: 'struggling', t: now(), struggling: s.struggling, reason: s.reason, ratio: s.ratio, tau: s.tau })),
     ];
@@ -75,7 +79,7 @@
     setWidget: (a) => { G.setWidgetVisible(!(a && a.visible === false)); return true; },
     debug: (a) => { G.setDebug(!!(a && a.on)); return true; },
     setSensitivity: (a) => { G.setSensitivity(a && a.mult); return G.getState(); },
-    init: (a) => { G.init(a || {}); return true; },   // e.g. { trace: true, settleMs, sampleMs }
+    init: (a) => { G.init(a || {}); return true; },   // e.g. { traceLog: true, settleMs, sampleMs }; trace: true is the heat trace
     setRoot: (a) => {
       const host = a && a.hostSelector ? document.querySelector(a.hostSelector) : null;
       G.setRoot(host ? (host.shadowRoot || host) : null);

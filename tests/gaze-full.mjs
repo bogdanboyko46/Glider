@@ -31,6 +31,9 @@ try {
   await page.eval(`__ll.q('.ll-pill-main').click()`);
   await page.sleep(400);
   check('the panel shows the eye tracking switch, its details folded away', await page.eval(`!__ll.q('.ll-gaze').hidden && !!__ll.q('[data-toggle="gaze"]') && __ll.q('.ll-gaze-sliders').hidden`));
+  const names = await page.eval(`[...__ll.root().querySelectorAll('.ll-name')].map((n) => n.textContent).join('|')`);
+  check('the switch is called "Adaptive"; there is no separate eye tracking or adapt switch', /(^||)Adaptive(||$)/.test(names) && !/Eye tracking|Adapt ahead/.test(names), names);
+  check('"See original" is folded away with the other details, and off', await page.eval(`__ll.q('.ll-gaze-original').hidden && !!__ll.q('[data-toggle="seeOriginal"]')`) && (await state()).seeOriginal === false && await page.eval(`GliderAdapt.mode() === 'off'`));
 
   await page.eval(`__ll.q('[data-toggle="gaze"]').click()`);
   await page.sleep(1500);
@@ -42,6 +45,11 @@ try {
   const scroll = await page.eval(`(() => { const b = __ll.q('.ll-body'); return b.scrollHeight - b.clientHeight; })()`);
   check('panel with eye tracking on fits on screen, nothing to scroll', p.y >= 0 && p.y + p.h <= 800 && p.x >= 0 && p.x + p.w <= 1280 && scroll <= 0, JSON.stringify(p) + ' scroll ' + scroll);
   await page.shot(join(REPO, 'tests', 'out', 'gaze-panel.png'));
+  check('Adaptive on: adapting the page is enabled too (learning), and "See original" shows under it', await page.eval(`GliderAdapt.mode() === 'learn' && !__ll.q('.ll-gaze-original').hidden`));
+  await page.eval(`__ll.q('[data-toggle="seeOriginal"]').click()`);
+  await page.sleep(300);
+  check('the "See original" switch turns the setting on', (await state()).seeOriginal === true && await page.eval(`__ll.q('[data-toggle="seeOriginal"]').getAttribute('aria-checked') === 'true'`));
+  await set({ seeOriginal: false }, 300);
 
   const tau0 = (await gaze()).tau;
   await set({ gazeSensitivity: 5 }, 300);
@@ -77,6 +85,7 @@ try {
   check('lens on again: tracker restarts (setting kept)', ['ready', 'tracking', 'starting'].includes((await gaze()).status), (await gaze()).status);
   await set({ gaze: false }, 600);
   check('eye tracking off: tracker idle, lens still on', (await gaze()).status === 'idle' && (await state()).on === true && !(await widget()));
+  check('Adaptive off: adapting the page is off as well', await page.eval(`GliderAdapt.mode() === 'off'`));
   check('no page errors or warnings', page.errors.length === 0, page.errors.slice(0, 5).join(' || '));
 } catch (error) {
   check('test run completed', false, error.stack || String(error));

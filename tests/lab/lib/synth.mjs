@@ -12,8 +12,7 @@ import { C, LAB_DIR, mkRng, clamp } from './util.mjs';
 import { accParams, detectFixations, replayShipped, blocksOf } from './replay.mjs';
 
 const D2R = Math.PI / 180;
-const CAL_POINTS = [[0.06, 0.08], [0.5, 0.08], [0.94, 0.08], [0.72, 0.29], [0.28, 0.29], [0.06, 0.5], [0.5, 0.5], [0.94, 0.5], [0.72, 0.71], [0.28, 0.71], [0.06, 0.92], [0.5, 0.92], [0.94, 0.92]];
-const VAL_POINTS = [[0.25, 0.22], [0.75, 0.22], [0.5, 0.5], [0.25, 0.78], [0.75, 0.78]];
+const { CAL_POINTS, VAL_POINTS } = C;   // the tracker's own calibration dots
 const TEST_POINTS = [[0.1, 0.12], [0.5, 0.12], [0.9, 0.12], [0.3, 0.3], [0.7, 0.3], [0.1, 0.5], [0.5, 0.5], [0.9, 0.5], [0.3, 0.7], [0.7, 0.7], [0.1, 0.88], [0.5, 0.88], [0.9, 0.88]];
 const SHIFT_POINTS = [[0.2, 0.2], [0.8, 0.25], [0.5, 0.5], [0.2, 0.8], [0.8, 0.75]];
 
@@ -108,52 +107,35 @@ export class World {
   }
 }
 
-function accuracyFrom(model, pts, vp) {   // port of gaze-reader.js accuracyFrom
-  let bx = 0, by = 0, nx = 0, ny = 0, k = 0;
-  for (const p of pts) {
-    if (p.samples.length < 5) continue;
-    const preds = p.samples.map((s) => model.predict(s.f));
-    const mx = preds.reduce((a, q) => a + q[0], 0) / preds.length, my = preds.reduce((a, q) => a + q[1], 0) / preds.length;
-    bx += (mx - p.x) ** 2; by += (my - p.y) ** 2;
-    nx += Math.sqrt(preds.reduce((a, q) => a + (q[0] - mx) ** 2, 0) / preds.length);
-    ny += Math.sqrt(preds.reduce((a, q) => a + (q[1] - my) ** 2, 0) / preds.length);
-    k++;
-  }
-  const accX = Math.sqrt(bx / k), accY = Math.sqrt(by / k), precX = nx / k, precY = ny / k;
-  const effX = Math.sqrt(accX ** 2 + precX ** 2 / 6), effY = Math.sqrt(accY ** 2 + precY ** 2 / 6);
-  return { accuracyX: Math.round(accX), accuracyY: Math.round(accY), precisionX: Math.round(precX), precisionY: Math.round(precY), effX: Math.round(effX), effY: Math.round(effY), recommendedLinePitchPx: Math.round(Math.max(36, Math.min(120, 1.5 * effY))), viewport: { ...vp } };
-}
-
-/** Run the dot calibration exactly as calibrate() does. Returns the session (world + dump). */
+/**
+ * Run the dot calibration as calibrate() does: the same dots and timing, and the real maths
+ * (C.fitCalibration: 25 features, two-pass fit with trimming, accuracy from the held-out dots).
+ * This person is 44 numbers per frame and no landmarks, so the calibration always ends with
+ * model A: the head-frame models need the 63-number vector of extractFeatures.
+ * opts.cal = {featureCount, trim, trainWidth, ...} reaches fitCalibration. Returns the session (world + dump).
+ */
 export function makeSession(opts = {}) {
   const w = new World(opts); const o = w.o; const vp = o.viewport;
   const events = []; let gx = vp.w / 2, gy = vp.h / 2;
-  const runPoints = (pts, base) => pts.map((p, i) => {
+  const runPoints = (pts, base, role) => pts.map((p, i) => {
     const x = p[0] * vp.w, y = p[1] * vp.h; const tShow = w.t; const samples = [];
     while (w.t < tShow + 650 + 1000) {
       const t = w.tick(); if (t - tShow > 180) { gx = x; gy = y; }
       const fr = w.frame(t, gx, gy); events.push({ k: 'raw', t: round(t, 1), ...fr });
-      if (t >= tShow + 650 && fr.face && !fr.blink) samples.push(fr);
+      if (t >= tShow + 650 && fr.face && !fr.blink) samples.push({ f: fr.f, head: fr.head, t });
     }
-    return { x, y, g: base + i, samples };
+    return { x, y, g: base + i, role, samples };
   });
-  const calPts = runPoints(CAL_POINTS, 0);
-  const X = [], Y = [], G = [], heads = [];
-  const add = (pts) => { for (const p of pts) for (const s of p.samples) { X.push(s.f); Y.push([p.x, p.y]); G.push(p.g); heads.push(s.head); } };
-  add(calPts);
-  let model = new C.Ridge().fit(X, Y, G);
-  const valPts = runPoints(VAL_POINTS, 100);
-  const accuracy = accuracyFrom(model, valPts, vp);
-  add(valPts);
-  model = new C.Ridge().fit(X, Y, G);
-  const m = (k) => heads.reduce((a, h) => a + h[k], 0) / heads.length;
+  const points = runPoints(CAL_POINTS, 0, 'cal').concat(runPoints(VAL_POINTS, 100, 'val'));
+  const fit = C.fitCalibration(points, { viewport: vp, ...(opts.cal || {}) });
+  const { model, accuracy } = fit;
   const baseline = { wpm: o.wpm, msPerWord: 60000 / o.wpm, cv: 0.2, regressionRate: 0.1, tau: C.tauFromCv(0.2), source: 'synthetic' };
   const dump = {
-    state: { status: 'tracking' }, accuracy, model: model.toJSON(), train: { X, Y, G },
-    calibHead: { cx: m('cx'), cy: m('cy'), s: m('s') }, calibScreen: { w: vp.w, h: vp.h, sx: 0, sy: 0 },
+    state: { status: 'tracking' }, accuracy, model: model.toJSON(), train: fit.train,
+    calibHead: fit.calibHead, calibScreen: { w: vp.w, h: vp.h, sx: 0, sy: 0 },
     baseline, camera: { ...o.camera }, tau: baseline.tau,
   };
-  return { world: w, model, dump, calibEvents: events, startedAt: opts.startedAt || 1794300000000 };
+  return { world: w, model, dump, fit, calibEvents: events, startedAt: opts.startedAt || 1794300000000 };
 }
 
 function makeLayout(vp, rng, { blocks = 2, linesPer = 5, pitch = 64, fontPx = 24, left = 260, width = 900, top0 = 90 } = {}) {

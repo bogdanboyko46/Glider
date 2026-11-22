@@ -7,14 +7,27 @@
  *            struggle detector --> 'struggle' event (+ optional default adaptation)
  *
  * Public API (same isolated world as your other content scripts):
- *   GazeReader.init({ autoAdapt, debug, shortcuts, baselineWpm, root })
- *   GazeReader.start()       -> Promise<state>   opens camera, loads model
- *   GazeReader.calibrate()   -> Promise<accuracy>   dots, then the reading-pace passage ({baseline:false} skips it)
+ *   GazeReader.init({ autoAdapt, debug, shortcuts, baselineWpm, root, trace, traceLog })
+ *       trace: the heat trace of the gaze estimate (same as setTrace). traceLog: one '[gaze-trace]' console line per fixation.
+ *   GazeReader.start()       -> Promise<state>   opens camera, loads model. It always settles: 'ready' or 'tracking',
+ *       'needs-permission' (state.error.code camera-permission | camera-blocked), or 'error' (state.error:
+ *       {code, short, text, detail}; codes camera-in-use, no-camera, camera-lost, model-load, model-timeout, camera-timeout, timeout).
+ *       Calling it again after 'needs-permission' or 'error' starts afresh; after the camera is allowed on
+ *       gaze/permission.html it does so by itself.
+ *   GazeReader.calibrate()   -> Promise<accuracy>   dots, a five-dot check, then the reading-pace passage ({baseline:false} skips it)
+ *       accuracy.validation is the check: {ok, grade:'good'|'fair'|'poor', message, errPx, errDeg, effX, effY, perDot, advice, health}
+ *       (C.validationResult in gaze-core.js). The 'accuracy' event carries the same object.
  *   GazeReader.measureBaseline() -> Promise<baseline>   redo only the reading-pace passage
  *   GazeReader.setSensitivity(mult)   multiplies the calibrated tau (struggle threshold)
  *       'baseline' fires with {wpm, tau, cv, regressionRate, ...}; 'struggling' fires when the state flips.
  *   GazeReader.stop()
- *   GazeReader.on('struggle' | 'line' | 'accuracy' | 'status' | 'gaze' | 'fixation', cb)  -> unsubscribe fn
+ *   GazeReader.on('struggle' | 'line' | 'accuracy' | 'status' | 'gaze' | 'fixation' | 'caldot' | 'camera', cb)  -> unsubscribe fn
+ *       'caldot' fires once per calibration dot: {i, g, role, seg, x, y, tShow, tSampleStart, tSampleEnd, frames, settled}
+ *       (seg 'dots' | 'reshow' | 'head', and 'check' for the five dots of the check after the fit).
+ *       'camera' fires when the camera opens and when its figures change: {t, settings:{width, height, ...}, delegate:'GPU'|'CPU',
+ *       fps, modelFps, warnings:['fps' | 'small' | 'offcentre']}; getState().camera is the same without t.
+ *       Status values: idle, starting, needs-permission, ready, calibrating, baseline, tracking, paused, error.
+ *       'paused': calibrated, but the window was resized or moved since, so the mapping no longer fits.
  *       'line' fires whenever the decoded reading line changes (use it to move a reading ruler with the eyes).
  *       A 'struggle' callback that returns false suppresses the default adaptation.
  *   GazeReader.setDebug(bool)     gaze dot + reading heatmap overlay
@@ -35,19 +48,33 @@
   const opts = {
     autoAdapt: true,
     debug: false,
+    screenDiagonalIn: 27,    // the screen's physical size (no browser reports it) and how far the reader sits from it:
+    viewDistanceCm: 65,      // only used to put the error into degrees on the result card
+    autoDump: true,          // TEMPORARY: a poor calibration result downloads glider-gaze-dump.json by itself
+    trace: false,            // TEMPORARY: draw a heat trace of where the tracker thinks the eyes are (setTrace)
     shortcuts: true,
     baselineWpm: 150,
     root: null,
-    settleMs: 1000,          // after the dot starts moving: its 600 ms glide plus time for the eyes to land
-    sampleMs: 1000,
+    settleMs: 750,           // after the dot starts moving: its 600 ms glide plus time for the eyes to land (the last 300 ms
+                             // of it are frames collected and thrown away; see CalibrationRun in gaze-core.js)
+    sampleMs: 700,
+    headSegment: false,      // after the dots: six seconds of "watch the dot and turn your head a little", which is what lets a
+                             // head-aware model be fitted and checked (false: dots only, as before)
+    validate: true,          // after the fit: five more dots on new places, and the result card says what was measured on them
+    labLandmarks: false,     // lab only: the camera frame also sends a small subset of the face landmarks with every 'raw' frame
+    startTimeoutMs: 25000,   // a start that hears nothing from the camera frame for this long ends in 'error' (the frame itself gives
+                             // up on the camera or the face model after 20 s, with a reason; this is for a frame that never answers)
     domEvents: false,       // also dispatch DOM CustomEvents (visible to the page; off by default)
-    trace: false,           // log detector internals to the console
+    traceLog: false,        // log detector internals to the console, one '[gaze-trace]' line per fixation
     managed: false,         // the host extension decides when tracking runs (no self-start)
     onEnableRequest: null,  // managed mode: called with true/false when the user asks to turn tracking on/off
     sensitivity: 1,         // multiplies the calibrated tau: above 1 helps later, below 1 helps sooner
     baselineText: null,     // override the reading-pace passage
-    featureCount: 25,       // regression inputs: eye features + eye-look blendshapes. The raw head matrix and head
+    featureCount: 17,       // model A's regression inputs: eye features + eye-look blendshapes. The raw head matrix and head
                             // position (25-43) barely vary in a keep-still calibration and wreck it after a small shift.
+    model: 'A',   /* was 'auto'. On a real camera (five sessions) the head-frame models either failed their geometry check or won the shoot-out and then put every later dot 140 px low; 'auto' brings the shoot-out back. */          // which gaze model a calibration may end up with. 'auto': the head-frame models (B, C, E in
+                            // gaze-core.js) are tried and one replaces A only if it beats A's leave-one-dot-out error
+                            // by 5 %. 'A': the 25-input ridge, as before. 'B', 'C', 'E': that model whenever it can be fitted.
     markWholeBlock: false,  // mark the whole paragraph the reader is stuck in, not just the line
     clickRefine: true,      // clicks add calibration samples (the lab turns this off to keep runs comparable)
     widget: true,           // false hides the camera widget and toasts (the camera keeps running)
@@ -61,24 +88,25 @@
     'and she always asks how their day is going.';
   const BASELINE_MAX_AGE = 30 * 24 * 3600e3;
 
-  const CAL_POINTS = [ // fractions of the viewport, snake order (short eye travel)
-    [0.06, 0.08], [0.5, 0.08], [0.94, 0.08], [0.72, 0.29], [0.28, 0.29],
-    [0.06, 0.5], [0.5, 0.5], [0.94, 0.5], [0.72, 0.71], [0.28, 0.71],
-    [0.06, 0.92], [0.5, 0.92], [0.94, 0.92],
-  ];
-  const VAL_POINTS = [[0.25, 0.22], [0.75, 0.22], [0.5, 0.5], [0.25, 0.78], [0.75, 0.78]];
   const BLOCK_SEL = 'p,li,blockquote,dd,dt,figcaption,td,th,h1,h2,h3,h4,h5,h6,pre,[data-gr-block]';
 
   const S = {
     status: 'idle', host: null, root: null, iframe: null, port: null,
     model: null, accuracy: null, calibHead: null, calibScreen: null, train: null,
-    latest: null, recent: [], collector: null, fps: 0,
+    latest: null, recent: [], calRun: null, calRaw: null, procedure: null, trainExtra: null, probe: null, geomT: 0, fps: 0,
     drifted: false, driftSince: 0, needsRecal: false,
-    sx: 60, sy: 60, fix: new C.FixationDetector(), euroX: new C.OneEuro(), euroY: new C.OneEuro(),
+    sx: 60, sy: 60, fix: new C.FixationDetector(), euroX: new C.OneEuro(), euroY: new C.OneEuro(), blinker: new C.BlinkDetector(),
+    // The heat trace has its own, faster filter (1.5 Hz at rest against 0.6 Hz). After a jump of two words the smooth gaze is 73 % of
+    // the way there at 100 ms and needs about 0.3 s to arrive; this one is at 93 % (tests/gaze-core.test.js). It shakes a little more at rest.
+    traceX: new C.OneEuro(1.5, 0.01), traceY: new C.OneEuro(1.5, 0.01),
+    error: null,             // why the last start did not get to 'ready': {code, short, text, detail}
+    startTimer: 0, perf: null, quality: [], qualityT: 0, face: null, check: null, health: null, camera: null,
     gaze: null, lastFix: null, block: null, cur: null, prevBlockBottom: null,
     states: new WeakMap(), lineCache: new WeakMap(), blocksCache: null, layoutV: 0,
     heat: new Map(), wpm: 150, scrollT: -1e9, scrollEpoch: 0, prevFixEnd: 0, drift: { y: 0 }, highlights: [], clicks: [], refitTimer: 0,
-    startPromise: null, raf: 0,
+    startPromise: null, raf: 0, hudPainted: false,
+    frameT: -Infinity,       // capture time of the newest camera frame, on this page's clock
+    delegate: null, timeSource: null,   // what the camera frame reports: 'GPU' | 'CPU', and where its frame times come from
     baseline: null,          // {wpm, msPerWord, cv, regressionRate, tau, ...} from the reading-pace passage
     bl: null,                // the baseline read in progress
     struggling: null,        // {el, line, reason, since, ratio} while the reader is in a struggling state
@@ -105,14 +133,23 @@
     if (opts.domEvents) document.dispatchEvent(new CustomEvent('gazereader:' + ev, { detail }));
     return prevented;
   }
-  function setStatus(s) { if (S.status !== s) { S.status = s; emit('status', getState()); } }
+  function setStatus(s) { if (S.status !== s) { S.status = s; emit('status', getState()); wake(); } }
   function getState() {
     return {
       status: S.status, calibrated: !!S.model, accuracy: S.accuracy, wpm: Math.round(S.wpm),
       fps: S.fps, drifted: S.drifted, needsRecalibration: S.needsRecal, debug: opts.debug,
       baseline: S.baseline ? { ...S.baseline } : null, tau: +tau().toFixed(2), struggling: !!S.struggling,
+      error: S.error && (S.status === 'error' || S.status === 'needs-permission') ? { ...S.error } : null,
+      camera: cameraStatus(),
     };
   }
+  /** What the camera gives and what runs the face model: {width, height, delegate, fps, modelFps, warnings}; null before the camera opens. */
+  function cameraStatus() {
+    if (!S.camera && !S.delegate) return null;
+    const c = S.camera || {};
+    return { width: c.width || null, height: c.height || null, delegate: S.delegate || null, fps: S.fps || 0, modelFps: S.perf ? S.perf.modelFps : null, warnings: S.quality.map((w) => w.id) };
+  }
+  function emitCamera() { emit('camera', { t: performance.now(), settings: S.camera, ...cameraStatus() }); }
 
   // ---------------------------------------------------------------------- UI
   const CSS = `
@@ -151,11 +188,16 @@
     /* calibration and reading-pace screens */
     #calib { position: fixed; inset: 0; background: #eef2ea; pointer-events: auto; display: none; cursor: none; }
     #calib.show { display: block; }
-    #cdot { position: fixed; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: #2f6b4a;
-            box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); transition: left .6s cubic-bezier(.45, 0, .25, 1), top .6s cubic-bezier(.45, 0, .25, 1); display: none; } /* keep settleMs at least this glide + 400ms */
+    /* The camera picture must stay on screen under the calibration, or Chrome stops delivering its frames: it sits
+       on top of the calibration screen, all but invisible. */
+    #cam:has(~ #calib.show) { z-index: 3; opacity: .02; pointer-events: none; transition: none; }
+    #cdot { position: fixed; left: 0; top: 0; will-change: translate; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: #2f6b4a;
+            box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); transition: translate .35s cubic-bezier(.45, 0, .25, 1); display: none; } /* keep settleMs at least this glide + 400ms */
     #cdot::after { content: ''; position: absolute; left: 10px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
     #cdot.pulse { animation: shrink var(--dur, 1s) ease-out forwards; }
     @keyframes shrink { from { transform: scale(1.15); } to { transform: scale(.6); } }
+    #cnote { position: fixed; left: 50%; top: 9%; transform: translateX(-50%); width: min(620px, calc(100vw - 32px)); text-align: center;
+             color: #20352a; font-size: 21px; line-height: 1.5; font-weight: 700; display: none; cursor: default; }
     #instr { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px));
              text-align: left; color: #20352a; font-size: 18px; line-height: 1.6; letter-spacing: .01em; cursor: default; }
     .card { background: #f8faf5; border-radius: 30px; padding: 26px 28px 24px;
@@ -172,6 +214,9 @@
     .card button, #bread button { padding: 0 22px; height: 44px; border-radius: 999px; border: 0; cursor: pointer;
             background: #2f6b4a; color: #fff; font-size: 16px; font-weight: 700; }
     .card button:hover, #bread button:hover { background: #28593e; }
+    .card button.alt { background: transparent; color: #2f6b4a; box-shadow: inset 0 0 0 2px #2f6b4a; }
+    .card button.alt:hover { background: #e0e8d9; }
+    .card .advice { margin: 0 0 10px; padding: 9px 13px; border-radius: 14px; background: #e6ecdf; font-size: 16px; line-height: 1.5; }
     kbd { display: inline-block; padding: 1px 7px; border-radius: 7px; background: #e0e8d9; color: #20352a; font: inherit; font-size: 13px; font-weight: 700; }
 
     #bread { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(720px, 88vw); color: #20352a;
@@ -183,7 +228,7 @@
     /* While a card asks the reader to check their face, the camera box stays
        in view above the calibration screen. It is covered again once the dot
        starts, so it cannot pull the eyes away from the dot. */
-    #cam:has(~ #calib.show > #instr:not([style*="display: none"]) .card.face) { z-index: 3; box-shadow: 0 0 0 3px #2f6b4a, 0 18px 40px -14px rgba(32, 53, 42, .34); }
+    #cam:has(~ #calib.show > #instr:not([style*="display: none"]) .card.face) { z-index: 3; opacity: 1; pointer-events: auto; box-shadow: 0 0 0 3px #2f6b4a, 0 18px 40px -14px rgba(32, 53, 42, .34); }
     .card { max-height: calc(100vh - 32px); overflow: auto; }
     /* How far through the dots: a short, pale bar on the bottom edge. It only
        changes while the dot is travelling and never animates, so it cannot
@@ -215,10 +260,10 @@
     S.root = S.host.attachShadow({ mode: 'closed' });
     S.root.innerHTML = `<style>${CSS}</style>
       <canvas id="hud"></canvas><div id="hlayer"></div>
-      <div id="cam"><div id="bar"><span id="camlabel">Eye tracking</span>
-        <button id="bmin" title="Make the camera smaller" aria-label="Make the camera smaller">–</button><button id="bx" title="Turn eye tracking off" aria-label="Turn eye tracking off">×</button></div><div id="slot"></div></div>
+      <div id="cam"><div id="bar"><span id="camlabel">Adaptive</span>
+        <button id="bmin" title="Make the camera smaller" aria-label="Make the camera smaller">–</button><button id="bx" title="Turn Adaptive off" aria-label="Turn Adaptive off">×</button></div><div id="slot"></div></div>
       <div id="toast"></div>
-      <div id="calib"><div id="cdot"></div><div id="instr"></div>
+      <div id="calib"><div id="cdot"></div><div id="cnote"></div><div id="instr"></div>
         <div id="bread"><p id="bhint">Read this the way you normally read. Press <kbd>Space</kbd> when you reach the end.</p>
           <p id="btext"></p><button>I have finished</button></div></div>`;
     document.documentElement.appendChild(S.host);
@@ -232,7 +277,7 @@
       st.textContent = '.gr-assist{word-spacing:.22em!important;letter-spacing:.03em!important;line-height:2!important;}';
       document.documentElement.appendChild(st);
     }
-    loop();
+    wake();
   }
   const $ = (id) => S.root && S.root.getElementById(id);
 
@@ -240,7 +285,7 @@
   function applyWidget() {
     const cam = $('cam');
     if (!cam) return;
-    cam.style.opacity = opts.widget ? '' : '0';
+    cam.style.opacity = opts.widget ? '' : '0.02';   // not 0: a fully transparent camera picture is not drawn, and its frames stop
     cam.style.pointerEvents = opts.widget ? '' : 'none';
     if (!opts.widget) hideToast();
   }
@@ -264,9 +309,31 @@
   const openPermissionPage = () => window.open(chrome.runtime.getURL('gaze/permission.html'), '_blank');
 
   // ------------------------------------------------------------ camera frame
+  /* What can stop a start, in the reader's words: `short` for the dock's status line and the camera
+     widget, `text` for the toast. Anything else is a loading failure and is shown with its reason. */
+  const PROBLEMS = {
+    'camera-permission': { short: 'Allow the camera to begin', text: 'Eye tracking needs one-time camera access.' },
+    'camera-blocked': { short: 'The camera is blocked for Glider', text: 'The camera is blocked for Glider. Press Allow camera, then allow it from the camera icon in the address bar.' },
+    'camera-in-use': { short: 'The camera is in use by another app', text: 'The camera is being used by another app. Close it (a video call, the Camera app), then press Retry.' },
+    'no-camera': { short: 'No camera found', text: 'No camera was found. Plug one in or switch it on, then press Retry.' },
+    'camera-lost': { short: 'The camera stopped', text: 'The camera stopped (unplugged, or taken by another app). Check it, then press Retry.' },
+  };
+  function problem(code, detail) {
+    const p = PROBLEMS[code];
+    if (p) return { code, detail: detail || '', ...p };
+    const why = detail || 'no reason given';
+    return { code: code || 'error', detail: why, short: 'Eye tracking could not load', text: `Eye tracking could not load (${why}).` };
+  }
+  const setLabel = (text) => { const el = $('camlabel'); if (el && el.textContent !== text) el.textContent = text; };
+
   function start() {
-    if (S.startPromise && S.status !== 'idle' && S.status !== 'error') return S.startPromise;
+    // 'needs-permission' and 'error' are where a start ended, not a start in progress: asking again starts again.
+    if (S.startPromise && !['idle', 'error', 'needs-permission'].includes(S.status)) return S.startPromise;
     ensureUI();
+    dropFrame();
+    if (S.error) hideToast();
+    S.blinker.reset();
+    Object.assign(S, { error: null, perf: null, quality: [], qualityT: 0, face: null, camera: null, delegate: null, fps: 0, blockedRequests: 0 });
     setStatus('starting');
     const nonce = crypto.getRandomValues(new Uint32Array(4)).join('');
     const ifr = document.createElement('iframe');
@@ -277,27 +344,68 @@
     S.startPromise = new Promise((resolve) => {
       S.resolveStart = resolve;
       ifr.addEventListener('load', () => {
+        if (S.iframe !== ifr) return;   // stopped or started again before this frame loaded
         const ch = new MessageChannel();
-        S.port = ch.port1;
-        S.port.onmessage = (e) => onFrameMessage(e.data);
-        ifr.contentWindow.postMessage({ type: 'gr-init', nonce }, new URL(chrome.runtime.getURL('')).origin, [ch.port2]);
+        const port = S.port = ch.port1;
+        port.onmessage = (e) => { if (S.port === port) onFrameMessage(e.data); };   // a frame that was replaced has nothing more to say
+        ifr.contentWindow.postMessage({ type: 'gr-init', nonce, labLandmarks: !!opts.labLandmarks }, new URL(chrome.runtime.getURL('')).origin, [ch.port2]);
       }, { once: true });
     });
+    armStartTimer();
     return S.startPromise;
   }
+  /** Let go of the camera frame's port (the frame is told to stop first). */
+  function dropFrame() {
+    clearTimeout(S.startTimer); S.startTimer = 0;
+    try { if (S.port) { S.port.postMessage({ type: 'stop' }); S.port.close(); } } catch (_) { /* frame gone */ }
+    S.port = null;
+  }
+  /* A start may not hang on 'starting'. The camera frame reports each stage ('opening camera', 'loading
+     face model') and times its own stages out with a reason; every report restarts this clock, which is
+     only for a frame that says nothing. */
+  function armStartTimer() {
+    clearTimeout(S.startTimer);
+    S.startTimer = setTimeout(() => {
+      if (S.status !== 'starting') return;
+      const slot = $('slot'); if (slot) slot.replaceChildren();   // a frame that does not answer may still hold the camera
+      S.iframe = null;
+      fail('timeout', `no answer in ${Math.round(opts.startTimeoutMs / 1000)} seconds`);
+    }, opts.startTimeoutMs);
+  }
+  /** The start ended without a camera or without the face model: say which, and offer to try again. */
+  function fail(code, detail) {
+    dropFrame();
+    S.error = problem(code, detail);
+    setLabel(S.error.short);
+    setStatus('error');
+    toast(S.error.text, 0, [['Retry', () => { start(); }]]);
+    S.resolveStart && S.resolveStart(getState());
+  }
+  /** gaze/permission.html says the camera has been allowed: start again, without a reload or a second flip of the switch. */
+  function onCameraGranted() {
+    if (S.status !== 'needs-permission') return;
+    hideToast();
+    start();
+  }
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.grCameraGranted && changes.grCameraGranted.newValue) onCameraGranted(); });
+  } catch (_) { /* a page without storage events (the test harness) */ }
 
   function stop() {
-    try { S.port && S.port.postMessage({ type: 'stop' }); } catch (_) { /* frame gone */ }
-    cancelAnimationFrame(S.raf);
+    dropFrame();
+    S.error = null; S.check = null;
+    cancelAnimationFrame(S.raf); S.raf = 0; S.hudPainted = false;
     if (S.host) S.host.remove();
     for (const el of S.assisted) el.classList.remove('gr-assist');
     S.assisted.clear();
     const pageStyle = document.getElementById('gr-page-style');
     if (pageStyle) pageStyle.remove();
     const was = S.struggling;
-    Object.assign(S, { host: null, root: null, iframe: null, port: null, highlights: [], startPromise: null, collector: null, bl: null, struggling: null, block: null, cur: null });
+    Object.assign(S, { host: null, root: null, iframe: null, port: null, highlights: [], startPromise: null, calRun: null, probe: null, bl: null, struggling: null, block: null, cur: null });
     if (was) emit('struggling', { struggling: false, reason: was.reason, element: was.el, ratio: 0, tau: +tau().toFixed(2) });
     setStatus('idle');
+    // Whoever is still waiting for a start that was stopped gets an answer (a second resolve of a settled promise does nothing).
+    if (S.resolveStart) { S.resolveStart(getState()); S.resolveStart = null; }
   }
 
   /** The user asked (camera widget, shortcut, popup) to turn tracking on or off. */
@@ -310,25 +418,33 @@
   async function onFrameMessage(d) {
     if (!d) return;
     if (d.type === 'status') {
-      $('camlabel') && ($('camlabel').textContent = d.detail || d.state);
-      if (d.state === 'needs-permission') {
+      setLabel(d.detail || d.state);
+      if (d.state === 'loading') {
+        if (S.status === 'starting') armStartTimer();   // the frame is alive and has reached its next stage
+      } else if (d.state === 'needs-permission') {
+        clearTimeout(S.startTimer);
+        // Not allowed yet, or blocked: two different things to tell the reader, one way out (the permission page).
+        S.error = problem(d.code === 'camera-blocked' ? 'camera-blocked' : 'camera-permission', d.detail);
+        setLabel(S.error.short);
         setStatus('needs-permission');
-        toast('Eye tracking needs one-time camera access.', 0, [['Allow camera', openPermissionPage]]);
+        toast(S.error.text, 0, [['Allow camera', openPermissionPage]]);
         S.resolveStart && S.resolveStart(getState());
       } else if (d.state === 'error') {
-        setStatus('error');
-        toast('Eye tracking error: ' + d.detail, 8000);
-        S.resolveStart && S.resolveStart(getState());
+        fail(d.code, d.detail);
       } else if (d.state === 'ready') {
+        clearTimeout(S.startTimer);
+        const port = S.port;
         await restoreBaseline();
         const restored = await restoreCalibration();
-        if (restored) {
+        if (S.port !== port) return;   // stopped (or started again) while the saved calibration was being checked
+        if (restored === true) {
           setStatus('tracking');
           if (S.baseline) toast('Eye tracking on (saved calibration).', 3500, [['Recalibrate', calibrate]]);
           else toast('Eye tracking on. A short reading check lets it learn your pace.', 0, [['Measure my pace', () => measureBaseline().catch(() => {})]]);
         } else {
           setStatus('ready');
-          toast('Eye tracking is ready. A one-minute calibration makes it accurate.', 0, [['Calibrate', () => calibrate().catch(() => {})]]);
+          toast(restored === 'moved' ? 'Eye tracking is ready. You are not sitting where you last calibrated, so it needs a new calibration.'
+            : 'Eye tracking is ready. A one-minute calibration makes it accurate.', 0, [['Calibrate', () => calibrate().catch(() => {})]]);
         }
         S.resolveStart && S.resolveStart(getState());
       }
@@ -336,30 +452,89 @@
     }
     if (d.type === 'camera') {
       S.camera = d.settings || null;
-      emit('camera', { t: performance.now(), settings: S.camera });
+      emitCamera();
       const c = S.camera;
       if (c && c.width && c.height && (c.width < 1280 || c.height < 720)) toast('Your camera is only giving ' + c.width + ' by ' + c.height + '. Eye tracking will be rough at that size.', 8000);
       return;
     }
+    if (d.type === 'perf') {
+      // Which delegate the face model ended up on (the frame tries the CPU once when the GPU is slow) and how fast it runs.
+      S.perf = { delegate: d.delegate, modelFps: d.modelFps, tried: d.tried || [], blocked: d.blocked || 0 };
+      if (d.delegate) S.delegate = d.delegate;
+      emitCamera();
+      return;
+    }
+    // The camera frame refused a network call (MediaPipe's usage logger; see frame.js). Kept for debugDump().
+    if (d.type === 'blocked') { S.blockedRequests = d.n; return; }
     if (d.type !== 'f') return;
     S.fps = d.fps;
-    const t = performance.now();
+    const t = frameTime(d);
+    if (d.delegate) S.delegate = d.delegate;
+    // Quality gate: where the face is in the picture and how big (smoothed), looked at every two seconds.
+    if (d.face && d.head) {
+      const w = d.fw > 0 ? d.fw : C.faceWidthFromEyes(d.head.s), a = S.face ? 0.1 : 1, F = S.face || (S.face = { cx: 0, cy: 0, w: 0 });
+      F.cx += a * (d.head.cx - F.cx); F.cy += a * (d.head.cy - F.cy); F.w += a * (w - F.w);
+    }
+    if (t - S.qualityT > 2000) { S.qualityT = t; checkQuality(); }
+    // Blinks: the camera frame sends its fixed verdict (d.blink) and the lid numbers behind it. With the numbers,
+    // C.BlinkDetector decides instead: it does not take a look down the page for a blink. (An older frame script
+    // or a test camera sends no lids; its own flag is used then.)
+    if (d.face && d.lids) d = { ...d, blink: S.blinker.push(d.lids, t), blinkFlag: !!d.blink };
+    // The five-dot check keeps the verdict live tracking uses (after the detector, not the frame's fixed rule):
+    // what it measures is the tracker as it runs while reading.
+    if (S.check) S.check.push({ t, face: !!d.face, blink: !!d.blink, f: d.face ? d.f : undefined });
     // Every camera frame, blinks and lost faces included (same clock as 'gaze').
     if (listeners.frame && listeners.frame.length) emit('frame', { t, face: !!d.face, blink: !!d.blink, head: d.head || null });
     // Lab use: the raw feature vector of every frame, before any model.
-    if (listeners.raw && listeners.raw.length) emit('raw', { t, face: !!d.face, blink: !!d.blink, f: d.face ? d.f : undefined, head: d.head || null, fps: d.fps });
+    if (listeners.raw && listeners.raw.length) emit('raw', { t, face: !!d.face, blink: !!d.blink, f: d.face ? d.f : undefined, head: d.head || null, fps: d.fps, lids: d.lids || null, lmk: d.lmk });
+    // The calibration sees every frame of its dots, lost faces and blinks included (it sorts them out itself).
+    if (S.calRun) S.calRun.push(d, t);
+    if (S.model && t - S.geomT > 1000) { S.geomT = t; checkGeometry(); }
     if (!d.face) { S.latest = { face: false, t }; return; }
     S.latest = { ...d, t };
-    if (!d.blink) { S.recent.push({ f: d.f, t }); if (S.recent.length > 6) S.recent.shift(); }
-    if (S.collector && !d.blink) S.collector.push({ f: d.f, head: d.head });
+    if (S.probe && S.probe.length < 90) S.probe.push({ face: true, blink: !!d.blink, f: d.f, head: d.head });
+    // (click refinement asks for frames that arrived in the last 200 ms, so these keep the arrival time)
+    if (!d.blink) { S.recent.push({ f: d.f, t: performance.now() }); if (S.recent.length > 6) S.recent.shift(); }
     if ((S.status === 'tracking' || (S.status === 'baseline' && S.bl)) && S.model && !document.hidden) processFrame(d, t);
+  }
+
+  /* The live quality gate (C.cameraQuality): under 20 pictures a second, a small face, a face near the
+     edge of the picture. The camera widget's label says so, the 'camera' event and getState().camera
+     list the warnings, and the calibration's first card repeats them in full. Nothing pops up over the
+     text somebody is reading. */
+  function checkQuality() {
+    if (!['ready', 'tracking', 'paused', 'calibrating', 'baseline'].includes(S.status)) return;
+    const F = S.face;
+    let q = C.cameraQuality({ fps: S.fps, faceW: F ? F.w : 0, cx: F ? F.cx : NaN, cy: F ? F.cy : NaN });
+    // A slow second (the face model warming up, a busy moment) is not a slow camera: the frame rate has to stay low over two looks.
+    S.lowFps = q.some((w) => w.id === 'fps') ? (S.lowFps || 0) + 1 : 0;
+    if (S.lowFps < 2) q = q.filter((w) => w.id !== 'fps');
+    const changed = q.map((w) => w.id).join() !== S.quality.map((w) => w.id).join();
+    S.quality = q;
+    if (!changed) return;
+    setLabel(q.length ? q[0].short : 'tracking');
+    emitCamera();
+  }
+
+  /* When the camera took this frame, on this page's clock. The camera frame has its own clock, so it
+     sends the frame's age (send time minus capture time, both on its clock) and the age is taken off
+     the time of arrival. A frame without those fields (an older frame script, a test camera) counts
+     as taken now. Times never run backwards, whatever the camera reports. */
+  function frameTime(d) {
+    const now = performance.now();
+    let t = now;
+    const age = d.ts - d.tc;
+    if (Number.isFinite(age)) { t = now - Math.min(500, Math.max(0, age)); S.timeSource = d.tsrc || 'frame'; }
+    if (t <= S.frameT) t = S.frameT + 0.01;
+    S.frameT = t;
+    return t;
   }
 
   // ------------------------------------------------------------- tracking
   function processFrame(d, t) {
     if (S.calibHead) {
-      const h = d.head, h0 = S.calibHead;
-      const moved = Math.hypot(h.cx - h0.cx, h.cy - h0.cy) > 0.08 || Math.abs(h.s / h0.s - 1) > 0.15;
+      // Inside the gate a head-frame model compensates; outside it (or, for model A, after any real movement) tracking pauses.
+      const moved = C.headMoved(d.head, S.calibHead, d.f, S.model.kind);
       if (moved) {
         if (!S.driftSince) S.driftSince = t;
         if (!S.drifted && t - S.driftSince > 600) {
@@ -369,17 +544,23 @@
         }
       } else {
         S.driftSince = 0;
-        if (S.drifted) { S.drifted = false; hideToast(); S.fix.reset(); emit('status', getState()); }
+        // Back in place: the filters must not glide in from where the eyes were before the pause.
+        if (S.drifted) { S.drifted = false; hideToast(); S.fix.reset(); resetFilters(); emit('status', getState()); }
       }
     }
     if (S.drifted || d.blink) return;
     const [x, y] = S.model.predict(d.f);
     S.gaze = { x: S.euroX.filter(x, t), y: S.euroY.filter(y, t), rawX: x, rawY: y, t };
+    // The heat trace: the raw estimate through the faster filter, less the vertical offset the line
+    // decoder has learned (S.drift.y, which it takes off before it picks a line), so the heat sits
+    // where the tracker really has the eyes, and without the smooth gaze's lag.
+    if (opts.trace) traceAdd(S.traceX.filter(x, t), S.traceY.filter(y, t) - S.drift.y);
     emit('gaze', S.gaze);
     const fix = S.fix.push(t, x, y);
     if (fix) onFixation(fix);
   }
 
+  function resetFilters() { S.euroX.reset(); S.euroY.reset(); S.traceX.reset(); S.traceY.reset(); }
   function rootNode() { return opts.root || document; }
 
   function getBlocks() {
@@ -509,7 +690,7 @@
     const lines = getLines(el);
     if (!lines.length) return;
     if (st.nLines !== lines.length) { resetCounters(st, lines.length); st.hmm.reset(); }
-    if (st.epoch !== S.scrollEpoch) { st.epoch = S.scrollEpoch; st.hmm.reset(); st.lastLine = -1; }
+    if (st.epoch !== S.scrollEpoch) { st.epoch = S.scrollEpoch; st.hmm.reset(); st.lastLine = -1; st.pend = null; }
     const fromAbove = st.justEntered && S.prevBlockBottom !== null && S.prevBlockBottom <= lines[0].top + 5;
     const r = st.hmm.update(lines, fix.x, fix.y, S.sx, S.sy, fromAbove);
     st.justEntered = false;
@@ -521,18 +702,27 @@
     S.prevFixEnd = end;
     st.totalDwell += dwell;
     st.lineDwell[L] += dwell;
-    if (L === st.lastLine) st.runMs += dwell;
+    // The decoder names a new line at the first fixation after a sweep and is only sure of it a few
+    // fixations later (conf goes over 0.55). Until then the time is credited to the line it names but
+    // nothing else is concluded; when it settles, that time moves to the line it settled on.
+    const settled = r.conf > 0.55 || st.lastLine < 0;
+    const pend = st.pend || null;
+    if (pend && pend.line !== L) { st.lineDwell[pend.line] = Math.max(0, st.lineDwell[pend.line] - pend.ms); st.lineDwell[L] += pend.ms; }
+    if (L === st.lastLine) { st.runMs += dwell + (pend ? pend.ms : 0); st.pend = null; }
+    else if (!settled) st.pend = { line: L, ms: (pend ? pend.ms : 0) + dwell };
     else {
+      const held = pend ? pend.ms : 0;
+      st.pend = null;
       if (st.lastLine >= 0 && L < st.lastLine && L <= st.maxLine && r.conf > 0.55) st.backtracks.push(fix.t);
       // Coming back to a line after really reading another one starts a fresh pass:
       // re-reading must not add up to "stuck". A one-fixation decode flicker (short
       // run elsewhere) keeps the running total, so a true stall still accumulates.
-      if (st.visits[L] > 0 && st.runMs >= 500 && r.conf > 0.55) st.lineDwell[L] = dwell;
+      if (st.visits[L] > 0 && st.runMs >= 500 && r.conf > 0.55) st.lineDwell[L] = dwell + held;
       st.visits[L]++;
-      st.runMs = dwell;
+      st.runMs = dwell + held;
       st.lastLine = L;
     }
-    st.maxLine = Math.max(st.maxLine, L);
+    if (settled || L === st.lastLine) st.maxLine = Math.max(st.maxLine, L);
     // Smoothed position in the paragraph: single decoded lines are noisy, their running mean much less so.
     st.prog = st.prog < 0 ? L : st.prog + 0.15 * (L - st.prog);
     if (listeners.progress && listeners.progress.length && fix.t - st.progAt >= 1000) {
@@ -556,6 +746,7 @@
   function setStruggling(next) {
     const was = S.struggling;
     S.struggling = next;
+    if (next) wake();   // the render loop ends a struggle nothing has confirmed for a while
     if (!!was === !!next) return;
     const ref = next || was;
     emit('struggling', { struggling: !!next, reason: ref.reason, element: ref.el, ratio: +(ref.ratio || 0).toFixed(2), tau: +tau().toFixed(2) });
@@ -581,7 +772,7 @@
       finished: st.maxLine >= st.nLines - 1, backtracks: st.backtracks.length, tau: T,
       regressionRate: S.baseline ? S.baseline.regressionRate : 0,
     });
-    if (opts.trace) console.log('[gaze-trace]', JSON.stringify({ line: L, onLine: Math.round(onLine), expLine: Math.round(exp.line), total: Math.round(st.totalDwell), expPara: Math.round(exp.para), back: st.backtracks.length, words: st.words, n: lines.length, tau: +T.toFixed(2), ratio: +d.ratio.toFixed(2) }));
+    if (opts.traceLog) console.log('[gaze-trace]', JSON.stringify({ line: L, onLine: Math.round(onLine), expLine: Math.round(exp.line), total: Math.round(st.totalDwell), expPara: Math.round(exp.para), back: st.backtracks.length, words: st.words, n: lines.length, tau: +T.toFixed(2), ratio: +d.ratio.toFixed(2) }));
     // How fine can we trust the tracker on this text? When its vertical error is large
     // next to the line spacing, a single line is a guess: fall back to the paragraph's
     // total time, which does not depend on getting the line right.
@@ -724,7 +915,7 @@
         cal.classList.remove('show');
         $('bread').style.display = 'none';
         S.bl = null;
-        setStatus('tracking');
+        setStatus(S.needsRecal ? 'paused' : 'tracking');
       }
     })();
     try { return await calibrating; } finally { calibrating = null; }
@@ -772,13 +963,21 @@
     if (d.reason !== 'stuck-line' && !opts.managed) { d.element.classList.add('gr-assist'); S.assisted.add(d.element); }
     $('hlayer').append(hl, pill);
     S.highlights.push({ el: d.element, idx: d.lineIndex, span: whole ? 999 : d.lineSpan || 0, until: performance.now() + 7000, hl, pill });
+    wake();
   }
 
   // --------------------------------------------------------- render loop
+  /* The loop runs only while it has work: a highlight to keep on its line, a struggling state to time
+     out, or the debug overlay / heat trace to paint. With none of those it wipes the canvas once and
+     stops; wake() starts it again. */
+  const hudShown = () => (opts.debug || opts.trace) && S.status !== 'calibrating';
+  // (the overlay is not painted during a calibration, so it does not keep the loop going then; setStatus wakes it afterwards)
+  const loopNeeded = () => !!S.root && (hudShown() || S.highlights.length > 0 || !!S.struggling);
+  function wake() { if (!S.raf && loopNeeded()) loop(); }
   function loop() {
     cancelAnimationFrame(S.raf);
     const frame = () => {
-      S.raf = requestAnimationFrame(frame);
+      S.raf = 0;
       if (!S.root) return;
       const now = performance.now();
       if (S.struggling && now - S.struggling.since > 15000) setStruggling(null);   // nothing new for a while
@@ -790,21 +989,34 @@
         Object.assign(h.pill.style, { left: Math.min(innerWidth - 150, r.right + 10) + 'px', top: r.top - 4 + 'px' });
         return true;
       });
-      drawHud();
+      if (hudShown()) drawHud();
+      else if (S.hudPainted) clearHud();
+      if (loopNeeded()) S.raf = requestAnimationFrame(frame);
     };
-    frame();
+    S.raf = requestAnimationFrame(frame);
+  }
+
+  function clearHud() {
+    const cv = $('hud');
+    if (cv) { const g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); }
+    S.hudPainted = false;
   }
 
   function drawHud() {
     const cv = $('hud');
     const dpr = devicePixelRatio || 1;
-    if (cv.width !== innerWidth * dpr || cv.height !== innerHeight * dpr) {
-      cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+    // Canvas sizes are whole numbers: compare rounded, or a fractional devicePixelRatio (1.25, 1.5)
+    // never matches and the canvas is reallocated on every frame.
+    const pw = Math.round(innerWidth * dpr), ph = Math.round(innerHeight * dpr);
+    if (cv.width !== pw || cv.height !== ph) {
+      cv.width = pw; cv.height = ph;
       cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
     }
     const g = cv.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, innerWidth, innerHeight);
+    S.hudPainted = true;
+    if (opts.trace && S.status !== 'calibrating') traceDraw(g);
     if (!opts.debug || S.status === 'calibrating') return;
 
     // reading heatmap: time spent vs. expected, per paragraph
@@ -850,9 +1062,6 @@
 
   // ------------------------------------------------------------ calibration
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  function collect(ms) {
-    return new Promise((res) => { S.collector = []; setTimeout(() => { const c = S.collector || []; S.collector = null; res(c); }, ms); });
-  }
   function waitForStart(calibEl) {
     return new Promise((resolve, reject) => {
       const onKey = (e) => {
@@ -868,17 +1077,99 @@
     });
   }
 
+  /** Waits for a button with data-act on the card: resolves with its data-act. Space or Enter is the first button, Esc is 'esc'. */
+  /** TEMPORARY: download the last calibration as it happened (feature numbers per camera frame, never pictures) plus the screen's figures. */
+  function saveDump() {
+    try {
+      const d = window.GazeReader.debugDump();
+      d.screen = { w: screen.width, h: screen.height, availW: screen.availWidth, availH: screen.availHeight, dpr: devicePixelRatio, innerW: innerWidth, innerH: innerHeight, outerW: outerWidth, outerH: outerHeight, screenX, screenY };
+      d.calFail = S.calFail || null;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(d)], { type: 'application/json' }));
+      a.download = 'glider-gaze-dump.json';
+      (S.root || document.body).appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    } catch (e) { console.warn('[gaze] could not save the diagnostics', e); }
+  }
+  /** What the head-drift correction (model D) needs: CSS px per cm of screen, the viewing distance, the camera picture's shape. */
+  function driftScale() {
+    const pxPerCm = Math.hypot(screen.width, screen.height) / (Number(opts.screenDiagonalIn) * 2.54);
+    const cam = S.camera || {}, aspect = cam.width > 0 && cam.height > 0 ? cam.height / cam.width : 0.5625;
+    return Number.isFinite(pxPerCm) && pxPerCm > 0 ? { pxPerCm, distCm: 0.8 * (Number(opts.viewDistanceCm) || 65), aspect, gy: 0 } : null;   // sideways only, and the head turns about the neck, not the eyes: on the real recordings these did best
+  }
+  /** CSS px per degree of gaze at the middle of the screen, from the screen's size in px, its diagonal in inches and the viewing distance. */
+  function pxPerDegree() {
+    const diagPx = Math.hypot(screen.width, screen.height), cmPerPx = (Number(opts.screenDiagonalIn) * 2.54) / diagPx;
+    const v = (Number(opts.viewDistanceCm) * Math.tan(Math.PI / 180)) / cmPerPx;
+    return Number.isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : undefined;
+  }
+  function waitForChoice(calibEl) {
+    return new Promise((resolve) => {
+      const btns = [...calibEl.querySelectorAll('button[data-act]')];
+      const onKey = (e) => {
+        if (e.repeat) { if (e.code === 'Space') e.preventDefault(); return; }
+        if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); e.stopPropagation(); done(btns[0] ? btns[0].dataset.act : 'go'); }
+        else if (e.code === 'Escape') done('esc');
+      };
+      const done = (v) => { window.removeEventListener('keydown', onKey, true); resolve(v); };
+      window.addEventListener('keydown', onKey, true);
+      for (const b of btns) b.onclick = () => done(b.dataset.act);
+    });
+  }
+  /** " Camera: 1280 by 720, 30 pictures a second, GPU." for the first calibration card; empty before the camera has reported. */
+  function cameraLine() {
+    const c = cameraStatus();
+    if (!c || !c.width) return '';
+    return ` Camera: ${c.width} by ${c.height}${c.fps ? `, ${c.fps} pictures a second` : ''}${c.delegate ? ', ' + c.delegate : ''}.`;
+  }
+
+  /* The check after the fit: a dot on each of C.CHECK_POINTS (places no calibration dot used), about
+     0.9 s for the eyes to arrive and 1.2 s that count. Every frame of those 1.2 s goes through the
+     model in use, exactly as it will while reading; C.validationResult turns the outputs into the
+     result (it leaves out the frames before the eyes arrive at a dot: the windows here are fixed,
+     they do not wait for the eyes as the calibration does). Esc skips the rest of the check (the
+     calibration is kept).
+     @returns {{dots:[{x, y, preds}], reason?}} */
+  async function runCheck(dot, cal, cancelled) {
+    const settle = Math.max(200, 0.9 * opts.settleMs), sample = Math.max(300, 1.2 * opts.sampleMs), n = C.CHECK_POINTS.length, dots = [];
+    dot.style.transition = ''; dot.style.display = 'block';
+    try {
+      for (let k = 0; k < n && !cancelled(); k++) {
+        const x = Math.round(C.CHECK_POINTS[k][0] * innerWidth), y = Math.round(C.CHECK_POINTS[k][1] * innerHeight);
+        cal.style.setProperty('--done', (k / n).toFixed(3));
+        dot.classList.remove('pulse');
+        dot.style.translate = x + 'px ' + y + 'px'; dot.dataset.x = x; dot.dataset.y = y;
+        const tShow = performance.now();
+        S.check = [];
+        await sleep(settle);
+        const tStart = performance.now();
+        dot.style.setProperty('--dur', sample + 'ms'); void dot.offsetWidth; dot.classList.add('pulse');
+        await sleep(sample);
+        const tEnd = performance.now(), frames = S.check || [];
+        S.check = null;
+        if (cancelled()) break;
+        const preds = frames.filter((fr) => fr.face && !fr.blink && fr.f && fr.t >= tStart && fr.t <= tEnd).map((fr) => S.model.predict(fr.f));
+        dots.push({ x, y, preds });
+        emit('caldot', { i: 1000 + k, g: 300 + k, role: 'check', seg: 'check', x, y, tShow, tSampleStart: tStart, tSampleEnd: tEnd, frames: preds.length, settled: true });
+      }
+    } finally {
+      S.check = null;
+      dot.classList.remove('pulse'); dot.style.display = 'none';
+    }
+    return cancelled() ? { dots, reason: 'the check was skipped' } : { dots };
+  }
+
   let calibrating = null;
   async function calibrate(o) {
     if (calibrating) return calibrating;
     const withBaseline = !(o && o.baseline === false);
     calibrating = (async () => {
       if (S.status === 'idle' || S.status === 'error') await start();
-      if (!['ready', 'tracking'].includes(S.status)) throw new Error('camera not ready: ' + S.status);
+      if (!['ready', 'tracking', 'paused'].includes(S.status)) throw new Error('camera not ready: ' + S.status);
       hideToast();
       const prevStatus = S.status;
       setStatus('calibrating');
-      const cal = $('calib'), dot = $('cdot'), instr = $('instr');
+      const cal = $('calib'), dot = $('cdot'), instr = $('instr'), cnote = $('cnote');
       cal.classList.add('show');
       dot.style.display = 'none';
       let escaped = false;
@@ -889,12 +1180,18 @@
         instr.innerHTML = `<div class="card face"><h3>Calibrate eye tracking</h3>
           <ol>${opts.widget ? '<li>Check that you can see your whole face in the camera box in the corner.</li>' : ''}
           <li>Sit the way you will read, about an arm's length from the screen.</li>
-          <li>Keep your head still.</li>
-          <li>Follow the green dot with your <b>eyes</b>. It moves to a new spot, then shrinks.</li></ol>
-          <small>This takes about 30 seconds${withBaseline ? '. After that there is one short passage to read' : ''}.</small>
+          <li>Keep your head still and follow the green dot with your <b>eyes</b>. It moves to a new spot, then shrinks.</li>
+          ${opts.headSegment ? '<li>Near the end the screen asks you to turn your head a little while you keep watching the dot.</li>' : ''}</ol>
+          ${S.quality.map((w) => `<p class="advice">${w.text}</p>`).join('')}
+          <small>This takes about ${opts.validate ? 'a minute' : (opts.headSegment ? 45 : 40) + ' seconds'}${withBaseline ? '. After that there is one short passage to read' : ''}.${cameraLine()}</small>
           <div class="go"><button>Start</button> <span class="quiet"><kbd>Space</kbd> to start, <kbd>Esc</kbd> to cancel</span></div></div>`;
         await waitForStart(instr);
+        let acc, skipped = false;
+        // One round: the dots, the fit, the five-dot check and its card. "Recalibrate" on the card starts another round.
+        for (;;) {
+        escaped = false;
         while (!(S.latest && S.latest.face)) {
+          instr.style.display = 'block';
           instr.innerHTML = '<div class="card face"><h3>Looking for your face</h3><p>Move until your whole face shows in the camera box. A brighter room helps.</p><small>The dot starts as soon as your face is found. <kbd>Esc</kbd> to cancel.</small></div>';
           await sleep(300);
           if (escaped) throw new Error('cancelled');
@@ -902,70 +1199,111 @@
         instr.style.display = 'none';
         dot.style.display = 'block';
 
-        const runPoints = async (pts, groupBase) => {
-          const out = [];
-          for (let i = 0; i < pts.length; i++) {
-            if (escaped) throw new Error('cancelled');
-            // Progress through all 18 dots, 0..1, for a quiet indicator styled in CSS.
-            cal.style.setProperty('--done', (((groupBase ? CAL_POINTS.length : 0) + i) / (CAL_POINTS.length + VAL_POINTS.length)).toFixed(3));
-            const x = pts[i][0] * innerWidth, y = pts[i][1] * innerHeight;
-            dot.classList.remove('pulse');
-            dot.style.left = x + 'px'; dot.style.top = y + 'px';
-            await sleep(opts.settleMs);
-            dot.style.setProperty('--dur', opts.sampleMs + 'ms');
-            void dot.offsetWidth; dot.classList.add('pulse');
-            const samples = await collect(opts.sampleMs);
-            out.push({ x, y, g: groupBase + i, samples });
+        // The procedure itself (which dot, when its frames count, which dots come again, the head
+        // segment) is C.CalibrationRun, shared with tests/bench; this loop only moves the dot.
+        const run = new C.CalibrationRun({
+          viewport: { w: innerWidth, h: innerHeight }, settleMs: opts.settleMs, sampleMs: opts.sampleMs, head: !!opts.headSegment, headPause: true,
+          fit: { featureCount: opts.featureCount, model: opts.model, drift: driftScale(), fold: true, score: 'val' },   // all 18 dots go into the model in use; the figure is a 13-dot fit on the other 5
+        });
+        S.calRun = run;
+        let stepId = -1, pulsing = false;
+        for (;;) {
+          if (escaped) throw new Error('cancelled');
+          if (S.status === 'error') throw new Error('cancelled');   // the camera stopped under the dots: its message and Retry are already on screen
+          const v = run.update(performance.now());
+          for (const e of run.events.splice(0)) emit('caldot', e);
+          if (v.done) break;
+          if (v.wait) {
+            // Before the head segment the run waits (headPause). The instruction is read on a card, at the
+            // reader's own speed, with no dot on screen and nothing being measured: text shown next to a dot
+            // that is already being sampled is read with the eyes that should be on the dot. Space or the
+            // button goes on; Esc cancels the calibration, as on the first card.
+            dot.classList.remove('pulse'); dot.style.display = 'none'; pulsing = false;
+            instr.style.display = 'block';
+            instr.innerHTML = `<div class="card"><h3>One more step: a small head turn</h3>
+              <p>The dot comes back for six seconds. Keep your <b>eyes on the dot</b> and slowly turn your head a little: left, right, up, down.</p>
+              <small>Take your time. Nothing is measured until you go on.</small>
+              <div class="go"><button>Go on</button> <span class="quiet"><kbd>Space</kbd> to go on, <kbd>Esc</kbd> to cancel</span></div></div>`;
+            await waitForStart(instr);
+            instr.style.display = 'none';
+            dot.style.display = 'block';
+            run.resume(performance.now());
+            continue;
           }
-          return out;
-        };
+          if (v.stepId !== stepId) {
+            stepId = v.stepId; pulsing = false;
+            // Progress, 0..1, for a quiet indicator styled in CSS.
+            cal.style.setProperty('--done', v.progress.toFixed(3));
+            dot.classList.remove('pulse');
+            dot.style.transition = v.glide ? '' : 'none';
+            cnote.textContent = v.text || ''; cnote.style.display = v.text ? 'block' : 'none';
+          }
+          if (dot.dataset.x !== String(v.x) || dot.dataset.y !== String(v.y)) { dot.style.translate = v.x + 'px ' + v.y + 'px'; dot.dataset.x = v.x; dot.dataset.y = v.y; }
+          if (v.sampling !== pulsing) {
+            pulsing = v.sampling;
+            dot.classList.remove('pulse');
+            if (pulsing) { dot.style.setProperty('--dur', v.sampleMs + 'ms'); void dot.offsetWidth; dot.classList.add('pulse'); }
+          }
+          await sleep(16);
+        }
+        S.calRun = null;
+        dot.style.display = 'none'; cnote.style.display = 'none';
+        // The maths (two-pass fit, trimming, the shoot-out, accuracy on the dots that were held out) is C.fitCalibration.
+        const fit = run.result();
+        acc = fit.accuracy;
+        // A camera picture that does not change with the eyes (a photo, a frozen camera) gives a model without numbers: say so, do not track on it.
+        const first = run.points.find((p) => p.samples.length);
+        if (![acc.effX, acc.effY, acc.precisionX, acc.precisionY].every(Number.isFinite) || !first || !fit.model.predict(first.samples[0].f).every(Number.isFinite)) throw new Error('the camera picture did not change with your eyes');
 
-        const calPts = await runPoints(CAL_POINTS, 0);
-        const X = [], Y = [], G = [], heads = [];
-        const thin = calPts.filter((p) => p.samples.length < 8).length;
-        if (thin > 2) throw new Error('your eyes were lost on several dots. Face the camera, add light and try again');
-        for (const p of calPts) for (const s of p.samples) { X.push(s.f.slice(0, opts.featureCount)); Y.push([p.x, p.y]); G.push(p.g); heads.push(s.head); }
-        if (X.length < 120) throw new Error('not enough face frames — improve lighting and face the camera');
-        let model = new C.Ridge().fit(X, Y, G);
-        // Second pass without the stray frames (eyes still arriving, glances away, half blinks).
-        trimTrain(model, X, Y, G, heads);
-        model = new C.Ridge().fit(X, Y, G);
-
-        const valPts = await runPoints(VAL_POINTS, 100);
-        dot.style.display = 'none';
-        const acc = accuracyFrom(model, valPts);
-        for (const p of valPts) for (const s of p.samples) { X.push(s.f.slice(0, opts.featureCount)); Y.push([p.x, p.y]); G.push(p.g); heads.push(s.head); }
-        model = new C.Ridge().fit(X, Y, G);
-        trimTrain(model, X, Y, G, heads);
-        model = new C.Ridge().fit(X, Y, G);
-
-        S.model = model;
+        S.model = fit.model;
         S.accuracy = acc;
-        S.train = { X, Y, G };
+        S.train = fit.train;
+        S.trainExtra = fit.extra;
+        S.procedure = fit.procedure;
+        S.calRaw = run.raw;
+        S.shootout = fit.shootout;
         S.clicks = [];
-        S.calibHead = {
-          cx: heads.reduce((a, h) => a + h.cx, 0) / heads.length,
-          cy: heads.reduce((a, h) => a + h.cy, 0) / heads.length,
-          s: heads.reduce((a, h) => a + h.s, 0) / heads.length,
-        };
+        S.calibHead = fit.calibHead;
         S.calibScreen = { w: innerWidth, h: innerHeight, sx: screenX, sy: screenY };
         applyAccuracy(acc);
         S.drift.y = 0; S.drifted = false; S.needsRecal = false;
+
+        // The check: five dots on places no dot used before, the model in use run on them as it will run while
+        // reading. The card says what was measured there; the calibration's own figure is only the fallback.
+        const checked = opts.validate ? await runCheck(dot, cal, () => escaped) : { dots: [], reason: 'the check is switched off' };
+        const health = { ...C.calibrationHealth(run.raw), faceW: S.face ? +S.face.w.toFixed(3) : 0 };
+        const val = C.validationResult(checked.dots, { fallback: acc, reason: checked.reason, pxPerDeg: pxPerDegree() });
+        val.advice = val.grade === 'poor' ? C.trackingAdvice(health) : [];
+        val.health = Object.fromEntries(Object.entries(health).map(([k, v]) => [k, typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1000) / 1000 : null]));
+        acc.validation = val;
+        S.health = val.health;
         saveCalibration();
 
         instr.style.display = 'block';
-        const quality = acc.effY < 45 ? ['Great', 'Glider can follow you line by line.', 3]
-          : acc.effY < 80 ? ['Good', 'Glider can follow you line by line when the lines are spaced out.', 2]
-            : ['Rough', 'Glider can only tell which paragraph you are on. A brighter room and a still head will help.', 1];
+        const go = withBaseline ? 'Continue' : 'Start reading';
+        const figures = val.ok
+          ? `Checked on ${val.dots} new dots: typical error about ${val.errPx} px, approximately ${val.errDeg} degrees (approximate: it assumes a ${opts.screenDiagonalIn}-inch screen at about ${opts.viewDistanceCm} cm). For one look at a word: ±${val.effX} px across, ±${val.effY} px up and down.`
+          : val.source === 'calibration' ? `The check could not be measured (${val.reason}). From the calibration's own dots: about ${val.errPx} px, approximately ${val.errDeg} degrees (approximate).`
+            : `The check could not be measured (${val.reason}).`;
+        // Poor: the way on is to calibrate again, knowing what to change. "Use anyway" keeps what there is.
+        const buttons = val.grade === 'poor' ? '<button data-act="recal">Recalibrate</button><button class="alt" data-act="go">Use anyway</button>'
+          : `<button data-act="go">${go}</button>${val.grade === 'fair' ? '<button class="alt" data-act="recal">Recalibrate</button>' : ''} <span class="quiet">or press <kbd>Space</kbd></span>`;
         instr.innerHTML = `<div class="card"><h3>Calibration done</h3>
-          <div class="big">${quality[0]}</div>
-          <div class="meter" data-level="${quality[2]}" aria-hidden="true"><i></i><i></i><i></i></div>
-          <p>${quality[1]}</p>
-          <small>Accuracy: ±${Math.round(acc.effX)}px across, ±${Math.round(acc.effY)}px up and down. Best line spacing: ${acc.recommendedLinePitchPx}px.</small>
-          <div class="go"><button>${withBaseline ? 'Continue' : 'Start reading'}</button> <span class="quiet">or press <kbd>Space</kbd></span></div></div>`;
+          <div class="big">${val.title}</div>
+          <div class="meter" data-level="${val.level}" aria-hidden="true"><i></i><i></i><i></i></div>
+          <p>${val.text.charAt(0).toUpperCase() + val.text.slice(1)}.</p>
+          ${val.advice.slice(0, 3).map((a) => `<p class="advice">${a.text}</p>`).join('')}
+          <small>${figures}</small>
+          <div class="go">${buttons}</div>
+          <div class="go"><button class="alt" data-dump>Save diagnostics</button> <span class="quiet">a file of numbers (no pictures) for working out what went wrong</span></div></div>`;
+        { const db = instr.querySelector('button[data-dump]'); if (db) db.onclick = (ev) => { ev.stopPropagation(); saveDump(); db.textContent = 'Saved to Downloads'; }; }
         emit('accuracy', acc);
-        let skipped = false;
-        await waitForStart(instr).catch(() => { skipped = true; });
+        // TEMPORARY, while the tracker is being made to work on real cameras: a poor result saves its own diagnostics.
+        if (val.grade === 'poor' && opts.autoDump) { saveDump(); const db = instr.querySelector('button[data-dump]'); if (db) db.textContent = 'Saved to Downloads'; }
+        const choice = await waitForChoice(instr);
+        skipped = choice === 'esc';
+        if (choice !== 'recal') break;
+        }
         // Second half: learn this reader's own pace. Skipping it keeps the eye
         // calibration and falls back to the previous (or default) pace and tau.
         if (withBaseline && !skipped) {
@@ -975,110 +1313,120 @@
         setStatus('tracking');
         return acc;
       } catch (e) {
-        setStatus(S.model ? 'tracking' : prevStatus);
-        if (e.message !== 'cancelled') toast('Calibration failed: ' + e.message, 7000, [['Try again', () => calibrate().catch(() => {})]]);
+        if (S.status !== 'error') setStatus(S.model ? (S.needsRecal ? 'paused' : 'tracking') : prevStatus);
+        // What the camera actually delivered, so a failure can be told apart (slow camera, face lost, blinks, timing).
+        let why = '';
+        try {
+          const raw = (S.calRun && S.calRun.raw) || [], h = C.calibrationHealth(raw), pct = (v) => Math.round(100 * v);
+          if (raw.length) {
+            why = ` [camera ${h.fps} fps (${S.delegate || '?'}, clock ${S.timeSource || '?'}, by timer ${(S.latest && S.latest.viaTimer) || 0}) · face lost ${pct(h.lostShare)} % · blinks ${pct(h.blinkShare)} % · kept per dot: ${raw.map((d) => d.frames + '/' + d.stream.length).join(' ')}]`;
+            S.calFail = { message: e.message, health: h, dots: raw.map((d) => ({ g: d.g, role: d.role, seg: d.seg, kept: d.frames, seen: d.stream.length, settled: d.settled, restarts: d.restarts, lenient: d.lenient, tShow: d.tShow, tSampleStart: d.tSampleStart, tSampleEnd: d.tSampleEnd, t0: d.stream.length ? d.stream[0].t : null, t1: d.stream.length ? d.stream[d.stream.length - 1].t : null, lids: d.stream.filter((f) => f.lids).slice(0, 40).map((f) => [+f.lids.l.toFixed(2), +f.lids.r.toFixed(2), +f.lids.open.toFixed(3)]) })) };
+            console.warn('[gaze] calibration failed: ' + e.message + why, JSON.stringify(S.calFail));
+          }
+        } catch (_) { /* the diagnosis must never hide the failure */ }
+        if (e.message !== 'cancelled' && S.status !== 'error') toast('Calibration failed: ' + e.message + why, why ? 60000 : 7000, [['Try again', () => calibrate().catch(() => {})]]);
         throw e;
       } finally {
         window.removeEventListener('keydown', onEsc, true);
         cal.classList.remove('show');
-        dot.style.display = 'none';
+        dot.style.display = 'none'; dot.style.transition = '';
+        if (cnote) cnote.style.display = 'none';
         if ($('bread')) $('bread').style.display = 'none';
-        S.collector = null;
+        S.calRun = null;
         S.bl = null;
       }
     })();
     try { return await calibrating; } finally { calibrating = null; }
   }
 
-  /** Drop, per calibration dot, the frames whose prediction error is far from that dot's own median (in place). */
-  function trimTrain(model, X, Y, G, heads) {
-    const med = (a) => { const b = a.slice().sort((p, q) => p - q); return b.length ? b[b.length >> 1] : 0; };
-    const byDot = new Map();
-    X.forEach((x, i) => { const p = model.predict(x); (byDot.get(G[i]) || byDot.set(G[i], []).get(G[i])).push({ i, ex: p[0] - Y[i][0], ey: p[1] - Y[i][1] }); });
-    const drop = new Set();
-    for (const rows of byDot.values()) {
-      if (rows.length < 8) continue;
-      const mx = med(rows.map((r) => r.ex)), my = med(rows.map((r) => r.ey));
-      const sx = 1.4826 * med(rows.map((r) => Math.abs(r.ex - mx))) || 1, sy = 1.4826 * med(rows.map((r) => Math.abs(r.ey - my))) || 1;
-      for (const r of rows) if (Math.abs(r.ex - mx) > 2.5 * sx || Math.abs(r.ey - my) > 2.5 * sy) drop.add(r.i);
-    }
-    if (!drop.size || drop.size > 0.3 * X.length) return 0;
-    for (const arr of [X, Y, G, heads]) { let w = 0; for (let i = 0; i < arr.length; i++) if (!drop.has(i)) arr[w++] = arr[i]; arr.length = w; }
-    return drop.size;
-  }
-
-  function accuracyFrom(model, pts) {
-    let bx = 0, by = 0, nx = 0, ny = 0, k = 0;
-    for (const p of pts) {
-      if (p.samples.length < 5) continue;
-      const preds = p.samples.map((s) => model.predict(s.f));
-      const mx = preds.reduce((a, q) => a + q[0], 0) / preds.length;
-      const my = preds.reduce((a, q) => a + q[1], 0) / preds.length;
-      bx += (mx - p.x) ** 2; by += (my - p.y) ** 2;
-      nx += Math.sqrt(preds.reduce((a, q) => a + (q[0] - mx) ** 2, 0) / preds.length);
-      ny += Math.sqrt(preds.reduce((a, q) => a + (q[1] - my) ** 2, 0) / preds.length);
-      k++;
-    }
-    if (!k) throw new Error('lost the face during validation');
-    const accX = Math.sqrt(bx / k), accY = Math.sqrt(by / k), precX = nx / k, precY = ny / k;
-    // A fixation spans ~6 frames, but neighbouring frames share most of their landmark
-    // noise, so it holds only about 2.5 independent ones. Bias does not average out at all.
-    const effX = Math.sqrt(accX ** 2 + precX ** 2 / 2.5), effY = Math.sqrt(accY ** 2 + precY ** 2 / 2.5);
-    return {
-      accuracyX: Math.round(accX), accuracyY: Math.round(accY), precisionX: Math.round(precX), precisionY: Math.round(precY),
-      effX: Math.round(effX), effY: Math.round(effY),
-      recommendedLinePitchPx: Math.round(Math.max(36, Math.min(120, 1.5 * effY))),
-      viewport: { w: innerWidth, h: innerHeight },
-    };
-  }
-
   function applyAccuracy(acc) {
-    S.sx = Math.max(25, acc.effX);
-    S.sy = Math.max(18, acc.effY);
-    S.fix = new C.FixationDetector({ dispersion: Math.max(60, Math.min(220, 2.2 * Math.max(acc.precisionX, acc.precisionY))) });
-    S.euroX.reset(); S.euroY.reset();
+    const p = C.trackingParams(acc);
+    S.sx = p.sx;
+    S.sy = p.sy;
+    S.fix = new C.FixationDetector({ dispersion: p.dispersion });
+    resetFilters();
   }
 
   // -------------------------------------------- click-based refinement
-  // People look at what they click. Each click is a free calibration sample.
+  // People often look at what they click, and then the click is a free calibration sample. Often
+  // they do not, so C.clickUsable decides: only while the eyes rest, only when the model already
+  // has them near the click. Never a click on Glider's own controls (its dock, this widget): the
+  // eyes are on the page then. And a click sample lives for a minute (C.CLICK_TTL_MS).
+  function refitWithClicks() {
+    clearTimeout(S.refitTimer); S.refitTimer = 0;
+    if (!S.model || !S.train) return;
+    const had = S.clicks.length;
+    S.clicks = C.liveClicks(S.clicks, performance.now());
+    if (!had && !S.clicks.length) return;
+    // The same kind of model, with its penalties (and, for a head-frame model, its geometry) kept.
+    const { X, Y, G } = S.train;
+    S.model = C.refitModel(S.model, X.concat(S.clicks.map((c) => c.f)), Y.concat(S.clicks.map((c) => [c.x, c.y])), G.concat(S.clicks.map(() => 'click')), opts.featureCount);
+    // Come back when the oldest of them runs out, so that it leaves the model again.
+    if (S.clicks.length) S.refitTimer = setTimeout(refitWithClicks, Math.max(400, C.CLICK_TTL_MS - (performance.now() - S.clicks[0].t) + 50));
+  }
   document.addEventListener('pointerdown', (e) => {
     if (!opts.clickRefine || S.status !== 'tracking' || !S.model || !S.train || S.drifted) return;
-    if (S.host && e.composedPath().includes(S.host)) return;
+    const path = e.composedPath();
+    if (S.host && path.includes(S.host)) return;
+    if (path.some((n) => n && n.nodeType === 1 && (n.id === 'glider-root' || n.hasAttribute('data-glider-ignore')))) return;
     const now = performance.now();
     const fresh = S.recent.filter((r) => now - r.t < 200);
     if (fresh.length < 2) return;
-    for (const r of fresh) S.clicks.push({ f: r.f, x: e.clientX, y: e.clientY, g: 1000 + S.clicks.length });
+    const preds = fresh.map((r) => S.model.predict(r.f));
+    const pred = { x: preds.reduce((a, p) => a + p[0], 0) / preds.length, y: preds.reduce((a, p) => a + p[1], 0) / preds.length };
+    const fx = S.fix.current(S.frameT);
+    const usable = C.clickUsable({ click: { x: e.clientX, y: e.clientY }, pred, sx: S.sx, sy: S.sy, fixating: !!fx && fx.dur >= S.fix.minDur });
+    S.clickStats = S.clickStats || { used: 0, refused: 0 };
+    S.clickStats[usable ? 'used' : 'refused']++;
+    if (!usable) return;
+    for (const r of fresh) S.clicks.push({ f: r.f, x: e.clientX, y: e.clientY, g: 1000 + S.clicks.length, t: now });
     if (S.clicks.length > 300) S.clicks.splice(0, S.clicks.length - 300);
     clearTimeout(S.refitTimer);
-    S.refitTimer = setTimeout(() => {
-      const { X, Y, G } = S.train;
-      const nf = Math.min(X[0].length, opts.featureCount);
-      const cX = S.clicks.map((c) => c.f.slice(0, nf)), cY = S.clicks.map((c) => [c.x, c.y]), cG = S.clicks.map((c) => 'click');
-      S.model = new C.Ridge().fit(X.map((r) => (r.length > nf ? r.slice(0, nf) : r)).concat(cX), Y.concat(cY), G.concat(cG), [S.model.lambda]);
-    }, 400);
+    S.refitTimer = setTimeout(refitWithClicks, 400);
   }, true);
 
   // ----------------------------------------------------------- persistence
   function saveCalibration() {
     const round = (a) => a.map((v) => Math.round(v * 1e5) / 1e5);
+    S.calibT = Date.now();
     chrome.storage.local.set({
       grCalib: {
-        t: Date.now(), model: S.model.toJSON(), accuracy: S.accuracy, head: S.calibHead, screen: S.calibScreen,
+        t: S.calibT, model: S.model.toJSON(), accuracy: S.accuracy, head: S.calibHead, screen: S.calibScreen, shootout: S.shootout || null, procedure: S.procedure || null,
         train: { X: S.train.X.map(round), Y: S.train.Y, G: S.train.G },
       },
     });
   }
+  /** No calibration is in use: a model left in memory by an earlier start (stop() keeps it) must not count as one. */
+  function forgetCalibration() {
+    S.model = null; S.train = null; S.trainExtra = null; S.clicks = [];
+    S.drifted = false; S.driftSince = 0; S.needsRecal = false;
+  }
   async function restoreCalibration() {
     try {
       const { grCalib: c } = await chrome.storage.local.get('grCalib');
-      if (!c || Date.now() - c.t > 3 * 3600e3) return false;
+      // Nothing saved, too old, or made for another window size or place: whatever is still in memory is that
+      // same calibration (or an older one) and is no better. Without this the status said 'ready' with
+      // calibrated: true, and Esc in the next calibration went back to 'tracking' on the stale model.
+      if (!c || Date.now() - c.t > 3 * 3600e3) { forgetCalibration(); return false; }
       const sc = c.screen;
-      if (!sc || Math.abs(sc.w - innerWidth) > 8 || Math.abs(sc.h - innerHeight) > 8 || Math.abs(sc.sx - screenX) > 8 || Math.abs(sc.sy - screenY) > 8) return false;
-      S.model = C.Ridge.fromJSON(c.model);
-      S.accuracy = c.accuracy; S.calibHead = c.head; S.calibScreen = c.screen; S.train = c.train;
+      if (!sc || Math.abs(sc.w - innerWidth) > 8 || Math.abs(sc.h - innerHeight) > 8 || Math.abs(sc.sx - screenX) > 8 || Math.abs(sc.sy - screenY) > 8) { forgetCalibration(); return false; }
+      const model = C.Ridge.fromJSON(c.model);
+      // The window is where it was; is the head? One second of camera frames against the posture the
+      // calibration was made in (C.headWithinGate, the limits of the head gate). Nobody in front of
+      // the camera, or somebody sitting elsewhere: the saved model is not used.
+      S.probe = [];
+      await sleep(1000);
+      const probe = S.probe || []; S.probe = null;
+      S.restoreCheck = c.head ? C.headWithinGate(probe, c.head, model.kind) : { ok: false, frames: probe.length, moved: 0 };
+      if (!S.restoreCheck.ok) { forgetCalibration(); return 'moved'; }   // a model still in memory from before a stop is that same calibration
+      S.model = model; S.calibT = c.t;
+      S.accuracy = c.accuracy; S.calibHead = c.head; S.calibScreen = c.screen; S.train = c.train; S.shootout = c.shootout || null;
+      S.trainExtra = null; S.calRaw = null; S.procedure = c.procedure || null; S.clicks = [];
       applyAccuracy(c.accuracy);
+      // A restored calibration starts clean: no vertical offset learned in an earlier sitting, no stale pause.
+      S.drift.y = 0; S.drifted = false; S.driftSince = 0; S.needsRecal = false;
       return true;
-    } catch (e) { console.warn('[gaze] restore failed', e); return false; }
+    } catch (e) { console.warn('[gaze] restore failed', e); forgetCalibration(); return false; }
   }
   /** Reading pace belongs to the person, not the seating position, so it outlives the eye calibration. */
   async function restoreBaseline() {
@@ -1095,14 +1443,34 @@
   const invalidate = () => { S.layoutV++; S.blocksCache = null; };
   // Scrolling moves text under still eyes; that must not read as jumping back a line.
   addEventListener('scroll', () => { invalidate(); S.scrollT = performance.now(); S.scrollEpoch++; }, { passive: true, capture: true });
-  addEventListener('resize', () => {
-    invalidate();
+  /* The calibration maps the eyes to this window at this size in this place on the screen. Resized
+     or moved, the old mapping would put the gaze somewhere else: tracking pauses (status 'paused')
+     until the window is back as it was or a new calibration is made. Checked on resize and, since
+     moving a window fires no event, once a second while frames arrive. */
+  function geometryChanged() {
     const sc = S.calibScreen;
-    if (S.model && sc && (Math.abs(sc.w - innerWidth) > 8 || Math.abs(sc.h - innerHeight) > 8)) {
+    return !!(S.model && sc && (Math.abs(sc.w - innerWidth) > 8 || Math.abs(sc.h - innerHeight) > 8 || Math.abs(sc.sx - screenX) > 8 || Math.abs(sc.sy - screenY) > 8));
+  }
+  function checkGeometry() {
+    const changed = geometryChanged();
+    if (changed && !S.needsRecal) {
       S.needsRecal = true;
-      toast('The window changed size, so gaze positions are off.', 0, [['Recalibrate', () => calibrate({ baseline: false }).catch(() => {})]]);
+      if (S.status === 'tracking') {
+        setStruggling(null); S.cur = null; S.gaze = null;
+        setStatus('paused');
+        toast('The window changed size or place, so eye tracking is paused.', 0, [['Recalibrate', () => calibrate({ baseline: false }).catch(() => {})]]);
+      } else emit('status', getState());
+    } else if (!changed && S.needsRecal) {
+      S.needsRecal = false;
+      if (S.status === 'paused') {
+        // Back as calibrated: go on, and do not let the filters glide in from where the eyes were before.
+        S.fix.reset(); resetFilters(); S.prevFixEnd = 0;
+        hideToast();
+        setStatus('tracking');
+      } else emit('status', getState());
     }
-  });
+  }
+  addEventListener('resize', () => { invalidate(); checkGeometry(); });
 
   addEventListener('keydown', (e) => {
     if (!opts.shortcuts || !e.altKey || !e.shiftKey) return;
@@ -1129,7 +1497,65 @@
     send(getState());
   });
 
-  function setDebug(v) { opts.debug = !!v; emit('status', getState()); }
+  function setDebug(v) { opts.debug = !!v; wake(); emit('status', getState()); }
+
+  /* TEMPORARY tracking feedback: a heat trace of the gaze estimate, so the reader can see whether the tracker is
+     close to where they are looking. Green where the estimate passed, through yellow to red where it stayed; it
+     cools by half every TRACE_HALF_LIFE ms. Viewport coordinates, on a coarse grid stretched over the screen so
+     it is soft. It is cleared on scroll and resize (it would no longer sit on the text it was drawn over). */
+  const TRACE_CELL = 6, TRACE_HALF_LIFE = 3400, TRACE_SIGMA = 30;
+  // Milliseconds of looking at one spot that take it to full heat. Heat is added per camera frame for
+  // the time since the previous camera frame. (It used to be the time since the last repaint, so the
+  // trace got fainter the faster the screen refreshed; 2080 gives what a 60 Hz screen showed then.)
+  const TRACE_FULL_MS = 2080;
+  const TRACE_STOPS = [[110, 205, 70], [255, 232, 0], [255, 140, 0], [232, 30, 22]];
+  const T = { heat: null, cw: 0, ch: 0, at: 0, addAt: 0, off: null };
+  function traceGrid() {
+    const cw = Math.ceil(innerWidth / TRACE_CELL), ch = Math.ceil(innerHeight / TRACE_CELL);
+    if (!T.heat || T.cw !== cw || T.ch !== ch) {
+      T.heat = new Float32Array(cw * ch); T.cw = cw; T.ch = ch; T.at = performance.now();
+      T.off = document.createElement('canvas'); T.off.width = cw; T.off.height = ch;
+    }
+    return T;
+  }
+  function traceCool(now) {
+    const dt = now - T.at; if (dt <= 0) return;
+    const f = Math.pow(0.5, dt / TRACE_HALF_LIFE), h = T.heat;
+    for (let n = 0; n < h.length; n++) h[n] *= f;
+    T.at = now;
+  }
+  function traceAdd(x, y) {
+    const now = performance.now(); traceGrid();
+    const dt = Math.min(120, now - T.addAt);         // a gap (a blink, a look away) adds no heat
+    T.addAt = now;
+    traceCool(now);
+    const sig = TRACE_SIGMA / TRACE_CELL, R = Math.ceil(sig * 3), cx = x / TRACE_CELL, cy = y / TRACE_CELL, add = dt / TRACE_FULL_MS, h = T.heat;
+    for (let j = Math.max(0, Math.floor(cy - R)); j < Math.min(T.ch, cy + R); j++) {
+      for (let i = Math.max(0, Math.floor(cx - R)); i < Math.min(T.cw, cx + R); i++) {
+        const d2 = (i - cx) * (i - cx) + (j - cy) * (j - cy);
+        h[j * T.cw + i] = Math.min(1, h[j * T.cw + i] + add * Math.exp(-d2 / (2 * sig * sig)));
+      }
+    }
+  }
+  function traceDraw(g) {
+    traceGrid(); traceCool(performance.now());
+    const ctx = T.off.getContext('2d'), img = ctx.createImageData(T.cw, T.ch), px = img.data, h = T.heat;
+    for (let n = 0; n < h.length; n++) {
+      const t = h[n]; if (t < 0.02) continue;
+      const u = Math.min(0.999, t) * 3, a = Math.floor(u), b = u - a, c0 = TRACE_STOPS[a], c1 = TRACE_STOPS[a + 1];
+      px[n * 4] = c0[0] + (c1[0] - c0[0]) * b; px[n * 4 + 1] = c0[1] + (c1[1] - c0[1]) * b; px[n * 4 + 2] = c0[2] + (c1[2] - c0[2]) * b;
+      px[n * 4 + 3] = Math.min(140, t * 3.2 * 140);  // see-through: the overlay cannot blend into the page, so the words must show through it
+    }
+    ctx.putImageData(img, 0, 0);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(T.off, 0, 0, T.cw * TRACE_CELL, T.ch * TRACE_CELL);
+  }
+  function traceClear() { T.addAt = performance.now(); if (T.heat) { T.heat.fill(0); T.at = T.addAt; } }
+  addEventListener('scroll', () => { if (opts.trace) traceClear(); }, { capture: true, passive: true });
+  /* "Show tracking". It may be switched at any time, before the camera is on or before a calibration
+     too: the option is kept and the heat appears as soon as there is a gaze estimate to draw. The
+     overlay canvas never takes a click (pointer-events: none on it and on its host). */
+  function setTrace(v) { opts.trace = !!v; traceClear(); S.traceX.reset(); S.traceY.reset(); wake(); emit('status', getState()); }
 
   /** Where the eyes are right now: {element, lineIndex, lineRect, confidence} or null. */
   function getCurrentLine() {
@@ -1139,8 +1565,15 @@
   }
 
   window.GazeReader = {
-    init(o = {}) { Object.assign(opts, o); if (o.baselineWpm && !S.baseline) S.wpm = o.baselineWpm; return window.GazeReader; },
-    start, stop, calibrate, measureBaseline, on, setDebug, getState, getCurrentLine,
+    init(o = {}) {
+      const trace = opts.trace;
+      Object.assign(opts, o);
+      if (o.baselineWpm && !S.baseline) S.wpm = o.baselineWpm;
+      if (opts.trace !== trace) { traceClear(); S.traceX.reset(); S.traceY.reset(); }
+      wake();
+      return window.GazeReader;
+    },
+    start, stop, calibrate, measureBaseline, on, setDebug, setTrace, getState, getCurrentLine,
     setRoot(node) { opts.root = node; invalidate(); },
     /** Multiplies the calibrated tau. 1 = as calibrated, above 1 = help later, below 1 = help sooner. */
     setSensitivity(mult) {
@@ -1154,8 +1587,23 @@
     debugDump() {
       return {
         state: getState(), accuracy: S.accuracy, model: S.model ? S.model.toJSON() : null, train: S.train,
+        // rows collected but not used by the model in use (the head-segment dots when model A is in use)
+        trainExtra: S.trainExtra || null,
+        // The last calibration as it happened, for replay: per dot when it was shown, which stretch was sampled,
+        // and every camera frame from the moment it appeared (stream: {t, face, blink, f, head}; nothing trimmed).
+        calibration: S.calRaw ? { procedure: S.procedure, dots: S.calRaw.map((d) => ({ ...d, stream: d.stream.map((fr) => ({ ...fr, f: fr.f ? fr.f.map((v) => Math.round(v * 1e6) / 1e6) : undefined })) })) } : null,
+        headGate: S.model ? C.headGate(S.model.kind) : null, restoreCheck: S.restoreCheck || null,
+        // which gaze model is in use ('A' the 25-input ridge, 'B' / 'C' / 'E' a head-frame model) and what the shoot-out saw
+        modelKind: S.model ? S.model.kind || 'A' : null, shootout: S.shootout || null,
         calibHead: S.calibHead, calibScreen: S.calibScreen, baseline: S.baseline, camera: S.camera || null, tau: +tau().toFixed(2),
-        noise: { sx: S.sx, sy: S.sy, dispersion: S.fix.dispersion, drift: S.drift.y }, clicks: S.clicks.length,
+        noise: { sx: S.sx, sy: S.sy, dispersion: S.fix.dispersion, drift: S.drift.y }, clicks: S.clicks.length, clickStats: S.clickStats || { used: 0, refused: 0 },
+        delegate: S.delegate, timeSource: S.timeSource,
+        // when the calibration in use was made (Date.now() at its end; the same after it is restored): recordings made on one calibration share it
+        calibratedAt: S.calibT || null,
+        // step 4: the check after the fit, what the camera saw during the calibration, the delegate trial, the live quality gate, the last start problem
+        validation: (S.accuracy && S.accuracy.validation) || null, health: S.health || null, perf: S.perf || null,
+        quality: S.quality.map((w) => w.id), face: S.face ? { ...S.face } : null, error: S.error ? { ...S.error } : null,
+        blockedRequests: S.blockedRequests || 0,   // network calls the camera frame refused (it allows none)
       };
     },
     /** Show or hide the camera widget and toasts; tracking is unaffected. */

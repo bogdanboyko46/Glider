@@ -60,13 +60,15 @@
     font: false,         // Atkinson Hyperlegible for body text
     gaze: false,         // webcam eye tracking: notice a hard line and help
     gazeSensitivity: 3,  // 1 (help rarely) .. 5 (help often)
+    seeOriginal: false,  // a faint "see original" control beside text that was set out differently (adapt/adapt.js)
+    gazeTrace: false,    // TEMPORARY: heat where the tracker thinks the eyes are, to check it by eye (gaze-reader.js setTrace)
     showLevels: true,    // show how hard a word is to read (and its CEFR level) in the hover lens
     showDefinitions: false, // open the word's meaning in the lens straight away
     showWordParts: true, // mark prefixes, roots and suffixes in the lens
     dockMode: 'float',   // 'float': the pill sits in a corner; 'edge': a slim tab tucked into the screen edge
   });
 
-  const BOOL_KEYS = ['on', 'dockVisible', 'mirror', 'font', 'gaze', 'showLevels', 'showDefinitions', 'showWordParts'];
+  const BOOL_KEYS = ['on', 'dockVisible', 'mirror', 'font', 'gaze', 'seeOriginal', 'gazeTrace', 'showLevels', 'showDefinitions', 'showWordParts'];
   const DOCK_MODES = ['float', 'edge'];
   const WORDS_KEY = 'glider:words';  // the reader's saved words, newest last
   const WORDS_CAP = 2000;
@@ -1378,6 +1380,35 @@
 .ll[data-skin="sage"] .ll-dock[data-mode="edge"][data-open="false"][data-h="r"] .ll-panel { clip-path: inset(0 0 0 100% round var(--radius)); }
 .ll[data-skin="sage"] .ll-dock[data-mode="edge"][data-open="false"][data-h="l"] .ll-panel { clip-path: inset(0 100% 0 0 round var(--radius)); }
 
+/* Sage, larger and stronger: bigger type and controls, lighter cards so each row stands off the panel, values in
+   their own chip. The status line under the name is kept for screen readers only. */
+.ll[data-skin="sage"] { --panel-w: 380px; --ink-2: #44584a; --title-size: 19px; --row-h: 60px; --range-h: 8px; --range-radius: 4px; --radius: 26px; }
+.ll[data-skin="sage"] .ll-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ll[data-skin="sage"] .ll-head { padding-top: 14px; padding-bottom: 12px; }
+.ll[data-skin="sage"] .ll-body > * { margin-bottom: 8px; background: #f8faf5; }
+.ll[data-skin="sage"] .ll-sliders { grid-template-columns: auto 1fr auto; row-gap: 4px; padding-top: 10px; padding-bottom: 10px; }
+.ll[data-skin="sage"] .ll-sliders label, .ll[data-skin="sage"] .ll-name { font-size: 15px; font-weight: 700; }
+.ll[data-skin="sage"] .ll-hint { font-size: 13.5px; }
+.ll[data-skin="sage"] .ll-value { min-width: 54px; padding: 2px 8px; border-radius: 8px; background: var(--well); color: var(--ink); font-size: 14px; font-weight: 700; text-align: center; }
+.ll[data-skin="sage"] .ll-gaze-status { font-size: 13.5px; }
+.ll[data-skin="sage"] .ll-switch { width: 50px; height: 28px; }
+/* The switch thumb simply slides across: no stretch. */
+.ll[data-skin="sage"] .ll-switch::after { width: 22px; height: 22px; left: 3px; right: auto; transition: transform .16s ease, background-color .16s ease; }
+.ll[data-skin="sage"] .ll-switch[aria-checked="true"]::after,
+.ll[data-skin="sage"] [aria-checked="true"] > .ll-switch::after { left: 3px; right: auto; transform: translateX(22px); transition: transform .16s ease, background-color .16s ease; }
+.ll[data-skin="sage"] .ll-range::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: calc((var(--range-h, 4px) - 22px) / 2); }
+.ll[data-skin="sage"] .ll-tip { max-width: min(400px, calc(100vw - 16px)); padding: 14px; border-radius: 18px; }
+/* How hard the word is: a solid chip in the band's colour that says only "Easy", "Medium" or "Hard". */
+.ll[data-skin="sage"] .ll-diff { height: 28px; padding: 0 13px; font-size: 14px; background: var(--df, var(--well)); color: var(--df-ink, #ffffff); }
+.ll[data-skin="sage"] .ll-diff::before { display: none; }
+.ll[data-skin="sage"] .ll-diff b { font-size: 15px; color: inherit; }
+.ll[data-skin="sage"] .ll-diff[data-band="medium"] { --df-ink: #2b2204; }
+.ll[data-skin="sage"] .ll-why { font-size: 14px; }
+.ll[data-skin="sage"] .ll-part { min-width: 48px; padding: 8px 12px 9px; }
+.ll[data-skin="sage"] .ll-part-letters { font-size: 20px; }
+.ll[data-skin="sage"] .ll-part-sound { font-size: 14.5px; }
+.ll[data-skin="sage"] .ll-say-btn { height: 40px; font-size: 15px; }
+
 @media (prefers-reduced-motion: reduce) {
   .ll *, .ll *::before, .ll *::after { transition-duration: 0s !important; animation: none !important; }
 }
@@ -1435,13 +1466,17 @@
         ${switchRow('mirror', 'Colour b d p q', 'Tell mirrored letters apart')}
         ${switchRow('font', 'Hyperlegible font', 'Atkinson Hyperlegible for body text')}
         <div class="ll-gaze" hidden>
-          ${switchRow('gaze', 'Eye tracking', 'Notices a hard line and helps')}
+          ${switchRow('gaze', 'Adaptive', 'Learns from your eyes and sets the page out to suit you')}
           <div class="ll-gaze-line" hidden>
             <p class="ll-gaze-status" aria-live="polite" hidden></p>
             <button type="button" class="ll-btn" data-action="gaze-calibrate" hidden>Calibrate</button>
           </div>
           <div class="ll-sliders ll-gaze-sliders" hidden>
             ${rangeRow('gazeSensitivity', 'Help')}
+          </div>
+          <div class="ll-gaze-original" hidden>
+            ${switchRow('seeOriginal', 'See original', 'A small button beside text Glider has set out differently')}
+            ${switchRow('gazeTrace', 'Show tracking', 'Temporary: heat where Glider thinks you are looking')}
           </div>
         </div>
       </div>
@@ -1616,6 +1651,9 @@
         html.style.removeProperty('--glider-word-spacing');
         html.style.removeProperty('--glider-line-height');
       }
+
+      // Adapt ahead (adapt/adapt.js) sets text out before the lens wraps its words.
+      if (globalThis.GliderAdapt) globalThis.GliderAdapt.setHost({ lensOn: on, adaptive: on && s.gaze, control: s.seeOriginal });
 
       // With every feature off the engine puts the original text nodes back.
       this.engine.setFeatures({ bionic: on, homophones: on, syllables: on, mirror: on && s.mirror });
@@ -2090,6 +2128,7 @@
       if (!wanted) this.clearGazeHelp();
       if (!this.gaze) return;
 
+      if (!!s.gazeTrace !== this.gazeApplied.trace) { this.gazeApplied.trace = !!s.gazeTrace; this.gazeCall('setTrace', !!s.gazeTrace); }
       const mult = GAZE_SENSITIVITY[s.gazeSensitivity - 1] || 1;
       if (mult !== this.gazeApplied.mult) {
         this.gazeApplied.mult = mult;
@@ -2114,7 +2153,7 @@
       const baseline = g.baseline && Number.isFinite(Number(g.baseline.wpm)) ? g.baseline : null;
       switch (g.status) {
         case 'starting': return 'Starting the camera';
-        case 'needs-permission': return 'Allow the camera to begin';
+        case 'needs-permission': return (g.error && g.error.short) || 'Allow the camera to begin';
         case 'ready': return g.calibrated ? 'Ready to follow your reading' : 'Calibrate to begin';
         case 'calibrating':
         case 'baseline': return 'Calibrating. Follow the steps on screen';
@@ -2124,7 +2163,9 @@
           const tau = Number(g.tau);
           return Number.isFinite(tau) && tau > 0 ? `${pace}. Help when a line takes ${tau.toFixed(1)} times longer` : pace;
         }
-        case 'error': return 'Eye tracking could not start. Switch it off and on again';
+        case 'paused': return 'Paused. The window changed, so recalibrate to go on';
+        // GazeReader says which problem it is (camera in use, no camera, the face model did not load) and shows a Retry button on the page.
+        case 'error': return g.error && g.error.short ? `${g.error.short}. Press Retry on the page` : 'Eye tracking could not start. Switch it off and on again';
         default: return '';
       }
     }
@@ -2149,7 +2190,7 @@
       const show = !!this.state.gaze;
       const status = this.$('.ll-gaze-status');
       const button = this.$('[data-action="gaze-calibrate"]');
-      for (const el of [this.$('.ll-gaze-line'), status, button, this.$('.ll-gaze-sliders')]) el.hidden = !show;
+      for (const el of [this.$('.ll-gaze-line'), status, button, this.$('.ll-gaze-sliders'), this.$('.ll-gaze-original')]) el.hidden = !show;
 
       const text = show && this.state.on ? this.gazeStatusText(state) : '';
       if (status.textContent !== text) status.textContent = text;
@@ -2480,7 +2521,7 @@
       if (d && D) {
         const band = D.BANDS[d.band];
         chip.dataset.band = d.band;
-        chip.innerHTML = `<b>${esc(band.short)}</b> to read`;
+        chip.innerHTML = `<b>${esc(band.short)}</b>`;
         chip.title = 'How hard this word is to read: its length, how common it is, and spellings that do not match the sound';
         chip.setAttribute('aria-label', `${band.name}${d.reasons.length ? ': ' + d.reasons.join(', ') : ''}`);
         chip.hidden = false;

@@ -186,17 +186,11 @@ function poseOf(f, layout) {
   const n = Math.hypot(m[8], m[9], m[10]) || 1, tz = Math.abs(m[14]) || 1;
   return [Math.atan2(m[8], Math.abs(m[10])), Math.asin(clamp(-m[9] / n, -1, 1)), Math.atan2(m[1], Math.abs(m[5])), m[12] / tz, m[13] / tz, Math.log(tz)];
 }
+/** Row numbers the tracker's own trimming (C.trimTrain) keeps. */
 function trimTrain(model, X, Y, G) {
-  const byG = new Map();
-  X.forEach((r, i) => { const p = model.predict(r); if (!byG.has(G[i])) byG.set(G[i], []); byG.get(G[i]).push({ i, rx: p[0] - Y[i][0], ry: p[1] - Y[i][1] }); });
-  const keep = new Array(X.length).fill(true);
-  for (const g of byG.values()) {
-    for (const k of ['rx', 'ry']) {
-      const m = median(g.map((q) => q[k])), madv = 1.4826 * median(g.map((q) => Math.abs(q[k] - m)));
-      for (const q of g) if (Math.abs(q[k] - m) > 2.5 * madv) keep[q.i] = false;
-    }
-  }
-  return keep;
+  const rows = X.map((_, i) => i);
+  C.trimTrain(model, X.slice(), Y.slice(), G.slice(), rows);
+  return rows;
 }
 function modelAlternatives(P) {
   const d = P.dump;
@@ -205,8 +199,11 @@ function modelAlternatives(P) {
   const X0 = d.train.X, Y = d.train.Y, G0 = Array.isArray(d.train.G) && d.train.G.length === X0.length ? d.train.G : null;
   const D = X0[0].length;
   if (X0.some((r) => !Array.isArray(r) || r.length !== D)) return na('dump.train.X rows have inconsistent widths');
-  const frames = P.raw.filter((e) => e.face !== false && !e.blink && Array.isArray(e.f) && e.f.length === D);
-  if (!frames.length) return na(`no raw frames with a ${D}-number feature vector (train width ${D})`);
+  // The tracker stores the camera's whole vector for each training frame (63 numbers since step 2;
+  // 25 in older dumps, 44 from the lab's synthetic person). A raw frame is usable when it is at
+  // least as wide as a training row; the surplus is cut off.
+  const frames = P.raw.filter((e) => e.face !== false && !e.blink && Array.isArray(e.f) && e.f.length >= D).map((e) => (e.f.length === D ? e : { ...e, f: e.f.slice(0, D) }));
+  if (!frames.length) return na(`no raw frames with a feature vector of ${D} numbers or more (train width ${D})`);
   const per = bySegment(frames, P.segs);
   const notes = [`train ${X0.length} frames x ${D} features, ${G0 ? new Set(G0).size : '?'} dots (from ${P.dumpSource}); test ${per.reduce((a, g) => a + g.length, 0)} raw frames on ${P.segs.length} ${P.segs[0].kind} windows`];
   const G = G0 || X0.map((_, i) => Math.floor(i * 5 / X0.length));
@@ -234,12 +231,17 @@ function modelAlternatives(P) {
   const fit = (map, rows) => { const idx = rows || X0.map((_, i) => i); return new C.Ridge().fit(idx.map((i) => (map ? map(X0[i]) : X0[i])), idx.map((i) => Y[i]), idx.map((i) => G[i])); };
   const safe = (name, fn) => { try { fn(); } catch (e) { notes.push(`${name}: failed (${e.message})`); } };
 
-  if (d.model && Array.isArray(d.model.keep) && Math.max(...d.model.keep) < D) safe('a', () => evalModel('a shipped (as trained)', C.Ridge.fromJSON(d.model), null));
+  let shippedModel = null;
+  try { if (d.model && Array.isArray(d.model.keep)) shippedModel = C.Ridge.fromJSON(d.model); } catch { shippedModel = null; }
+  if (shippedModel && shippedModel.inputWidth <= D) safe('a', () => evalModel(`a shipped (as trained${shippedModel.kind !== 'A' ? ', model ' + shippedModel.kind : ''})`, shippedModel, null));
   else notes.push('a shipped: not available (no usable dump.model)');
-  const bases = [['b refit 44', null]];
-  if (D !== 44) { bases[0][0] = `b refit ${D}`; notes.push(`feature vector has ${D} numbers, not 44: eye-only / blendshape / pose variants skipped`); }
+  // W: how many numbers model A reads (25 unless the calibration was run with another featureCount)
+  const W = Math.min(D, shippedModel && shippedModel.kind === 'A' ? shippedModel.inputWidth : 25);
+  const bases = [[`b refit ${W}`, W < D ? sub(0, W) : null]];
+  if (W > 17) bases.push(['c eye-only 0-16', sub(0, 17)]);
+  if (W > 25) bases.push(['d eye+blend 0-24', sub(0, 25)]);
+  if (D < 41) notes.push(`train rows have ${D} numbers (a dump from before step 2): variants needing the head matrix (e eye+pose) skipped`);
   else {
-    bases.push(['c eye-only 0-16', sub(0, 17)], ['d eye+blend 0-24', sub(0, 25)]);
     const lay = matrixLayout(X0);
     if (lay) { bases.push(['e eye+pose6', (f) => f.slice(0, 17).concat(poseOf(f, lay))]); if (lay === 'row') notes.push('matrix looked row-major: transposed before deriving pose'); }
     else notes.push('e eye+pose: skipped, f[25..40] does not look like a rigid 4x4 transform with translation in cm');
@@ -255,9 +257,12 @@ function modelAlternatives(P) {
     let base = null;
     safe(name, () => { base = fit(map); evalModel(name, base, map); });
     if (!base || !/^[bc]/.test(name)) continue;
-    safe(name + ' trim', () => { const keep = trimTrain(base, map ? X0.map(map) : X0, Y, G); const rows = keep.map((k, i) => (k ? i : -1)).filter((i) => i >= 0); evalModel(`f ${name.slice(2)} +trim`, fit(map, rows), map, { kept: rows.length / X0.length }); });
+    safe(name + ' trim', () => { const rows = trimTrain(base, map ? X0.map(map) : X0, Y, G); evalModel(`f ${name.slice(2)} +trim`, fit(map, rows), map, { kept: rows.length / X0.length }); });
     if (late) safe(name + ' drop300', () => evalModel(`g ${name.slice(2)} -300ms`, fit(map, late), map, { kept: late.length / X0.length }));
   }
+  // The head-frame models of the tracker's own shoot-out (gaze-core.js fitKind), refitted on the dump.
+  if (D < C.FEATURE_COUNT) notes.push(`head-frame models B, C, E: skipped, they need the ${C.FEATURE_COUNT}-number camera vector and the train rows have ${D}`);
+  else for (const k of C.MODEL_KINDS.filter((q) => q !== 'A')) safe(k, () => { const m = C.fitKind(k, X0, Y, G); if (m.fail) notes.push(`${k} head-frame: not fitted (${m.fail})`); else evalModel(`${k} head-frame model`, m, null); });
   if (!variants.length) return { na: 'no model variant could be evaluated', notes };
   const best = variants.reduce((a, b) => (b.fixY < a.fixY ? b : a));
   const shipped = variants.find((v) => v.name.startsWith('a '));
@@ -324,9 +329,9 @@ function lineDecoding(P, alt) {
     // raw frames through the alternative model, with the same head-moved pause as processFrame
     const h0 = P.dump.calibHead; let since = 0, drifted = false; const smp = []; const D = (P.dump.train.X[0] || []).length;
     for (const e of P.raw) {
-      if (e.face === false || !Array.isArray(e.f) || e.f.length !== D) continue;
+      if (e.face === false || !Array.isArray(e.f) || e.f.length < D) continue;
       if (h0 && e.head && isNum(h0.s)) {
-        const moved = Math.hypot(e.head.cx - h0.cx, e.head.cy - h0.cy) > 0.08 || Math.abs(e.head.s / h0.s - 1) > 0.15;
+        const moved = C.headMoved(e.head, h0, e.f, alt._model.kind);   // (the tracker's own gate since step 3; it was 0.08 / 0.15 written out here)
         if (moved) { if (!since) since = e.t; if (e.t - since > 600) drifted = true; } else { since = 0; drifted = false; }
       }
       if (drifted || e.blink) continue;

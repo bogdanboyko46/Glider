@@ -25,7 +25,19 @@ function sim(x, y) {
 addEventListener('message', (e) => {
   if (port || !e.data || e.data.type !== 'gr-init' || e.data.nonce !== nonce) return;
   port = e.ports[0];
+  // window.__fakeFrameMode on the page that embeds this frame makes the start end badly, the way frame.js reports it:
+  // 'silent' (the frame never answers), 'denied', 'blocked', 'in-use', 'no-camera', 'model' (the face model does not load).
+  let mode = ''; try { mode = String(parent.__fakeFrameMode || ''); } catch (_) { /* cross-origin parent */ }
+  const bad = { denied: ['needs-permission', 'camera permission needed', 'camera-permission'], blocked: ['needs-permission', 'camera blocked', 'camera-blocked'], 'in-use': ['error', 'camera in use by another app', 'camera-in-use'], 'no-camera': ['error', 'no camera found', 'no-camera'], model: ['error', 'the wasm file is missing', 'model-load'] }[mode];
+  if (mode === 'silent') return;
+  if (bad) { port.postMessage({ type: 'status', state: 'loading', detail: 'opening camera…' }); port.postMessage({ type: 'status', state: bad[0], detail: bad[1], code: bad[2] }); return; }
+  port.postMessage({ type: 'camera', settings: { width: 1280, height: 720, frameRate: 30, deviceLabel: 'fake camera', videoWidth: 1280, videoHeight: 720 } });
   port.postMessage({ type: 'status', state: 'ready', detail: 'tracking' });
-  setInterval(() => { const t = window.trueGaze; port.postMessage({ type: 'f', face: true, f: sim(t.x, t.y), head: { cx: 0.5, cy: 0.5, s: 0.1 }, blink: false, fps: 30 }); }, 33);
+  // window.frameAge (ms) makes the frames carry a capture time that far in the past, on this frame's own clock, as frame.js does.
+  const stamp = () => (window.frameAge ? { tc: performance.now() - window.frameAge, ts: performance.now(), tsrc: 'capture', delegate: 'CPU' } : {});
+  // window.__fakeHeadDx on the page that embeds this frame moves the head sideways in the picture (a share of its width),
+  // from the very first frame: for the head gate and the check before a saved calibration is reused.
+  const headDx = () => { try { return Number(parent.__fakeHeadDx) || 0; } catch (_) { return 0; } };
+  setInterval(() => { const t = window.trueGaze; port.postMessage({ type: 'f', face: true, f: sim(t.x, t.y), head: { cx: 0.5 + headDx(), cy: 0.5, s: 0.1 }, blink: false, fps: 30, ...stamp() }); }, 33);
 });
 </script></body></html>

@@ -6,8 +6,7 @@ import { C, clamp, isNum } from './util.mjs';
 /** What applyAccuracy() derives from an accuracy object. Falls back to the S defaults (60, 60, 90). */
 export function accParams(acc) {
   if (!acc || !isNum(acc.effX) || !isNum(acc.effY)) return { sx: 60, sy: 60, dispersion: 90, fromDump: false };
-  const p = Math.max(acc.precisionX || 0, acc.precisionY || 0);
-  return { sx: Math.max(25, acc.effX), sy: Math.max(18, acc.effY), dispersion: Math.max(60, Math.min(220, 2.2 * p)), fromDump: true };
+  return { ...C.trackingParams({ ...acc, precisionX: acc.precisionX || 0, precisionY: acc.precisionY || 0 }), fromDump: true };
 }
 
 /** samples: [{t,x,y}] in time order, blink frames already removed (processFrame skips them). */

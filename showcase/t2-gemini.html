@@ -1,67 +1,62 @@
 <!doctype html>
-<html lang="en" data-duration="9300">
+<html lang="en" data-duration="9600">
 <head>
 <meta charset="utf-8">
 <title>Glider title: the sentence opens up</title>
 <link rel="stylesheet" href="base.css">
 <style>
 /* Title variation 2. One sentence, set the way a hard page is set: tight and grey. It opens up the way the lens opens a page:
-   room between letters, words and lines, and a bold start to every word. Then the name. */
+   room between letters, words and lines. Then the name. */
 body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: relative; background: var(--bg); color: var(--ink); }
 
+@property --t { syntax: '<number>'; inherits: true; initial-value: 0; }
+@keyframes open { from { --t: 0; } to { --t: 1; } }
+
 /* Sentence opening */
-.s { position: absolute; left: 110px; right: 40px; top: 200px; margin: 0; font: 400 86px/1 Georgia, "Times New Roman", serif; color: #8a968c;
-  animation: open 0.9s cubic-bezier(.2, 0, 0, 1) 1.0s both, lift .5s ease 5.1s both; }
-@keyframes open { 
-  from { letter-spacing: -.055em; word-spacing: -.18em; line-height: .92; color: #8a968c; } 
-  to { letter-spacing: .073em; word-spacing: .24em; line-height: 1.9; color: var(--ink); } 
+.s { 
+  position: absolute; left: 110px; right: 40px; top: 200px; margin: 0; 
+  font: 400 86px/1 Georgia, "Times New Roman", serif; 
+  animation: open 1.2s cubic-bezier(.3, 0, .1, 1) 1.0s both, lift .5s ease 5.4s both;
+  letter-spacing: calc(-.055em + .128em * var(--t));
+  word-spacing: calc(-.18em + .42em * var(--t));
+  line-height: calc(.92 + .98 * var(--t));
+  color: color-mix(in srgb, var(--ink) calc(var(--t) * 100%), #8a968c);
 }
 @keyframes lift { to { opacity: 0; transform: translateY(-40px); } }
 
-/* Word bolding crossfade */
+/* Word starts */
 .wd { white-space: nowrap; }
-.st { display: inline-block; position: relative; }
-.st b { font-weight: 700; opacity: 0; animation: fade-in 0.9s linear 1.0s both; }
-.st i { font-style: normal; font-weight: 400; position: absolute; left: 0; top: 0; white-space: nowrap; animation: fade-out 0.9s linear 1.0s both; }
-@keyframes fade-in { 
-  0%, 10% { opacity: 0; } 
-  40%, 100% { opacity: 1; } 
+
+.st { 
+  display: inline-block; position: relative; white-space: nowrap; vertical-align: baseline; 
+  width: calc(((var(--g0) + (var(--g1) - var(--g0)) * var(--t)) + var(--n) * (-.055 + .128 * var(--t))) * 1em); 
 }
-@keyframes fade-out { 
-  0%, 15% { opacity: 1; } 
-  40%, 100% { opacity: 0; } 
+.st b { 
+  display: inline-block; font-weight: 700; transform-origin: left center;
+  transform: scaleX(calc(((var(--g0) + (var(--g1) - var(--g0)) * var(--t)) + var(--n) * (-.055 + .128 * var(--t))) / (var(--g1) + var(--n) * (-.055 + .128 * var(--t))))); 
+  opacity: clamp(0, calc((var(--t) - .04) / .4), 1); 
+}
+.st i { 
+  position: absolute; left: 0; top: 0; font-style: normal; font-weight: 400; white-space: nowrap; transform-origin: left center;
+  transform: scaleX(calc(((var(--g0) + (var(--g1) - var(--g0)) * var(--t)) + var(--n) * (-.055 + .128 * var(--t))) / (var(--g0) + var(--n) * (-.055 + .128 * var(--t))))); 
+  opacity: clamp(0, calc((.85 - var(--t)) / .3), 1); 
 }
 
 /* Letter colors and feet */
-.c-d, .c-b, .foot-d, .foot-b { display: inline; }
-.c-d, .foot-d { animation: color-d 0.9s cubic-bezier(.2, 0, 0, 1) 1.0s both; }
-.c-b, .foot-b { animation: color-b 0.9s cubic-bezier(.2, 0, 0, 1) 1.0s both; }
-
-.foot-d, .foot-b { position: relative; background: none; }
-.foot-d::after, .foot-b::after {
-   content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; box-sizing: border-box; pointer-events: none;
-   border: 0 solid transparent; border-bottom-width: .13em;
-   opacity: 0;
-   animation: foot-fade 0.9s cubic-bezier(.2, 0, 0, 1) 1.0s both;
+.foot-d, .foot-b { display: inline; position: relative; background: none; }
+.foot-d::after, .foot-b::after { 
+  content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; 
+  box-sizing: border-box; pointer-events: none; border: 0 solid transparent; 
+  border-bottom-width: .13em; opacity: var(--t);
 }
 .foot-d::after { border-bottom-color: rgba(180,83,9,.45); border-radius: 0 0 .3em 0; }
 .foot-b::after { border-bottom-color: rgba(29,78,216,.45); border-radius: 0 0 0 .3em; }
 
-@keyframes color-d {
-  from { color: #8a968c; }
-  to { color: rgb(128, 73, 21); }
-}
-@keyframes color-b {
-  from { color: #8a968c; }
-  to { color: rgb(30, 69, 155); }
-}
-@keyframes foot-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+.foot-d, .c-d { color: color-mix(in srgb, rgb(128, 73, 21) calc(var(--t) * 100%), #8a968c); }
+.foot-b, .c-b { color: color-mix(in srgb, rgb(30, 69, 155) calc(var(--t) * 100%), #8a968c); }
 
 /* Hover highlight */
-.target { position: relative; border-radius: 17px; padding: 0 .06em; margin: 0 -.06em; animation: hl-anim 2.8s 2.15s both; }
+.target { position: relative; border-radius: 17px; padding: 0 .06em; margin: 0 -.06em; animation: hl-anim 2.8s 2.45s both; }
 @keyframes hl-anim {
   0% { background-color: transparent; animation-timing-function: ease-out; }
   15% { background-color: rgba(255, 216, 77, 0.45); }
@@ -73,7 +68,7 @@ body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: rela
 .ptr {
   position: absolute; top: 40px; left: 75%; width: 26px; height: 26px;
   opacity: 0; transform: translate(150px, 150px);
-  animation: ptr-anim 2.8s 2.15s both;
+  animation: ptr-anim 2.8s 2.45s both;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3));
   z-index: 20;
 }
@@ -91,7 +86,7 @@ body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: rela
   letter-spacing: normal; word-spacing: normal; line-height: normal; text-transform: none;
   font-family: "Atkinson", sans-serif; color: #20352a; pointer-events: none;
   opacity: 0; transform: translateX(-50%) scale(1.8);
-  animation: lens-anim 2.4s 2.35s both;
+  animation: lens-anim 2.4s 2.65s both;
 }
 @keyframes lens-anim {
   0% { opacity: 0; transform: translateX(-50%) scale(1.8); animation-timing-function: cubic-bezier(.2, 0, 0, 1); }
@@ -164,14 +159,12 @@ body { margin: 0; width: 1280px; height: 720px; overflow: hidden; position: rela
 }
 
 /* End card */
-h1 { position: absolute; left: 110px; top: 190px; margin: 0; font: 700 200px/1 "Lexend", sans-serif; letter-spacing: -.035em; animation: rise .7s cubic-bezier(.2, 0, 0, 1) 5.3s both; }
-p.t { position: absolute; left: 118px; top: 430px; margin: 0; font: 400 44px/1.25 "Atkinson", sans-serif; color: var(--muted); animation: rise .6s cubic-bezier(.2, 0, 0, 1) 5.5s both; }
-p.t b { color: var(--ink); }
+h1 { position: absolute; left: 110px; top: 260px; margin: 0; font: 700 200px/1 "Lexend", sans-serif; letter-spacing: -.035em; animation: rise .7s cubic-bezier(.2, 0, 0, 1) 5.6s both; }
 .mark { position: absolute; right: 0; top: 178px; display: grid; gap: 36px; justify-items: end; }
 .mark i { display: block; height: 44px; border-radius: 22px; background: var(--ink); transform-origin: right center; animation: reach .6s cubic-bezier(.2, 0, 0, 1) both; }
-.mark i:nth-child(1) { width: 130px; animation-delay: 5.4s; } .mark i:nth-child(2) { width: 234px; animation-delay: 5.48s; }
-.mark i:nth-child(3) { width: 364px; background: var(--accent); animation-delay: 5.56s; }
-.mark i:nth-child(4) { width: 234px; animation-delay: 5.64s; } .mark i:nth-child(5) { width: 130px; animation-delay: 5.72s; }
+.mark i:nth-child(1) { width: 130px; animation-delay: 5.7s; } .mark i:nth-child(2) { width: 234px; animation-delay: 5.78s; }
+.mark i:nth-child(3) { width: 364px; background: var(--accent); animation-delay: 5.86s; }
+.mark i:nth-child(4) { width: 234px; animation-delay: 5.94s; } .mark i:nth-child(5) { width: 130px; animation-delay: 6.02s; }
 @keyframes reach { from { transform: scaleX(0); } }
 @keyframes rise { from { opacity: 0; transform: translateY(26px); } }
 </style>
@@ -179,22 +172,40 @@ p.t b { color: var(--ink); }
 <body>
 <p class="s" id="s">Reading should not be this much work.</p>
 <h1>Glider</h1>
-<p class="t">Made with <b>dyslexia</b> in mind.</p>
 <div class="mark"><i></i><i></i><i></i><i></i><i></i></div>
 <script>
 const s = document.getElementById('s');
 
-function colorLetters(str, isOverlay) {
+function colorLetters(str, isOverlay = false) {
   return str.replace(/b/g, isOverlay ? '<span class="c-b">b</span>' : '<span class="foot-b">b</span>')
             .replace(/d/g, isOverlay ? '<span class="c-d">d</span>' : '<span class="foot-d">d</span>');
 }
 
+const probe = document.createElement('span');
+probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;letter-spacing:0;font:400 86px/1 Georgia,"Times New Roman",serif;';
+document.body.appendChild(probe);
+
 s.innerHTML = s.textContent.replace(/[A-Za-z]+/g, (w) => { 
   const n = w.length <= 3 ? 1 : w.length <= 5 ? 2 : Math.ceil(w.length * .4); 
-  const startInFlow = colorLetters(w.slice(0, n), false);
-  const startOverlay = colorLetters(w.slice(0, n), true);
-  const rest = colorLetters(w.slice(n), false);
-  const inner = `<span class="st"><b>${startInFlow}</b><i>${startOverlay}</i></span>${rest}`;
+  const startText = w.slice(0, n);
+  const restText = w.slice(n);
+  
+  probe.style.fontWeight = '400';
+  probe.textContent = startText;
+  const w0 = probe.getBoundingClientRect().width;
+  
+  probe.style.fontWeight = '700';
+  probe.textContent = startText;
+  const w1 = probe.getBoundingClientRect().width;
+  
+  const g0 = w0 / 86;
+  const g1 = w1 / 86;
+  
+  const startInFlow = colorLetters(startText, false);
+  const startOverlay = colorLetters(startText, true);
+  const rest = colorLetters(restText, false);
+  
+  const inner = `<span class="st" style="--g0:${g0};--g1:${g1};--n:${n}"><b>${startInFlow}</b><i>${startOverlay}</i></span>${rest}`;
   
   if (w === 'should') {
     return `<span class="wd target">${inner}` +
@@ -228,11 +239,7 @@ s.innerHTML = s.textContent.replace(/[A-Za-z]+/g, (w) => {
   return `<span class="wd">${inner}</span>`; 
 });
 
-document.querySelectorAll('.st').forEach(st => {
-  const b = st.querySelector('b'), i = st.querySelector('i');
-  i.style.transformOrigin = 'left';
-  i.style.transform = 'scaleX(' + (b.getBoundingClientRect().width / i.getBoundingClientRect().width) + ')';
-});
+document.body.removeChild(probe);
 </script>
 </body>
 </html>

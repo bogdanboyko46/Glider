@@ -39,19 +39,20 @@ export function serve(root = REPO) {
   return new Promise((ok) => server.listen(0, '127.0.0.1', () => ok({ server, origin: `http://127.0.0.1:${server.address().port}` })));
 }
 
-export async function launch({ width = 1280, height = 800, extension = false, headless = true } = {}) {
+/** extraArgs: more command-line switches for the browser (tests/gaze-camera-smoke.mjs passes the fake-camera ones). */
+export async function launch({ width = 1280, height = 800, extension = false, headless = true, extraArgs = [] } = {}) {
   const profile = await mkdtemp(join(tmpdir(), 'glider-chrome-'));
   const args = [
     `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--no-first-run', '--no-default-browser-check',
     '--disable-background-networking', '--disable-sync', '--mute-audio', `--window-size=${width},${height}`,
-    '--force-device-scale-factor=1', '--hide-scrollbars',
+    `--force-device-scale-factor=${Number(process.env.GLIDER_DSF) || 1}`, '--hide-scrollbars',   // GLIDER_DSF=1.5: sharper pixels for filming
   ];
   if (headless) args.push('--headless=new');
   if (extension) {
     args.push(`--load-extension=${EXTENSION}`, `--disable-extensions-except=${EXTENSION}`,
       '--disable-features=DisableLoadExtensionCommandLineSwitch');
   }
-  args.push('about:blank');
+  args.push(...extraArgs, 'about:blank');
 
   const proc = spawn(extension ? EXTENSION_BROWSER : CHROME, args, { stdio: ['ignore', 'ignore', 'pipe'] });
   const wsUrl = await new Promise((ok, fail) => {
@@ -175,9 +176,10 @@ function connect(url) {
     const pending = new Map();
     const listeners = new Map();
     const api = {
-      send(method, params = {}) {
+      // sessionId: for a target attached with Target.setAutoAttach({ flatten: true }); listeners get it as their second argument.
+      send(method, params = {}, sessionId) {
         const n = (id += 1);
-        ws.send(JSON.stringify({ id: n, method, params }));
+        ws.send(JSON.stringify(sessionId ? { id: n, method, params, sessionId } : { id: n, method, params }));
         return new Promise((res, rej) => pending.set(n, { res, rej, method }));
       },
       on(event, fn) { (listeners.get(event) || listeners.set(event, []).get(event)).push(fn); },
@@ -197,7 +199,7 @@ function connect(url) {
         if (msg.error) rej(new Error(`${method}: ${msg.error.message}`));
         else res(msg.result);
       } else if (msg.method) {
-        for (const fn of listeners.get(msg.method) || []) fn(msg.params);
+        for (const fn of listeners.get(msg.method) || []) fn(msg.params, msg.sessionId);
       }
     });
   });

@@ -47,7 +47,14 @@ for (const phi of [0.6, 0.2]) {
   check('variant (a) per-frame RMS y equals the shipped gaze stream', a.rmsY, A0.accuracy.rmsY, 0.3, ' px');
   const b = A0.models.variants.find((v) => v.name.startsWith('b '));
   check('refit (b) on dump.train reproduces the shipped model', b.fixY, a.fixY, 0.5, ' px');
-  truthy('all nine model variants evaluated', A0.models.variants.length === 9, A0.models.variants.map((v) => v.name[0]).join(''));
+  // Since step 2 the tracker stores the camera's whole vector per training frame (44 numbers from this synthetic
+  // person), so the pose variant (e) can be refitted from its dump; (b) is the refit of what model A reads (25).
+  truthy('whole-vector train rows: eight model variants evaluated (a, b and c with their two extras, e)', A0.models.variants.map((v) => v.name[0]).join('') === 'abfgcfge', A0.models.variants.map((v) => v.name[0]).join(''));
+  truthy('whole-vector train rows: the head-frame models are skipped with a note (this person has no landmarks, only 44 numbers)', A0.models.notes.some((n) => /head-frame models B, C, E: skipped/.test(n)));
+  const W25 = run('validate', { seed: 21, cal: { trainWidth: 25 } });
+  truthy('25-wide train rows (a dump from before step 2) against 44-wide raw frames: seven model variants evaluated', W25.models.variants.length === 7, W25.models.variants.map((v) => v.name[0]).join(''));
+  const W44 = run('validate', { seed: 21, cal: { featureCount: 44 } });
+  truthy('44-wide train rows: all nine model variants evaluated', W44.models.variants.length === 9, W44.models.variants.map((v) => v.name[0]).join(''));
   check('px per degree', A0.pxPerDeg, Math.hypot(1536, 864) / (14 * 2.54) * 60 * Math.tan(Math.PI / 180), 0.01);
   // offset correction removes a constant offset learned on the first two targets
   const a1 = A1.models.variants.find((v) => v.name.startsWith('a '));

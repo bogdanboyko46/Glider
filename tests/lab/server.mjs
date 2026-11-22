@@ -9,10 +9,12 @@ import { randomBytes } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = join(HERE, 'site');
-const RECORDINGS = join(HERE, 'recordings');
+// --recordings DIR and --port N are for tests: recordings then go to DIR (a temp folder), not into tests/lab/recordings.
+const flag = (name) => { const i = process.argv.indexOf(name); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : null; };
+const RECORDINGS = flag('--recordings') ? resolve(flag('--recordings')) : join(HERE, 'recordings');
 const INSTRUCTION = join(HERE, 'instruction.json');
 const HOST = '127.0.0.1';
-const PORT = 8377;
+const PORT = Number(flag('--port')) || 8377;
 const MAX_BODY = 80 * 1024 * 1024;
 
 const MIME = {
@@ -85,7 +87,7 @@ async function postRecording(req, res, url) {
     let name = `${base}.json`;
     for (let i = 2; await exists(join(RECORDINGS, name)); i += 1) name = `${base}-${i}.json`;
     await rename(tmp, join(RECORDINGS, name));
-    const rel = `tests/lab/recordings/${name}`;
+    const rel = flag('--recordings') ? join(RECORDINGS, name).replace(/\\/g, '/') : `tests/lab/recordings/${name}`;
     console.log(`RECORDING ${rel} ${bytes} bytes`);
     json(res, 200, { ok: true, file: rel, bytes });
   } catch (err) {

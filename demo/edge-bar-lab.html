@@ -1,0 +1,392 @@
+<title>Glider Edge Bar Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: same workbench as the Motion Lab. Sticky control strip, one section per
+   interaction, each a row of identical specimen cards (stage, name + spec, Replay / Pick). */
+:root {
+  --bg: #f3f6ef; --fg: #1d2e25; --muted: #586b5e; --card: #fbfcf9; --rule: #d5ddcd;
+  --acc: #2f6b4a; --acc-ink: #ffffff; --chip: #e1ead9; --stage: #ffffff; --gold: #f4dfa6; --gold-ink: #4a3c0c;
+  --font: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #121814; --fg: #e4ebdf; --muted: #9fb0a2; --card: #1a221d; --rule: #2e3a31; --acc: #86cba0; --acc-ink: #0f1a13; --chip: #243028; --stage: #f1f4ec; --gold: #5b4a14; --gold-ink: #f6e7b4; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #121814; --fg: #e4ebdf; --muted: #9fb0a2; --card: #1a221d; --rule: #2e3a31; --acc: #86cba0; --acc-ink: #0f1a13; --chip: #243028; --stage: #f1f4ec; --gold: #5b4a14; --gold-ink: #f6e7b4; color-scheme: dark; }
+
+body { --k: 1; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.5; }
+body.slow { --k: 3; }
+body.rm { --k: 0; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+* { box-sizing: border-box; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { margin: 0; font-size: 30px; line-height: 1.15; letter-spacing: -.01em; text-wrap: balance; }
+.lede { max-width: 68ch; margin: 8px 0 0; color: var(--muted); }
+h2 { margin: 0; font-size: 21px; line-height: 1.2; }
+h3 { margin: 0; font-size: 15.5px; line-height: 1.25; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 18px; padding: 10px 0; background: var(--bg); border-bottom: 1px solid var(--rule); }
+.bar-group { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--muted); }
+.nav { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.nav a { padding: 3px 10px; border-radius: 999px; background: var(--chip); color: var(--fg); font-size: 13px; text-decoration: none; }
+.nav a[data-picked]::after { content: " \2713"; color: var(--acc); font-weight: 700; }
+.btn { height: 32px; padding: 0 14px; border: 1px solid var(--rule); border-radius: 999px; background: var(--card); color: var(--fg); font: inherit; font-size: 13.5px; cursor: pointer; }
+.btn:hover { border-color: var(--acc); }
+.btn[aria-pressed="true"] { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); font-weight: 700; }
+.btn:focus-visible, .nav a:focus-visible, .check input:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.check { display: inline-flex; align-items: center; gap: 7px; color: var(--fg); cursor: pointer; }
+.check input { width: 17px; height: 17px; margin: 0; accent-color: var(--acc); }
+
+.area { margin-top: 40px; scroll-margin-top: 76px; }
+.area-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 16px; }
+.area-head p { max-width: 74ch; margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; margin-top: 14px; }
+.card { display: flex; flex-direction: column; min-width: 0; padding: 10px; border: 1px solid var(--rule); border-radius: 18px; background: var(--card); }
+.card.picked { border-color: var(--acc); box-shadow: 0 0 0 2px var(--acc); }
+.meta { flex: 1; padding: 12px 4px 0; }
+.meta-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.tag { padding: 1px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 11.5px; letter-spacing: .02em; }
+.tag.rec { background: var(--gold); color: var(--gold-ink); }
+.meta p { margin: 5px 0 0; color: var(--muted); font-size: 13.5px; }
+.spec { display: block; margin-top: 7px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.acts { display: flex; gap: 8px; padding: 12px 4px 2px; }
+.picks { margin-top: 44px; padding: 18px; border: 1px solid var(--rule); border-radius: 18px; background: var(--card); }
+.picks p { max-width: 66ch; margin: 4px 0 12px; color: var(--muted); font-size: 14px; }
+.picks textarea { display: block; width: 100%; min-height: 128px; padding: 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 12.5px; line-height: 1.55; resize: vertical; }
+.picks .acts { padding-left: 0; }
+
+/* ===================== specimen: Sage ===================== */
+.stage {
+  --surface: #eef2ea; --well: #e0e8d9; --tile: #e4ebdd; --ink: #20352a; --ink-2: #566b5c; --line-strong: #93a593;
+  --accent: #2f6b4a; --track: #cfd9c7;
+  --ease: cubic-bezier(.2, .8, .2, 1); --spring: cubic-bezier(.3, 1.4, .5, 1);
+  --shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 22px 50px -14px rgba(32, 53, 42, .34);
+  --shadow-s: 0 0 0 1px rgba(32, 53, 42, .1), 0 8px 22px -6px rgba(32, 53, 42, .35);
+  position: relative; height: var(--h, 200px); overflow: hidden; border-radius: 10px; background: var(--stage);
+  color: var(--ink); font-size: 13px; line-height: 1.4; -webkit-font-smoothing: antialiased;
+}
+:where(.stage) button { margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: inherit; }
+.stage :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pg { margin: 0; padding: 14px 34px 14px 16px; color: #7c897f; font-size: 13px; line-height: 1.6; }
+.hint { position: absolute; left: 14px; bottom: 8px; margin: 0; font-size: 11.5px; color: #8a968c; pointer-events: none; }
+
+.sw { position: relative; display: block; flex: none; width: 42px; height: 24px; border-radius: 999px; background: var(--track); box-shadow: inset 0 0 0 1px var(--line-strong); transition: background-color calc(var(--k) * .15s) ease, box-shadow calc(var(--k) * .15s) ease; }
+.sw i { position: absolute; top: 3px; left: 3px; right: 21px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(16, 17, 21, .3), 0 0 0 1px var(--line-strong); transition: left calc(var(--k) * .14s) ease-out, right calc(var(--k) * .22s) ease-out calc(var(--k) * .07s); }
+.sw[aria-checked="true"] { background: var(--accent); box-shadow: none; }
+.sw[aria-checked="true"] i { left: 21px; right: 3px; box-shadow: none; transition: right calc(var(--k) * .14s) ease-out, left calc(var(--k) * .22s) ease-out calc(var(--k) * .07s); }
+
+/* ---- 1. simplified lines popout ---- */
+.txt { position: relative; padding: 12px 16px; font-size: 13px; line-height: 23px; color: var(--ink); }
+.ln { display: block; white-space: nowrap; overflow: hidden; }
+.ln.w { margin: 0 -6px; padding: 0 6px; transition: background-color calc(var(--k) * .2s) ease; }
+.ln.w:nth-child(3) { border-radius: 6px 6px 0 0; }
+.ln.w:nth-child(5) { border-radius: 0 0 6px 6px; }
+.txt[data-show] .ln.w { background: rgba(47, 107, 74, .12); }
+.brk { display: none; position: absolute; left: 4px; width: 3px; border-radius: 2px; background: var(--accent); transform: scaleY(0); transform-origin: 50% 0; transition: transform calc(var(--k) * .16s) ease; }
+.po { position: absolute; left: 10px; right: 10px; padding: 10px 12px 12px; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); opacity: 0; visibility: hidden; transition: opacity calc(var(--k) * .15s) ease, visibility 0s linear calc(var(--k) * .15s); }
+.txt[data-show] .po { opacity: 1; visibility: visible; transition: opacity calc(var(--k) * .2s) ease, visibility 0s; }
+.po-top { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+.po-top button { padding: 2px 9px; border-radius: 999px; background: var(--well); font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.po p { margin: 5px 0 0; font-size: 14.5px; line-height: 1.6; }
+
+.a-lines.v-grow .po { transform: scale(.95) translateY(-6px); transform-origin: 0 0; transition: opacity calc(var(--k) * .15s) ease, transform calc(var(--k) * .15s) ease, visibility 0s linear calc(var(--k) * .15s); }
+.a-lines.v-grow .txt[data-show] .po { transform: none; transition: opacity calc(var(--k) * .16s) ease, transform calc(var(--k) * .26s) var(--ease), visibility 0s; }
+.a-lines.v-unroll .po { opacity: 1; clip-path: inset(0 0 100% 0 round 16px); transition: clip-path calc(var(--k) * .22s) ease, visibility 0s linear calc(var(--k) * .22s); }
+.a-lines.v-unroll .txt[data-show] .po { clip-path: inset(-30px -30px -40px -30px round 16px); transition: clip-path calc(var(--k) * .34s) var(--ease), visibility 0s; }
+.a-lines.v-bracket .brk { display: block; }
+.a-lines.v-bracket .txt[data-show] .brk { transform: none; transition: transform calc(var(--k) * .22s) var(--ease); }
+.a-lines.v-bracket .txt[data-show] .po { transition: opacity calc(var(--k) * .2s) ease calc(var(--k) * .25s), visibility 0s; }
+
+/* ---- the edge bar (shared) ---- */
+.edge { position: absolute; right: 0; top: 50%; width: 0; height: 0; z-index: 2; }
+.tab { position: absolute; right: 0; top: -36px; width: 16px; height: 72px; display: grid; place-items: center; overflow: hidden; border-radius: 12px 0 0 12px; background: var(--surface); box-shadow: var(--shadow-s); transition: opacity calc(var(--k) * .2s) ease, transform calc(var(--k) * .25s) var(--ease), visibility 0s; }
+.tab::after { content: ""; position: absolute; inset: -6px 0 -6px -10px; }
+.dot { position: relative; z-index: 1; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line-strong); transition: background-color calc(var(--k) * .2s) ease, box-shadow calc(var(--k) * .2s) ease; }
+.edge[data-on="true"] .dot { background: var(--accent); box-shadow: none; }
+.tg { position: absolute; right: 22px; top: -19px; height: 38px; padding: 7px 9px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-s); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity calc(var(--k) * .15s) ease, visibility 0s linear calc(var(--k) * .15s); }
+.edge[data-ext] .tg { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity calc(var(--k) * .15s) ease, visibility 0s; }
+.edge[data-open] .tab, .edge[data-open] .tg { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity calc(var(--k) * .1s) ease, visibility 0s linear calc(var(--k) * .1s); }
+
+/* ---- 2. hover extends the toggle ---- */
+.a-ext.v-slide .tg, .a-ext.v-spring .tg { transform: translateX(calc(100% + 26px)); transition: transform calc(var(--k) * .2s) ease-in, opacity calc(var(--k) * .1s) ease calc(var(--k) * .1s), visibility 0s linear calc(var(--k) * .2s); }
+.a-ext.v-slide .edge[data-ext] .tg { transform: none; transition: transform calc(var(--k) * .22s) var(--ease), opacity calc(var(--k) * .1s) ease, visibility 0s; }
+.a-ext.v-spring .edge[data-ext] .tg { transform: none; transition: transform calc(var(--k) * .36s) var(--spring), opacity calc(var(--k) * .1s) ease, visibility 0s; }
+.a-ext.v-grow .tg { right: 0; top: -36px; height: 72px; display: flex; align-items: center; padding: 0 26px 0 12px; border-radius: 12px 0 0 12px; opacity: 1; clip-path: inset(0 0 0 100% round 12px); transition: clip-path calc(var(--k) * .2s) ease, visibility 0s linear calc(var(--k) * .2s); }
+.a-ext.v-grow .edge[data-ext] .tg { clip-path: inset(-30px 0 -30px -30px round 12px); transition: clip-path calc(var(--k) * .26s) var(--ease), visibility 0s; }
+.a-ext.v-grow .tab { box-shadow: none; }
+.a-ext.v-grow .edge:not([data-ext]) .tab { box-shadow: var(--shadow-s); transition: box-shadow 0s linear calc(var(--k) * .2s); }
+
+/* ---- 3. click pops the panel ---- */
+.ep { position: absolute; right: 6px; top: -92px; width: 226px; overflow: hidden; border-radius: 26px; background: var(--surface); box-shadow: var(--shadow); opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(calc(100% + 12px)); transition: transform calc(var(--k) * .2s) ease-in, opacity calc(var(--k) * .12s) ease calc(var(--k) * .08s), visibility 0s linear calc(var(--k) * .2s); }
+.edge[data-open] .ep { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition: transform calc(var(--k) * .28s) var(--ease), opacity calc(var(--k) * .12s) ease, visibility 0s; }
+.ep-head { display: flex; align-items: center; gap: 8px; padding: 13px 8px 9px 16px; }
+.ep-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ep-title { font-size: 16px; font-weight: 700; line-height: 1.15; }
+.ep-status { font-size: 12px; color: var(--ink-2); }
+.icon-btn { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 22px; color: var(--ink-2); }
+.icon-btn:hover { background: var(--well); color: var(--ink); }
+.ep-body { padding: 0 10px 10px; display: grid; gap: 6px; }
+.tile { padding: 9px 12px 9px 14px; border-radius: 18px; background: var(--tile); }
+.srow { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; font-size: 12.5px; }
+.trk { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) var(--p), var(--track) var(--p)); }
+.trk::after { content: ""; position: absolute; top: -5px; left: calc(var(--p) - 8px); width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); }
+.tile small { display: block; font-size: 11.5px; color: var(--ink-2); }
+
+.a-pop.v-spring .edge[data-open] .ep { transition: transform calc(var(--k) * .42s) var(--spring), opacity calc(var(--k) * .12s) ease, visibility 0s; }
+.a-pop.v-scale .ep { transform: scale(.92); transform-origin: 100% 50%; transition: transform calc(var(--k) * .14s) ease, opacity calc(var(--k) * .14s) ease, visibility 0s linear calc(var(--k) * .14s); }
+.a-pop.v-scale .edge[data-open] .ep { transform: none; transition: transform calc(var(--k) * .22s) var(--ease), opacity calc(var(--k) * .16s) ease, visibility 0s; }
+.a-pop.v-morph .ep { right: 0; transform: none; clip-path: inset(calc(50% - 36px) 0 calc(50% - 36px) calc(100% - 16px) round 12px); transition: clip-path calc(var(--k) * .26s) var(--ease), opacity calc(var(--k) * .1s) ease calc(var(--k) * .18s), visibility 0s linear calc(var(--k) * .28s); }
+.a-pop.v-morph .edge[data-open] .ep { clip-path: inset(-40px round 26px); transition: clip-path calc(var(--k) * .36s) var(--ease), opacity calc(var(--k) * .1s) ease, visibility 0s; }
+@keyframes fadein { from { opacity: 0; } }
+.a-pop.v-morph .edge[data-open] .ep > * { animation: fadein calc(var(--k) * .2s) ease calc(var(--k) * .14s) backwards; }
+.a-pop.v-morph .edge:not([data-open]) .ep > * { opacity: 0; transition: opacity calc(var(--k) * .08s) ease; }
+
+/* ---- 4. on / off shown on the bar ---- */
+.a-state.v-fill .tab::before { content: ""; position: absolute; inset: 0; background: var(--accent); transform: scaleY(0); transform-origin: 50% 100%; transition: transform calc(var(--k) * .3s) var(--ease); }
+.a-state.v-fill .edge[data-on="true"] .tab::before { transform: none; }
+.a-state.v-fill .edge[data-on="true"] .dot { background: #fff; }
+.a-state.v-reach .edge[data-on="false"] .tab { transform: translateX(7px); opacity: .7; }
+.a-state.v-reach .edge[data-on="false"] .tg { right: 15px; }
+.a-state.v-reach .tg { transition: opacity calc(var(--k) * .15s) ease, right calc(var(--k) * .25s) var(--ease), visibility 0s; }
+@keyframes ring { from { box-shadow: var(--shadow-s), 0 0 0 0 rgba(47, 107, 74, .5); } to { box-shadow: var(--shadow-s), 0 0 0 14px rgba(47, 107, 74, 0); } }
+.a-state.v-ring .edge[data-pulse] .tab { animation: ring calc(var(--k) * .7s) ease-out; }
+
+/* ---- 5. while reading ---- */
+.a-idle .tab { transition: opacity calc(var(--k) * .6s) ease, transform calc(var(--k) * .6s) var(--ease); }
+.a-idle .edge:not([data-idle]) .tab { transition: opacity calc(var(--k) * .15s) ease, transform calc(var(--k) * .2s) var(--ease); }
+.a-idle.v-dim .edge[data-idle] .tab, .a-idle.v-both .edge[data-idle] .tab { opacity: .38; }
+.a-idle.v-tuck .edge[data-idle] .tab, .a-idle.v-both .edge[data-idle] .tab { transform: translateX(11px); }
+.zone { position: absolute; top: 0; right: 0; bottom: 0; width: 90px; border-left: 1px dashed #c9d3c2; pointer-events: none; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Glider Edge Bar Lab</h1>
+    <p class="lede">Motion for the two new pieces: the popout that shows a simpler version of the lines a reader is stuck on, and the bar on the side of the screen that replaces the floating pill. The look here is plain Sage on purpose; colours and shapes are being chosen on the design board. Every first card is the calmest option. Nothing here touches the extension.</p>
+  </header>
+
+  <div class="bar">
+    <div class="bar-group">Speed
+      <button class="btn" type="button" id="speed-normal" aria-pressed="true">Normal</button>
+      <button class="btn" type="button" id="speed-slow" aria-pressed="false">Slow, 3x</button>
+    </div>
+    <label class="check" for="rm"><input type="checkbox" id="rm"> Reduced motion</label>
+    <nav class="nav" id="nav" aria-label="Interactions"></nav>
+  </div>
+
+  <main id="areas"></main>
+
+  <section class="picks" id="picks">
+    <h2>Your picks</h2>
+    <p>One line per interaction. Copy this and paste it back to Claude. Picks are remembered in this browser.</p>
+    <textarea id="picks-text" readonly aria-label="Your picks"></textarea>
+    <div class="acts"><button class="btn" type="button" id="copy">Copy picks</button><button class="btn" type="button" id="use-rec">Use the suggested set</button><button class="btn" type="button" id="clear">Clear</button></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  let slow = false;
+  const kk = () => (slow ? 3 : 1);
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms * kk()));
+
+  const PG = '<p class="pg">Plants make their own food. They take in sunlight through their leaves and water through their roots. Inside each leaf, tiny green parts turn light, water and air into sugar.</p>';
+  const MIN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>';
+  const LINES = ['Plants make their own food. They take', 'in sunlight through their leaves and', 'absorb water through their roots.', 'Chloroplasts convert light, water and', 'carbon dioxide into glucose, which the', 'plant then distributes for energy.', 'This process is called photosynthesis.'];
+  const TXT = `<div class="txt" data-show>${LINES.map((l, i) => `<span class="ln${i >= 2 && i <= 4 ? ' w' : ''}">${l}</span>`).join('')}<i class="brk"></i>
+    <div class="po" role="note"><div class="po-top"><span>Simpler</span><button type="button" data-close>Close</button></div><p>Tiny green parts in the leaf turn light, water and air into sugar. The plant uses the sugar for energy.</p></div></div>`;
+  const EDGE = (o = {}) => `<div class="edge" data-on="${o.on !== false}"${o.ext ? ' data-ext data-pin' : ''}${o.idle ? ' data-idle' : ''}>
+    ${o.panel ? `<section class="ep" aria-label="Glider"><header class="ep-head"><div class="ep-text"><span class="ep-title">Glider</span><span class="ep-status">Reading help is on</span></div><button type="button" class="icon-btn" data-min aria-label="Tuck the panel away">${MIN}</button></header>
+      <div class="ep-body"><div class="tile srow"><span>Size</span><span class="trk" style="--p:45%"></span></div><div class="tile srow"><span>Letters</span><span class="trk" style="--p:60%"></span></div><div class="tile">Eye tracking<small>Notices a hard line and helps</small></div></div></section>` : ''}
+    <div class="tg"><button type="button" class="sw" role="switch" aria-checked="${o.on !== false}" aria-label="Reading help"><i></i></button></div>
+    <button type="button" class="tab" aria-label="Glider${o.panel ? '. Open the panel' : ''}"><i class="dot"></i></button></div>`;
+
+  const setOn = (card, on) => {
+    const e = $('.edge', card);
+    e.dataset.on = String(on); $('.edge .sw', card).setAttribute('aria-checked', String(on));
+    if (on) { e.removeAttribute('data-pulse'); void e.offsetWidth; e.setAttribute('data-pulse', ''); }
+  };
+  const setOpen = (card, open) => { const e = $('.edge', card); e.toggleAttribute('data-open', open); if (open) e.removeAttribute('data-ext'); };
+  function edgeInit(card) {
+    const e = $('.edge', card), sw = $('.edge .sw', card), min = $('[data-min]', card);
+    const ext = (on, delay) => { clearTimeout(card._xt); card._xt = setTimeout(() => e.toggleAttribute('data-ext', on), delay * kk()); };
+    card._ext = ext;
+    if (!e.hasAttribute('data-pin')) {
+      e.addEventListener('pointerenter', () => ext(true, 150));   // hover intent
+      e.addEventListener('pointerleave', () => ext(false, 450));  // grace period
+      e.addEventListener('focusin', () => ext(true, 0));
+      e.addEventListener('focusout', () => ext(false, 450));
+    }
+    sw.onclick = (ev) => { ev.stopPropagation(); setOn(card, sw.getAttribute('aria-checked') !== 'true'); };
+    if (min) { $('.tab', card).onclick = () => setOpen(card, true); min.onclick = () => setOpen(card, false); }
+  }
+
+  const AREAS = [
+    { id: 'lines', title: 'Simpler-lines popout', h: 250, rec: 'bracket',
+      note: 'The reader is stuck on a line. Glider marks that line and one either side, and shows a simpler version in a popout. The reader is mid-line, so the page text never moves or reflows in any of these; only the popout does.',
+      vs: [
+        ['fade', 'Fade in place', 'The lines get a soft tint and the popout fades in below them. Nothing travels at all.', '0.2s in, 0.15s out'],
+        ['grow', 'Grow from the lines', 'The popout grows a few pixels out of the top-left corner of the marked lines.', '0.26s ease-out, 0.15s out'],
+        ['unroll', 'Unroll downward', 'The popout is revealed from its top edge down, like a blind. Its words are already in place and do not move.', '0.34s reveal, 0.22s out'],
+        ['bracket', 'Mark, then show', 'A bar draws down beside the marked lines first, so the reader sees which lines are meant. The popout fades in a moment later.', '0.22s bar, popout at 0.25s'],
+      ],
+      html: () => TXT,
+      init(card) {
+        const txt = $('.txt', card), w = $$('.ln.w', card), po = $('.po', card), brk = $('.brk', card);
+        const place = () => {
+          const top = w[0].offsetTop, bottom = w[2].offsetTop + w[2].offsetHeight;
+          po.style.top = bottom + 7 + 'px'; brk.style.top = top + 'px'; brk.style.height = bottom - top + 'px';
+        };
+        place(); addEventListener('resize', place);
+        $('[data-close]', card).onclick = () => txt.removeAttribute('data-show');
+      },
+      async play(card, v, ok) {
+        const txt = $('.txt', card);
+        txt.removeAttribute('data-show'); await wait(650); if (!ok()) return;
+        txt.setAttribute('data-show', '');
+      } },
+
+    { id: 'ext', title: 'Hover: the toggle comes out', h: 150, rec: 'grow',
+      note: 'Rest the pointer on the part of the bar that hangs out, and a small on/off switch comes out so the lens can be switched without opening anything. It waits 0.15s before appearing and stays 0.45s after the pointer leaves, so passing over it does nothing. Keyboard: Tab to the bar shows it. Touch has no hover, so there the switch is the first thing in the panel.',
+      vs: [
+        ['fade', 'Appear beside the bar', 'The switch fades in next to the bar. No travel.', '0.15s fade'],
+        ['slide', 'Slide out from the edge', 'The switch slides out from behind the bar.', '0.22s ease-out, 0.2s back'],
+        ['grow', 'The bar widens', 'The bar itself grows wider to hold the switch, so it reads as one object.', '0.26s widen, 0.2s back'],
+        ['spring', 'Slide with a bounce', 'Slides out and overshoots slightly. Livelier, more noticeable at the edge of vision.', '0.36s spring'],
+      ],
+      html: () => PG + EDGE() + '<p class="hint">hover the bar on the right</p>',
+      init: edgeInit,
+      async play(card, v, ok) {
+        const e = $('.edge', card);
+        e.removeAttribute('data-ext'); await wait(450); if (!ok()) return;
+        e.setAttribute('data-ext', ''); await wait(1100); if (!ok()) return;
+        setOn(card, false); await wait(700); if (!ok()) return;
+        setOn(card, true); await wait(900); if (!ok()) return;
+        if (!e.matches(':hover') && !e.contains(document.activeElement)) e.removeAttribute('data-ext');
+      } },
+
+    { id: 'pop', title: 'Click: the panel pops out', h: 250, rec: 'morph',
+      note: 'Clicking the bar brings the full panel out of the edge. The minus button tucks it back. Click the bar in any specimen.',
+      vs: [
+        ['slide', 'Slide out', 'The panel slides in from the edge like a drawer.', '0.28s ease-out, 0.2s back'],
+        ['scale', 'Fade and grow', 'The panel fades in, growing slightly from the edge. Smallest movement.', '0.22s in, 0.14s out'],
+        ['morph', 'The bar becomes the panel', 'The bar outline opens up into the panel, then the controls fade in. Matches the pill-to-panel motion already chosen.', '0.36s clip-path, 0.26s back'],
+        ['spring', 'Slide with a bounce', 'Slides out and settles with a small overshoot.', '0.42s spring'],
+      ],
+      html: () => PG + EDGE({ panel: true }) + '<p class="hint">click the bar</p>',
+      init(card) { edgeInit(card); setOpen(card, true); },
+      async play(card, v, ok) {
+        setOpen(card, false); await wait(700); if (!ok()) return;
+        setOpen(card, true);
+      } },
+
+    { id: 'state', title: 'On and off, shown on the bar', h: 150, rec: 'fill',
+      note: 'How the bar itself shows whether the lens is on, since it is all a reader sees most of the time. Click the switch. Nothing here repeats or flashes.',
+      vs: [
+        ['dot', 'Dot changes colour', 'The small dot on the bar turns green when on and hollow when off.', '0.2s colour'],
+        ['fill', 'Bar fills with green', 'Green rises up the bar when the lens goes on and drains when it goes off. Readable at a glance from across the page.', '0.3s fill'],
+        ['reach', 'Bar reaches out', 'On, the bar hangs out fully. Off, it sits further back and paler.', '0.25s, 7px'],
+        ['ring', 'One soft ring', 'The dot changes and a single ring spreads once from the bar when the lens goes on.', '0.7s, once'],
+      ],
+      html: () => PG + EDGE({ ext: true }),
+      init: edgeInit,
+      async play(card, v, ok) {
+        setOn(card, false); await wait(800); if (!ok()) return;
+        setOn(card, true);
+      } },
+
+    { id: 'idle', title: 'While reading', h: 150, rec: 'dim',
+      note: 'What the bar does when the pointer has been away for a few seconds (2.5s here). It comes back as soon as the pointer enters the dashed zone near the edge, or a key reaches it. The change is slow on purpose so it is not caught in the corner of the eye.',
+      vs: [
+        ['stay', 'Stays as it is', 'The bar never changes. Always easy to find, always present beside the text.', 'no motion'],
+        ['dim', 'Fades back', 'The bar fades to about 40% and stays in place. Nothing moves.', '0.6s fade out, 0.15s back'],
+        ['tuck', 'Tucks in', 'The bar slides further into the edge, leaving a thin sliver.', '0.6s tuck, 0.2s back'],
+        ['both', 'Fades and tucks', 'Both together. The quietest resting state, the furthest to come back from.', '0.6s, 0.2s back'],
+      ],
+      html: () => PG + '<i class="zone"></i>' + EDGE({ idle: true }) + '<p class="hint">move the pointer toward the right edge</p>',
+      init(card) {
+        edgeInit(card);
+        const st = $('.stage', card), e = $('.edge', card);
+        const rest = (ms) => { clearTimeout(card._it); card._it = setTimeout(() => e.setAttribute('data-idle', ''), ms); };
+        const wake = () => { e.removeAttribute('data-idle'); rest(2500); };
+        st.addEventListener('pointermove', (ev) => { if (ev.clientX > st.getBoundingClientRect().right - 90) wake(); });
+        e.addEventListener('focusin', wake);
+      },
+      async play(card, v, ok) {
+        const e = $('.edge', card);
+        clearTimeout(card._it); e.removeAttribute('data-idle'); await wait(1100); if (!ok()) return;
+        e.setAttribute('data-idle', '');
+      } },
+  ];
+  const BY = Object.fromEntries(AREAS.map((a) => [a.id, a]));
+
+  function replay(card) {
+    const run = (card._run = (card._run || 0) + 1);
+    BY[card.dataset.area].play(card, card.dataset.v, () => card._run === run);
+  }
+
+  $('#nav').innerHTML = AREAS.map((a) => `<a href="#${a.id}" data-nav="${a.id}">${a.title}</a>`).join('');
+  $('#areas').innerHTML = AREAS.map((a) => `
+    <section class="area" id="${a.id}">
+      <div class="area-head"><div><h2>${a.title}</h2><p>${a.note}</p></div><button class="btn" type="button" data-all="${a.id}">Replay all four</button></div>
+      <div class="grid">${a.vs.map(([k, name, desc, spec], i) => `
+        <article class="card" data-area="${a.id}" data-v="${k}">
+          <div class="stage a-${a.id} v-${k}" style="--h:${a.h}px">${a.html(k)}</div>
+          <div class="meta"><div class="meta-top"><h3>${name}</h3>${i === 0 ? '<span class="tag">Calmest</span>' : ''}${k === a.rec ? '<span class="tag rec">Suggested</span>' : ''}</div><p>${desc}</p><span class="spec">${spec}</span></div>
+          <div class="acts"><button class="btn" type="button" data-replay>Replay</button><button class="btn" type="button" data-pick aria-pressed="false">Pick</button></div>
+        </article>`).join('')}</div>
+    </section>`).join('');
+  $$('.card').forEach((card) => { const a = BY[card.dataset.area]; if (a.init) a.init(card); });
+
+  const KEY = 'glider-edge-picks';
+  let picks = {};
+  try { picks = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { picks = {}; }
+  function showPicks() {
+    try { localStorage.setItem(KEY, JSON.stringify(picks)); } catch (_) { /* fine without it */ }
+    $$('.card').forEach((c) => {
+      const on = picks[c.dataset.area] === c.dataset.v;
+      c.classList.toggle('picked', on);
+      const b = $('[data-pick]', c); b.setAttribute('aria-pressed', on); b.textContent = on ? 'Picked' : 'Pick';
+    });
+    $$('[data-nav]').forEach((n) => n.toggleAttribute('data-picked', !!picks[n.dataset.nav]));
+    $('#picks-text').value = 'Glider edge bar picks\n' + AREAS.map((a) => {
+      const v = a.vs.find((x) => x[0] === picks[a.id]);
+      return `${a.title}: ${v ? `${v[1]} (${a.id}/${v[0]})` : 'not picked yet'}`;
+    }).join('\n');
+  }
+  showPicks();
+
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.card');
+    if (e.target.closest('[data-replay]')) return replay(card);
+    if (e.target.closest('[data-pick]')) {
+      if (picks[card.dataset.area] === card.dataset.v) delete picks[card.dataset.area]; else picks[card.dataset.area] = card.dataset.v;
+      return showPicks();
+    }
+    const all = e.target.closest('[data-all]');
+    if (all) return $$(`.card[data-area="${all.dataset.all}"]`).forEach(replay);
+  });
+  $('#use-rec').onclick = () => { AREAS.forEach((a) => { picks[a.id] = a.rec; }); showPicks(); };
+  $('#clear').onclick = () => { picks = {}; showPicks(); };
+  $('#copy').onclick = async () => {
+    const ta = $('#picks-text'), b = $('#copy');
+    try { await navigator.clipboard.writeText(ta.value); b.textContent = 'Copied'; }
+    catch (_) { ta.focus(); ta.select(); b.textContent = 'Selected, press Ctrl+C'; }
+    setTimeout(() => { b.textContent = 'Copy picks'; }, 1800);
+  };
+
+  const setSpeed = (s) => {
+    slow = s; document.body.classList.toggle('slow', s);
+    $('#speed-normal').setAttribute('aria-pressed', !s); $('#speed-slow').setAttribute('aria-pressed', s);
+  };
+  $('#speed-normal').onclick = () => setSpeed(false);
+  $('#speed-slow').onclick = () => setSpeed(true);
+  const rm = $('#rm');
+  const setReduced = (on) => { rm.checked = on; document.body.classList.toggle('rm', on); };
+  rm.onchange = () => setReduced(rm.checked);
+  setReduced(matchMedia('(prefers-reduced-motion: reduce)').matches);
+})();
+</script>
