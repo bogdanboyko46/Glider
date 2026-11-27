@@ -96,8 +96,6 @@
   /* What each "Help" step does to the calibrated threshold: above 1 the eye
      tracker waits longer before helping, below 1 it steps in sooner. */
   const GAZE_SENSITIVITY = Object.freeze([1.4, 1.2, 1, 0.85, 0.7]);
-  const GAZE_TIP_MS = 7000; // how long a lens opened by the eye tracker stays up
-  const EASE_CHIP_MS = 9000; // how long the "Spaced out for you" note stays up
 
   function sanitize(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
@@ -352,6 +350,11 @@
   transition: opacity .16s var(--ease), transform .16s var(--ease), visibility 0s;
 }
 .ll-pill:active, .ll-pill:active button { cursor: grabbing; }
+/* Eye tracking's status on the dock mark (the camera box is hidden): a small dot at the mark's outer top corner. */
+.ll-pill[data-gaze]::after { content: ""; position: absolute; top: 2px; left: 4px; width: 7px; height: 7px; border-radius: 50%;
+  background: #2f8a55; box-shadow: 0 0 0 2px var(--surface, #fff); pointer-events: none; }
+.ll-dock[data-h="l"] .ll-pill[data-gaze]::after { left: auto; right: 4px; }
+.ll-pill[data-gaze="paused"]::after { background: #d99a1b; }
 .ll-pill-main {
   display: flex;
   align-items: center;
@@ -677,30 +680,6 @@
 }
 .ll-toast[data-show="true"] { opacity: 1; transform: translate(-50%, 0); }
 
-/* note beside a paragraph the eye tracker spaced out */
-.ll-eased {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  height: 36px;
-  padding: 0 6px 0 14px;
-  border-radius: 999px;
-  background-color: var(--surface);
-  color: var(--ink);
-  box-shadow: var(--shadow);
-  font-size: 13px;
-  white-space: nowrap;
-  pointer-events: auto;
-  opacity: 0;
-  transition: opacity .15s ease;
-}
-.ll-eased[hidden] { display: none; }
-.ll-eased[data-show="true"] { opacity: 1; }
-.ll-eased button { height: 24px; padding: 0 11px; border-radius: 999px; background: var(--well); font-size: 12.5px; font-weight: 600; line-height: 24px; }
-.ll-eased button:hover { background: var(--well-hover); }
 /* Once toast() has placed it beside the dock it slides in from that side. */
 .ll-toast[data-h="r"] { transform: translateX(18px); }
 .ll-toast[data-h="l"] { transform: translateX(-18px); }
@@ -1475,7 +1454,7 @@
             ${rangeRow('gazeSensitivity', 'Help')}
           </div>
           <div class="ll-gaze-original" hidden>
-            ${switchRow('seeOriginal', 'See original', 'A small button beside text Glider has set out differently')}
+            ${switchRow('seeOriginal', 'See original', 'A small mark at the end of text Glider has changed')}
             ${switchRow('gazeTrace', 'Show tracking', 'Temporary: heat where Glider thinks you are looking')}
           </div>
         </div>
@@ -1486,7 +1465,6 @@
 
   <div class="ll-tip" role="tooltip" hidden></div>
   <div class="ll-toast" role="status" aria-live="polite"></div>
-  <div class="ll-eased" role="status" hidden><span>Spaced out for you</span><button type="button" data-action="undo-ease">Undo</button></div>
 </div>`;
 
   /* =====================================================================
@@ -1514,12 +1492,6 @@
       this.gaze = null;
       this.gazeOff = [];                                 // unsubscribe functions
       this.gazeApplied = { wanted: false, mult: null };  // what GazeReader was last told
-      this.gazeEased = new Map();                        // eased block -> its class attribute before / after
-      this.gazeTip = { token: null, timer: 0 };          // the lens the eye tracker opened
-      this.gazeHelp = { count: 0, last: null };
-      this.gazeNoEase = new WeakSet();                   // blocks the reader asked us to leave alone
-      this.easeChipFor = null;
-      this.easeChipTimer = 0;
     }
 
     async init() {
@@ -1716,7 +1688,6 @@
       this.panel = shadow.querySelector('.ll-panel');
       this.tipEl = shadow.querySelector('.ll-tip');
       this.toastEl = shadow.querySelector('.ll-toast');
-      this.easeChip = shadow.querySelector('.ll-eased');
       this.shadow = shadow;
       this.$ = (selector) => shadow.querySelector(selector);
       this.$$ = (selector) => Array.from(shadow.querySelectorAll(selector));
@@ -1816,8 +1787,6 @@
         this.setOpen(false, event.detail === 0);
         this.update({ dockMode: edge ? 'edge' : 'float' });
         this.toast(edge ? 'Tucked into the side. Click the tab to open' : 'Floating in the corner again');
-      } else if (el.dataset.action === 'undo-ease') {
-        this.undoEase();
       } else if (el.dataset.action === 'gaze-calibrate') {
         this.calibrateGaze();
       }
@@ -2023,7 +1992,6 @@
       document.addEventListener('scroll', () => {
         if (this.tip.token && !this.tip.pinned) this.hideTip(true);
         else if (this.tip.token) this.positionTip();
-        if (this.easeChipFor) this.positionEaseChip();
       }, { capture: true, passive: true });
       window.addEventListener('keydown', (event) => this.onPageKey(event), true);
     }
@@ -2050,8 +2018,7 @@
         this.tip.showTimer = setTimeout(() => this.showTip(token, false), this.tip.token ? 60 : 150);
       } else {
         clearTimeout(this.tip.showTimer);
-        // A lens opened by the eye tracker keeps its own, longer timer.
-        if (this.tip.token && this.tip.token !== this.gazeTip.token && event.target !== this.host) this.scheduleHideTip();
+        if (this.tip.token && event.target !== this.host) this.scheduleHideTip();
       }
     }
 
@@ -2105,15 +2072,16 @@
       const G = globalThis.GazeReader;
       if (!G || typeof G !== 'object' || window.top !== window) return;
       this.gaze = G;
-      this.gazeCall('init', { managed: true, onEnableRequest: (wanted) => this.update({ gaze: !!wanted }) });
-      for (const [name, fn] of [['status', (state) => this.renderGaze(state)], ['struggle', (d) => this.onStruggle(d)]]) {
+      this.gazeCall('init', { managed: true, autoAdapt: false, camera: 'hidden', onEnableRequest: (wanted) => this.update({ gaze: !!wanted }) });   // autoAdapt off: no line highlight or read-aloud button on a struggle
+      // The tracker's struggles are handled by the simplifier (simplify/bridge.js), which changes only the wording:
+      // the panel puts nothing of its own on the page for them.
+      for (const [name, fn] of [['status', (state) => this.renderGaze(state)]]) {
         const off = this.gazeCall('on', name, (payload) => { if (!this.dead) fn(payload); });
         if (typeof off === 'function') this.gazeOff.push(off);
       }
     }
 
     unbindGaze() {
-      this.clearGazeHelp();
       if (!this.gaze) return;
       this.gazeCall('stop');
       for (const off of this.gazeOff.splice(0)) { try { off(); } catch (_) { /* already gone */ } }
@@ -2125,7 +2093,6 @@
     applyGaze() {
       const s = this.state;
       const wanted = !!this.gaze && s.on && s.gaze;
-      if (!wanted) this.clearGazeHelp();
       if (!this.gaze) return;
 
       if (!!s.gazeTrace !== this.gazeApplied.trace) { this.gazeApplied.trace = !!s.gazeTrace; this.gazeCall('setTrace', !!s.gazeTrace); }
@@ -2172,6 +2139,20 @@
 
     /** Tell the eye tracker which corner the dock is in, so its camera
         widget (bottom-left by default) moves aside instead of overlapping. */
+    /** The camera box is hidden (camera: 'hidden'), so the dock mark carries a small dot: green while eye tracking
+        runs, amber while it is paused or needs the reader (move back, recalibrate, allow the camera), none when off. */
+    syncGazeDot(state) {
+      const pill = this.$('.ll-pill');
+      if (!pill) return;
+      const st = state && state.status;
+      const want = !st || st === 'idle' ? ''
+        : (st === 'paused' || st === 'error' || st === 'needs-permission' || state.drifted || state.needsRecalibration || !state.calibrated) ? 'paused' : 'on';
+      if ((pill.dataset.gaze || '') === want) return;
+      if (want) pill.dataset.gaze = want; else delete pill.dataset.gaze;
+      const main = this.$('.ll-pill-main');
+      if (main) main.title = want === 'on' ? `Open ${APP_NAME}. Eye tracking is on` : want === 'paused' ? `Open ${APP_NAME}. Eye tracking needs you` : `Open ${APP_NAME}`;
+    }
+
     syncGazeCorner() {
       const host = document.querySelector('[data-gaze-reader]');
       const corner = this.dockPos.h + this.dockPos.v;
@@ -2184,10 +2165,11 @@
       const box = this.$('.ll-gaze');
       if (!box) return;
       box.hidden = !this.gaze;
-      if (!this.gaze) return;
+      if (!this.gaze) { this.syncGazeDot(null); return; }
 
       const state = (g && typeof g === 'object' ? g : this.gazeCall('getState')) || {};
       const show = !!this.state.gaze;
+      this.syncGazeDot(show && this.state.on ? state : null);
       const status = this.$('.ll-gaze-status');
       const button = this.$('[data-action="gaze-calibrate"]');
       for (const el of [this.$('.ll-gaze-line'), status, button, this.$('.ll-gaze-sliders'), this.$('.ll-gaze-original')]) el.hidden = !show;
@@ -2197,187 +2179,6 @@
       const label = state.calibrated ? 'Recalibrate' : 'Calibrate';
       if (button.textContent !== label) button.textContent = label;
       if (this.open) this.keepInView();
-    }
-
-    /** GazeReader saw the reader slow down on a line or a paragraph. */
-    onStruggle(d) {
-      const s = this.state;
-      if (this.dead || !d || !s.on || !s.gaze) return;
-      const el = d.element;
-      if (!el || el.nodeType !== Node.ELEMENT_NODE || !el.isConnected || this.host.contains(el)) return;
-
-      let word = null;
-      if (d.reason === 'stuck-line') {
-        if (this.tip.pinned || this.drag) return;
-        const token = this.hardestToken(el, d.lineRect);
-        if (!token) return;
-        if (token !== this.tip.token) {
-          clearTimeout(this.tip.showTimer);
-          clearTimeout(this.tip.hideTimer);
-          this.showTip(token, false);
-          if (this.tip.token !== token) return;
-        }
-        word = this.engine.wordOf(token);
-        this.holdGazeTip(token);
-      } else if (d.reason === 'rereading' || d.reason === 'slow-paragraph') {
-        if (el === document.documentElement || el === document.body) return;
-        this.easeBlock(el, d.lineRect);
-      } else {
-        return;
-      }
-      this.gazeHelp = { count: this.gazeHelp.count + 1, last: { reason: d.reason, word, at: Date.now() } };
-    }
-
-    /** The longest long word (else look-alike) on one visual line of a block. */
-    hardestToken(el, lineRect) {
-      if (!lineRect) return null;
-      const top = Number(lineRect.top) - 4;
-      const bottom = Number(lineRect.bottom) + 4;
-      if (!Number.isFinite(top) || !Number.isFinite(bottom)) return null;
-      const pick = (selector) => {
-        let best = null;
-        let bestLength = 0;
-        for (const token of el.querySelectorAll(selector)) {
-          const rect = token.getClientRects()[0];
-          if (!rect) continue;
-          const middle = (rect.top + rect.bottom) / 2;
-          if (middle < top || middle > bottom) continue;
-          const length = String(this.engine.wordOf(token) || '').length;
-          if (length > bestLength) { best = token; bestLength = length; }
-        }
-        return best;
-      };
-      return pick('.glider-token.glider-long') || pick('.glider-token.glider-homophone');
-    }
-
-    /** Keep a lens the eye tracker opened for a while, then let it go. */
-    holdGazeTip(token) {
-      clearTimeout(this.gazeTip.timer);
-      this.gazeTip.token = token;
-      this.gazeTip.timer = setTimeout(() => {
-        if (this.gazeTip.token !== token) return;
-        this.gazeTip.token = null;
-        if (this.tip.token !== token || this.tip.pinned) return; // replaced, pinned or already closed
-        if (this.tipEl.matches(':hover')) return;                // leaving the lens closes it
-        this.hideTip(false);
-      }, GAZE_TIP_MS);
-    }
-
-    /** Give one block a little more room. `lineRect` is the line being read. */
-    easeBlock(el, lineRect) {
-      if (this.gazeEased.has(el) || this.gazeNoEase.has(el)) return;
-      // Simplify may have swapped this block for a stand-in in the same struggle:
-      // the original is hidden then, and there is nothing here to space out.
-      const gone = () => el.hasAttribute('data-glider-hidden') || !el.getClientRects().length;
-      if (gone()) return;
-      const anchor = this.lineAnchor(el, lineRect);
-      const before = el.getAttribute('class');
-      el.classList.add('glider-ease');
-      this.gazeEased.set(el, { before, after: el.getAttribute('class') });
-
-      // The spacing changes in one step about 0.35s after the class lands (see
-      // content.css). Wider lines push the rest of the block down, so measure
-      // the reader's line just before and just after and scroll by the
-      // difference: the line they are on stays where their eyes are.
-      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const top = () => (anchor.isConnected ? anchor.getBoundingClientRect().top : NaN);
-      let t0 = top();
-      const settle = () => {
-        if (this.dead || !this.gazeEased.has(el)) return;
-        if (gone()) { this.uneaseBlock(el); return; }
-        const delta = top() - t0;
-        if (Number.isFinite(delta) && Math.abs(delta) >= 1 && Math.abs(delta) < innerHeight) window.scrollBy({ top: delta, behavior: 'instant' });
-        this.showEaseChip(el);
-      };
-      if (still) requestAnimationFrame(settle);
-      else setTimeout(() => { t0 = top(); setTimeout(settle, 110); }, 300);
-    }
-
-    /** The first word on the line being read, else the block itself. */
-    lineAnchor(el, lineRect) {
-      const top = lineRect ? Number(lineRect.top) - 4 : NaN;
-      const bottom = lineRect ? Number(lineRect.bottom) + 4 : NaN;
-      if (Number.isFinite(top) && Number.isFinite(bottom)) {
-        for (const token of el.querySelectorAll('.glider-token')) {
-          const rect = token.getClientRects()[0];
-          if (rect && (rect.top + rect.bottom) / 2 >= top && (rect.top + rect.bottom) / 2 <= bottom) return token;
-        }
-      }
-      return el;
-    }
-
-    /** Put one eased block back the way the page had it. */
-    uneaseBlock(el) {
-      const was = this.gazeEased.get(el);
-      if (!was) return;
-      // Restore the class attribute character for character when the page has
-      // not touched it since.
-      if (el.getAttribute('class') === was.after) {
-        if (was.before === null) el.removeAttribute('class');
-        else el.setAttribute('class', was.before);
-      } else {
-        el.classList.remove('glider-ease');
-      }
-      this.gazeEased.delete(el);
-    }
-
-    /** A small note beside the eased block: what happened, and a way back. */
-    showEaseChip(el) {
-      const chip = this.easeChip;
-      if (!chip || !el.isConnected) return;
-      this.easeChipFor = el;
-      chip.hidden = false;
-      this.positionEaseChip();
-      requestAnimationFrame(() => { if (this.easeChipFor === el) chip.dataset.show = 'true'; });
-      clearTimeout(this.easeChipTimer);
-      this.easeChipTimer = setTimeout(() => {
-        if (chip.matches(':hover') || chip.contains(this.shadow.activeElement)) { this.easeChipTimer = setTimeout(() => this.hideEaseChip(), 4000); return; }
-        this.hideEaseChip();
-      }, EASE_CHIP_MS);
-    }
-
-    positionEaseChip() {
-      const chip = this.easeChip;
-      const el = this.easeChipFor;
-      if (!chip || !el) return;
-      if (!el.isConnected) { this.hideEaseChip(); return; }
-      const rect = el.getBoundingClientRect();
-      const off = rect.bottom < 0 || rect.top > innerHeight;
-      chip.style.visibility = off ? 'hidden' : '';
-      if (off) return;
-      const width = chip.offsetWidth;
-      const height = chip.offsetHeight;
-      let top = rect.top - height - 14;
-      if (top < 8) top = Math.min(rect.bottom + 14, innerHeight - height - 8);
-      chip.style.left = `${Math.round(Math.min(innerWidth - width - 8, Math.max(8, rect.right - width)))}px`;
-      chip.style.top = `${Math.round(top)}px`;
-    }
-
-    hideEaseChip() {
-      clearTimeout(this.easeChipTimer);
-      this.easeChipFor = null;
-      if (!this.easeChip) return;
-      this.easeChip.dataset.show = 'false';
-      this.easeChip.hidden = true;
-    }
-
-    /** The reader said no thanks: undo this block and leave it alone from now on. */
-    undoEase() {
-      const el = this.easeChipFor;
-      if (!el) return;
-      this.gazeNoEase.add(el);
-      this.uneaseBlock(el);
-      this.hideEaseChip();
-    }
-
-    /** Undo everything the eye tracker's help added to the page. */
-    clearGazeHelp() {
-      clearTimeout(this.gazeTip.timer);
-      const token = this.gazeTip.token;
-      this.gazeTip.token = null;
-      if (token && this.tip.token === token && !this.tip.pinned) this.hideTip(true);
-      this.hideEaseChip();
-      for (const el of Array.from(this.gazeEased.keys())) this.uneaseBlock(el);
     }
 
     /* ----------------------------------------------------------- word lens */

@@ -11,24 +11,20 @@
   <main class="so">
     <header>
       <h1>Simplify hard text</h1>
-      <p class="so-lead">When eye tracking notices you are stuck on a paragraph, Glider swaps it, right where it is, for a larger and simpler version. “Show original” puts it back.</p>
+      <p class="so-lead">When eye tracking notices you are stuck on a paragraph, Glider swaps it, right where it is, for a simpler version, and does the same for hard paragraphs before you reach them. Only the wording changes. “See original” in the panel puts a paragraph back.</p>
     </header>
 
     <section class="rc-card so-card">
       <label class="so-row">
-        <span><b>Simplify the paragraph I am stuck on</b><br><small>Needs eye tracking to be on.</small></span>
+        <span><b>Simplify the paragraph I am stuck on</b><br><small>The wording changes in place, nothing else. Hard paragraphs further down are simplified before you reach them. Needs eye tracking to be on.</small></span>
         <input type="checkbox" id="enabled" class="so-check">
-      </label>
-      <label class="so-row">
-        <span><b>How much larger</b><br><small id="scale-label">120%</small></span>
-        <input type="range" id="scale" min="100" max="160" step="5" value="120">
       </label>
     </section>
 
     <section class="rc-card so-card">
       <h2>Better rewrites with Claude</h2>
-      <p>Glider first makes the paragraph easier by itself: common words in place of hard ones, and shorter sentences. A moment later Claude rewrites it properly, and the better version takes its place.</p>
-      <p class="so-note"><b>Privacy:</b> with this on, the one paragraph you are stuck on is sent over the internet to be rewritten. Nothing else is sent: not the page you are on, not who you are, not your eye-tracking data. Switch it off and everything stays on this device.</p>
+      <p>Glider first makes the paragraph easier by itself: common words in place of hard ones, and shorter sentences. Claude then rewrites it properly. The better version is used only where you cannot see it change: paragraphs further down, or one you have scrolled past.</p>
+      <p class="so-note"><b>Privacy:</b> with this on, the paragraph you are stuck on, and up to three hard paragraphs below it at a time, are sent over the internet to be rewritten. Nothing else is sent: not the page you are on, not who you are, not your eye-tracking data. Switch it off and everything stays on this device.</p>
       <label class="so-row">
         <span><b>Use Claude rewrites</b><br><small id="service-state"></small></span>
         <input type="checkbox" id="useClaude" class="so-check">

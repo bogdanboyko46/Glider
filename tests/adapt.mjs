@@ -34,6 +34,7 @@ const SETUP = `(async () => {
     return { left: Math.round(el.getBoundingClientRect().left), em: parseFloat(getComputedStyle(el).fontSize), first: starts(head),
       parts: boxes.map((b) => { const r = document.createRange(); r.selectNodeContents(b); return starts(r); }) }; };
   window.__reading = document.createElement('p'); __reading.id = 'reading'; __reading.textContent = ${JSON.stringify(LEASE)};
+  window.__gliderAllowSplit = true;   // the split rule is off in the product (layout change); its machinery is still tested here
   for (const src of ['adapt/splitter.js', 'adapt/reorder.js', 'adapt/profile.js', 'adapt/adapt.js']) {
     await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = '/glider-extension/' + src; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
   }

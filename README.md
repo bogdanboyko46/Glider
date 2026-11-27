@@ -180,7 +180,7 @@ Calibration has two parts and takes about a minute:
 
 From the baseline comes **τ (tau)**, your personal threshold: you're treated as struggling when a line takes more than τ times as long as your baseline predicts.
 
-When you struggle, Glider highlights the line and offers to read it aloud. On a stuck line, it opens the syllable lens on the hardest word of that line. On rereading or a slow paragraph, it widens that paragraph's spacing and offers the [simpler version](#simplify-hard-text-on-a-struggle). Switching the lens or eye tracking off undoes all of it.
+When you struggle, Glider changes only the wording: the paragraph is replaced in place by a [simpler version](#simplify-hard-text-on-a-struggle), with no highlight, popup or prompt, and hard paragraphs further down are simplified before you reach them. Switching the lens or eye tracking off undoes all of it.
 
 <details>
 <summary><b>How the baseline, τ and struggle signals are calculated</b></summary>
@@ -212,10 +212,10 @@ The pure maths is in `gaze/gaze-core.js` (`summarizeBaseline`, `tauFromCv`, `str
 
 ### Simplify hard text (on a struggle)
 
-With eye tracking on, the paragraph you get stuck on is replaced, right where it is, by a larger and simpler version. **Show original** on the paragraph puts it back, and so does turning eye tracking or the lens off.
+With eye tracking on, the paragraph you get stuck on is replaced, right where it is, by a simpler version. Nothing else changes: same font, size and spacing, with no label or prompt. After that, hard paragraphs further down are simplified before you reach them. With **See original** switched on in the panel, a small mark at the end of a changed paragraph puts it back; turning eye tracking or the lens off puts everything back.
 
 - **On the device, always.** `simplify/simplifier.js` swaps hard words for common ones, shortens wordy phrases and splits long sentences at safe joints. It appears at once and needs nothing else.
-- **Claude, when the rewrite service is set up.** The offline version still appears at once, and Claude's rewrite replaces it a moment later. The extension holds no API key: it sends the paragraph to a small server you host ([`proxy/`](proxy/README.md)), which holds the Anthropic key and calls Claude. **Use Claude rewrites** on the Options page (`simplify/options.html`) turns this off.
+- **Claude, when the rewrite service is set up.** The offline version still appears at once. Claude's rewrite is used only where you cannot see it change: paragraphs further down, or one you have scrolled past. The extension holds no API key: it sends the paragraph to a small server you host ([`proxy/`](proxy/README.md)), which holds the Anthropic key and calls Claude. **Use Claude rewrites** on the Options page (`simplify/options.html`) turns this off.
 - The page's own paragraph is never edited. It's hidden, and a stand-in with the same tag and classes sits after it, so the page goes back exactly as it was.
 
 <details>
@@ -344,7 +344,6 @@ The presentation in [`showcase/`](showcase/) is built from live recordings of th
 The README clips in `docs/showcase/` are the deck's slides at 960 px.
 
 The 30-second tour (`docs/showcase/glider-reel.mp4`, and its GIF) is made by `make_linkedin.py`. It joins the opening scene (`record_mp4.py`) to a live recording from `live-capture.mjs showcase`.
-
 
 </details>
 

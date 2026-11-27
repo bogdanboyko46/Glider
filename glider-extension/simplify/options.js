@@ -3,7 +3,7 @@
 (() => {
   'use strict';
   const SETTINGS_KEY = 'glider:simplify';
-  const DEFAULTS = { enabled: true, useClaude: true, scale: 1.2 };
+  const DEFAULTS = { enabled: true, useClaude: true };
   const $ = (id) => document.getElementById(id);
   const store = (() => { try { return chrome.storage.local; } catch (_) { return null; } })();
   /* Plain words for the reader; the technical reason goes to the console for whoever is debugging. */
@@ -24,10 +24,8 @@
   function render() {
     $('enabled').checked = cfg.enabled;
     $('useClaude').checked = cfg.useClaude;
-    $('scale').value = String(Math.round(cfg.scale * 100));
-    $('scale-label').textContent = Math.round(cfg.scale * 100) + '%';
     $('service-state').textContent = status.ready
-      ? 'On: a better rewrite follows the quick one.'
+      ? 'On: a better rewrite follows the quick one where you cannot see it change.'
       : 'Not available right now. Glider still simplifies on this device.';
   }
 
@@ -44,7 +42,6 @@
 
   $('enabled').addEventListener('change', (e) => save({ enabled: e.target.checked }));
   $('useClaude').addEventListener('change', (e) => save({ useClaude: e.target.checked }));
-  $('scale').addEventListener('input', (e) => save({ scale: Number(e.target.value) / 100 }));
 
   $('try').addEventListener('click', async () => {
     const text = $('sample').value.trim();

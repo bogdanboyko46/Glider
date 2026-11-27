@@ -20,24 +20,25 @@ const SETUP = `(async () => {
   for (const src of ['simplify/simplifier.js', 'simplify/textscore.js', 'simplify/gate.js', 'simplify/bridge.js']) {
     await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = '/glider-extension/' + src; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
   }
+  // the "See original" mark is drawn by the lens stylesheet
+  await new Promise((ok) => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/glider-extension/content/content.css'; l.onload = ok; l.onerror = ok; document.head.appendChild(l); });
   window.__before = document.body.innerHTML;
   GliderSimplifyBridge._set({ gate: false });   // the first sections test the swap machinery itself, without the decision gate
   // A tracker-shaped struggle: time on the paragraph as a multiple of what this reader's pace predicts.
   window.__gated = (id, ratio, reason) => { const el = document.getElementById(id); const text = el.innerText.trim();
     return GliderSimplifyBridge.handleStruggle({ element: el, lineIndex: 1, lineText: text.slice(0, 80), paragraphText: text, reason: reason || 'slow-paragraph', severity: 0.6, coarse: true,
       metrics: { paragraphDwellMs: ratio * 10000, expectedParagraphMs: 10000, tau: 2, baselineWpm: 140, backtracks: 0 } }); };
-  window.__offer = () => { const h = document.getElementById('glider-simplify-offer'); if (!h) return null; const c = h.shadowRoot.querySelector('.chip'); const r = c.getBoundingClientRect();
-    return { text: c.textContent, x: r.left, y: r.top, w: r.width, inBody: document.body.contains(h) }; };
-  window.__offerClick = (cls) => { document.getElementById('glider-simplify-offer').shadowRoot.querySelector('button.' + cls).click(); };
-  window.__struggle = (id) => { const el = document.getElementById(id); const text = el.innerText.trim();
+  window.__struggle = (id) => { const el = document.getElementById(id); el.scrollIntoView({ block: 'center' }); const text = el.innerText.trim();
     GliderSimplifyBridge.handleStruggle({ element: el, lineIndex: 1, lineText: text.slice(0, 80), paragraphText: text, reason: 'stuck-line', severity: 0.6 }); };
+  const KEYS = ['fontSize', 'fontFamily', 'lineHeight', 'letterSpacing', 'wordSpacing', 'color', 'backgroundColor', 'marginTop', 'marginBottom', 'paddingLeft', 'boxShadow', 'textAlign', 'animationName'];
   window.__look = (id) => { const el = document.getElementById(id), c = el.nextElementSibling;
     const is = !!c && c.hasAttribute('data-glider-simplified');
-    return { hidden: getComputedStyle(el).display === 'none', is, tag: is ? c.tagName : null,
+    const a = getComputedStyle(el), b = is ? getComputedStyle(c) : null;
+    return { hidden: a.display === 'none', is, tag: is ? c.tagName : null, cls: is ? c.className : null, ownCls: el.className,
       text: is ? c.querySelector('.glider-simple__text').textContent : null, inner: is ? c.innerText.trim() : null,
-      label: is ? c.querySelector('.glider-simple__bar').shadowRoot.querySelector('.bar > span').textContent : null,
-      source: is ? c.getAttribute('data-glider-source') : null,
-      px: is ? parseFloat(getComputedStyle(c).fontSize) : null, basePx: parseFloat(getComputedStyle(document.getElementById('p3')).fontSize) }; };
+      source: is ? (c.getAttribute('data-glider-source') || 'offline') : null, toggle: is ? !!c.querySelector('.glider-adapt-toggle') : null,
+      style: is ? KEYS.filter((k) => a[k] !== b[k]).map((k) => k + ' ' + a[k] + ' -> ' + b[k]) : null,
+      chrome: document.querySelectorAll('#glider-simplify-offer, .glider-simple__bar').length }; };
   return typeof GliderSimplifyBridge === 'object' && typeof GliderSimplify === 'object';
 })()`;
 
@@ -50,42 +51,37 @@ try {
   const look = (id) => page.eval(`__look('${id}')`);
   const offlineOf = (id) => page.eval(`GliderSimplify.simplify(document.getElementById('${id}').innerText).text`);
 
-  // ---- offline: instant, in place, larger
+  // ---- offline: instant, in place, looking exactly like the paragraph it replaces
   const want2 = await offlineOf('p2');
   await page.eval(`__struggle('p2'); 0`);
   let s = await look('p2');
-  check(s.hidden && s.is && s.tag === 'P', 'struggle on a paragraph: the original is hidden and a stand-in <p> sits in its place');
+  check(s.hidden && s.is && s.tag === 'P' && s.cls === s.ownCls, 'struggle on a paragraph: the original is hidden and a stand-in <p> with its classes sits in its place');
   check(s.text === want2 && s.text !== (await page.eval(`document.getElementById('p2').innerText.trim()`)), 'the stand-in shows the simplified text at once', String(s.text).slice(0, 70) + '…');
-  check(s.inner === s.text, 'the control bar adds nothing to the paragraph text (kept in a shadow root)');
-  check(Math.abs(s.px - s.basePx * 1.2) < 0.6, `text is enlarged 1.2x (${s.basePx}px -> ${s.px}px)`);
-  check(s.label === 'Simplified' && s.source === 'offline', 'labelled "Simplified"');
+  check(s.style.length === 0, 'seamless: same font, size, spacing, colour and margins as the paragraph it replaces, no animation', JSON.stringify(s.style));
+  check(s.chrome === 0 && !s.toggle && s.inner === s.text, 'seamless: no label, no button, no prompt; nothing but the text');
   check((await page.eval('__asked.length')) === 0, 'nothing is sent anywhere when no rewrite service is set');
-  await page.sleep(600);
   await page.shot(join(out, 'simplify-offline.png'));
 
-  // ---- show original puts the page back exactly, and that paragraph is then left alone
-  await page.eval(`document.querySelector('[data-glider-simplified] .glider-simple__bar').shadowRoot.querySelector('button').click(); 0`);
+  // ---- "See original": only with the panel's switch on; a faint mark that puts the page back exactly
+  await page.eval(`GliderSimplifyBridge._set({ seeOriginal: true }); 0`);
   s = await look('p2');
-  check(!s.hidden && !s.is && (await page.eval('document.body.innerHTML === __before')), '"Show original": the page is exactly as it was');
-  await page.eval(`GliderSimplifyBridge._set({}); __struggle('p2'); 0`);
+  check(s.toggle && s.inner === s.text, '"See original" switched on: a small mark at the end, adding no text');
+  await page.shot(join(out, 'simplify-see-original.png'));
+  await page.eval(`document.querySelector('[data-glider-simplified] .glider-adapt-toggle').click(); 0`);
+  s = await look('p2');
+  check(!s.hidden && !s.is && (await page.eval('document.body.innerHTML === __before')), '"See original": the page is exactly as it was');
+  await page.eval(`GliderSimplifyBridge._set({ seeOriginal: false }); __struggle('p2'); 0`);
   check(!(await look('p2')).is, 'a paragraph the reader put back is not simplified again');
 
-  // ---- with the rewrite service: offline text first, then the Claude rewrite replaces it
+  // ---- with the rewrite service: the wording on screen never changes in front of the reader
   await page.eval(`GliderSimplifyBridge._set({ hasService: true }); __struggle('p1'); 0`);
   s = await look('p1');
-  check(s.is && s.text === (await offlineOf('p1')) && /improving/.test(s.label), 'with the service: offline text shows immediately while Claude works', s.label);
+  check(s.is && s.text === (await offlineOf('p1')), 'with the service: the quick version shows at once');
   await page.sleep(900);
   s = await look('p1');
   const asked = await page.eval('__asked');
-  check(s.text === CANNED && s.label === 'Simplified by Claude' && s.source === 'claude', 'the Claude rewrite replaces it in place');
+  check(s.text === (await offlineOf('p1')) && s.source === 'offline', 'the Claude rewrite does not replace a paragraph that is on screen');
   check(asked.length === 1 && asked[0].type === 'glider:simplify' && asked[0].text.startsWith('Photosynthesis') && asked[0].lineText.length > 0, 'one request, carrying the paragraph and the hard line');
-  await page.shot(join(out, 'simplify-claude.png'));
-
-  // ---- Claude fails: the offline text simply stays
-  await page.eval(`window.__claude = { ok: false, reason: 'network' }; GliderSimplifyBridge._set({}); __struggle('p3'); 0`);
-  await page.sleep(900);
-  s = await look('p3');
-  check(s.is && s.text === (await offlineOf('p3')) && s.label === 'Simplified', 'when Claude cannot be reached the offline version stays');
 
   // ---- cooldown, ineligible targets
   await page.eval(`GliderSimplifyBridge.restoreAll(); GliderSimplifyBridge._set({ hasService: false }); __struggle('p1'); __struggle('p3'); 0`);
@@ -101,52 +97,68 @@ try {
   const clean = await page.eval(`document.querySelectorAll('[data-glider-simplified], [data-glider-hidden]').length`);
   check(clean === 0, 'when eye tracking stops, every paragraph is restored');
 
-  // ---- the decision gate: gentle help first, then an offer, a swap only when the reader accepts or chose automatic
-  await page.eval(`GliderSimplifyBridge.restoreAll(); GliderSimplifyBridge._set({ gate: true, hasService: false, auto: false }); 0`);
-  const before = await page.eval('document.body.innerHTML');
-  let ret = await page.eval(`String(__gated('p3', 2.1))`);
+  // ---- ahead: after a struggle, hard paragraphs below the window are simplified before the reader gets there
+  await page.eval(`(() => { const sp = document.createElement('div'); sp.id = 'spacer'; sp.style.height = '2400px'; document.body.appendChild(sp);
+    const easy = document.createElement('p'); easy.id = 'e1'; easy.textContent = 'Every morning the baker opens her shop before the sun comes up. She mixes flour, water and a little salt, then leaves the dough to rest.'; document.body.appendChild(easy);
+    for (let k = 1; k <= 5; k++) { const p = document.getElementById('p3').cloneNode(true); p.id = 'a' + k; document.body.appendChild(p); } })()`);
+  await page.eval(`GliderSimplifyBridge._set({ hasService: true }); __asked.length = 0; __struggle('p3'); 0`);   // (p2 was put back above: it is left alone)
+  await page.sleep(1400);
+  const ahead = await page.eval(`['a1','a2','a3','a4','a5','e1'].map((id) => __look(id).is)`);
+  check(ahead.slice(0, 3).every(Boolean) && !ahead[3] && !ahead[4], 'ahead: the next three hard paragraphs below the window are simplified already', JSON.stringify(ahead));
+  check(!ahead[5], 'ahead: an easy paragraph is left as it is', JSON.stringify(ahead));
+  s = await look('a1');
+  check(s.text === CANNED && s.source === 'claude', 'ahead: off screen, the Claude rewrite is used', s.source);
+  await page.eval(`document.getElementById('a3').nextElementSibling.scrollIntoView({ block: 'end' }); 0`);
+  await page.sleep(1400);
+  const more = await page.eval(`['a4','a5'].map((id) => __look(id).is)`);
+  check(more.every(Boolean), 'ahead: scrolling on brings the next ones', JSON.stringify(more));
+
+  // ---- putting one back stops the look-ahead on this page
+  await page.eval(`GliderSimplifyBridge.restoreAll(); GliderSimplifyBridge._set({ seeOriginal: true, hasService: false }); 0`);
+  await page.sleep(2600);   // past the cooldown
+  await page.eval(`__struggle('p1'); 0`);
+  await page.eval(`document.getElementById('p1').nextElementSibling.querySelector('.glider-adapt-toggle').click(); window.scrollTo(0, 0); GliderSimplifyBridge.runAhead(); 0`);
+  check(await page.eval(`GliderSimplifyBridge.ahead() === false && !__look('a1').is`), 'after "See original" nothing more is changed ahead of the reader');
+  await page.eval(`GliderSimplifyBridge.restoreAll(); ['spacer','e1','a1','a2','a3','a4','a5'].forEach((id) => document.getElementById(id).remove()); GliderSimplifyBridge._set({ seeOriginal: false }); window.scrollTo(0, 0); 0`);
+
+  // ---- the decision gate: gentle help first, then the swap, in place, without asking
+  await page.eval(`GazeReader.start().then(() => GazeReader.stop()); 0`);   // a new reading session (look-ahead state cleared)
+  await page.sleep(1200);
+  await page.eval(`GliderSimplifyBridge._set({ gate: true }); 0`);
+  const ret = await page.eval(`String(__gated('p3', 2.1))`);
   let dec = await page.eval('JSON.stringify(GliderSimplifyBridge.lastDecision())');
-  check(!(await look('p3')).is && (await page.eval('__offer()')) === null && /"gentle"/.test(dec) && ret === 'undefined', 'gate: the first sign of a slow paragraph changes nothing here (left to the gentle help)', dec);
-  await page.eval(`__gated('p3', 2.9); 0`);
-  await page.sleep(350);
-  let off = await page.eval('__offer()');
-  check(off && /Simpler version/.test(off.text) && !off.inBody && !(await look('p3')).is, 'gate: the reader stays slow, so a "Simpler version" button appears beside the paragraph; the text is untouched', JSON.stringify(off));
-  check((await page.eval('document.body.innerHTML')) === before, 'gate: offering adds nothing to the page content');
-  await page.shot(join(out, 'simplify-offer.png'));
-  await page.eval(`__offerClick('go'); 0`);
-  s = await look('p3');
-  check(s.is && s.text === (await offlineOf('p3')) && (await page.eval('__offer()')) === null, 'gate: pressing it swaps in the simplified paragraph');
+  check(!(await look('p3')).is && /"gentle"/.test(dec) && ret === 'undefined', 'gate: the first sign of a slow paragraph changes nothing here (left to the gentle help)', dec);
+  await page.eval(`__gated('p3', 2.9); __gated('p3', 4.0); 0`);
+  dec = await page.eval('JSON.stringify(GliderSimplifyBridge.lastDecision())');
+  check(!(await look('p3')).is, 'gate: struggle events alone never change the text, however many', dec);
   await page.eval(`GliderSimplifyBridge.restoreAll(); 0`);
 
-  await page.eval(`__gated('p1', 2.1); 0`);
-  await page.sleep(13000);   // past the pause the gate keeps between two offers
-  await page.eval(`__gated('p1', 3.0); 0`);
-  await page.sleep(300);
-  check(!!(await page.eval('__offer()')), 'gate: another slow paragraph gets its own offer later');
-  await page.eval(`__offerClick('no'); 0`);
-  await page.eval(`__gated('p1', 4.0); 0`);
-  await page.sleep(200);
-  check((await page.eval('__offer()')) === null && !(await look('p1')).is, 'gate: "No thanks" leaves that paragraph alone from then on');
-
   const easy = await page.eval(`(() => { const p = document.createElement('p'); p.id = 'easy'; p.textContent = 'Every morning the baker opens her shop before the sun comes up. She mixes flour, water and a little salt, then leaves the dough to rest. While it rises, she sweeps the floor.'; document.body.appendChild(p); __gated('easy', 3); __gated('easy', 6); const d = GliderSimplifyBridge.lastDecision(); p.remove(); return d.action + ' ' + d.why; })()`);
-  check(/^none text:/.test(easy), 'gate: easy text is never offered, however long the reader spends on it', easy);
+  check(/^none text:/.test(easy), 'gate: easy text is never changed, however long the reader spends on it', easy);
 
-  await page.eval(`GliderSimplifyBridge._set({ gate: true, auto: true }); 0`);
-  await page.sleep(13000);
-  // The tracker's once-a-second sample: 30 s spent, half-way through a paragraph expected to take 12 s in all (pace 5).
+  await page.sleep(13000);   // past the pause the gate keeps between two actions
+  // The tracker's once-a-second sample: 45 s spent, half-way through a paragraph expected to take 12 s in all (pace 7.5; the bar is higher here because the "See original" clicks above taught the gate to wait longer).
   await page.eval(`(() => { const p = document.getElementById('p2').cloneNode(true); p.id = 'p2b'; document.body.appendChild(p);
-    window.__pace = () => GliderSimplifyBridge.handleProgress({ element: p, paragraphDwellMs: 30000, expectedParagraphMs: 12000, progress: 0.5, coarse: true, baselineWpm: 140 }); __pace(); })()`);
-  await page.sleep(300);
-  check(!!(await page.eval('__offer()')) && !(await look('p2b')).is, 'gate, automatic mode: a very slow pace half-way down a paragraph first brings the offer');
+    window.__pace = (b) => GliderSimplifyBridge.handleProgress({ element: p, paragraphDwellMs: 45000, expectedParagraphMs: 12000, progress: 0.5, coarse: true, baselineWpm: b === undefined ? 140 : b }); __pace(); })()`);
+  check(!(await look('p2b')).is, 'gate: a very slow pace changes nothing at first');
   await page.sleep(2000);
   await page.eval(`__pace(); 0`);
-  check(!(await look('p2b')).is, 'gate, automatic mode: two seconds of slow pace is not enough to swap');
+  check(!(await look('p2b')).is, 'gate: two seconds of slow pace is not enough');
   await page.sleep(2600);
   await page.eval(`__pace(); 0`);
   s = await look('p2b');
   dec = await page.eval('JSON.stringify(GliderSimplifyBridge.lastDecision())');
-  check(s.is && (await page.eval('__offer()')) === null, 'gate, automatic mode: the pace stayed slow for four seconds, so the paragraph is swapped without asking', dec);
-  await page.eval(`GliderSimplifyBridge.restoreAll(); document.getElementById('p2b').remove(); GliderSimplifyBridge._set({ gate: false, auto: false }); 0`);
+  check(s.is && s.chrome === 0, 'gate: the pace stayed slow for four seconds, so the paragraph is simplified in place', dec);
+  await page.eval(`GliderSimplifyBridge.restoreAll(); document.getElementById('p2b').remove(); 0`);
+  // Without a measured reading pace the "expected time" is a guess: the text is never changed on it.
+  await page.sleep(13000);
+  await page.eval(`(() => { const p = document.getElementById('p2').cloneNode(true); p.id = 'p2c'; document.body.appendChild(p);
+    window.__pace0 = () => GliderSimplifyBridge.handleProgress({ element: p, paragraphDwellMs: 45000, expectedParagraphMs: 12000, progress: 0.5, coarse: true, baselineWpm: null }); __pace0(); })()`);
+  await page.sleep(4600);
+  await page.eval(`__pace0(); 0`);
+  dec = await page.eval('JSON.stringify(GliderSimplifyBridge.lastDecision())');
+  check(!(await look('p2c')).is, 'gate: with no measured reading pace, nothing is changed however slow', dec);
+  await page.eval(`GliderSimplifyBridge.restoreAll(); document.getElementById('p2c').remove(); GliderSimplifyBridge._set({ gate: false }); 0`);
 
   // ---- switched off in settings
   await page.eval(`GliderSimplifyBridge._set({ enabled: false }); __struggle('p3'); 0`);

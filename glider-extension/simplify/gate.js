@@ -16,11 +16,12 @@
  * rule: pace = time spent / (time expected x share of the paragraph read so far), which shows
  * a slow reader long before the paragraph is finished; it must hold for several seconds.
  * The tracker's 'struggle' events are a second, weaker witness: they can bring gentle help
- * or an offer, never an automatic swap.
+ * or an offer, never an automatic swap. (simplify/bridge.js asks nothing of the reader any more:
+ * it carries out an offer as a swap, in place.)
  *
  * Outcomes: 'none'   nothing from the simplifier
  *           'gentle' leave this event to the gentle help
- *           'offer'  show a small "Simpler version" button beside the paragraph
+ *           'offer'  enough evidence to change the paragraph (simplify/bridge.js swaps it in place)
  *           'swap'   replace the paragraph (only when the reader chose automatic mode)
  *
  * Every threshold is a multiple of the reader's own baseline, so the constants below are
@@ -56,7 +57,7 @@
     maxOffersPerPage: 10,
     biasMin: -0.25, biasMax: 1.0,
     stepAccept: -0.08, stepUndo: 0.25, stepDismiss: 0.2, stepIgnore: 0.1,
-    undoWindowMs: 30000,  // "Show original" this soon after a swap means the swap was wrong
+    undoWindowMs: 30000,  // "See original" this soon after a swap means the swap was wrong
   };
 
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -190,12 +191,13 @@
       return out('offer', suit.verdict === 'llm-only' ? 'offer-llm' : 'offer', info);
     }
 
-    /** What the reader did. kind: 'accepted' | 'undone' | 'dismissed' | 'ignored'. Returns the new bias. */
+    /** What the reader did. kind: 'accepted' | 'swapped' | 'undone' | 'dismissed' | 'ignored'. Returns the new bias. */
     function feedback(kind, el, now) {
       const t = Number.isFinite(now) ? now : Date.now();
       const st = el ? stateOf(el) : null;
       let step = 0;
       if (kind === 'accepted') { step = cfg.stepAccept; if (st) st.swappedAt = t; }
+      else if (kind === 'swapped') { if (st) st.swappedAt = t; }   // swapped without asking: only an undo soon after teaches anything
       else if (kind === 'undone') { step = st && t - st.swappedAt < cfg.undoWindowMs ? cfg.stepUndo : 0; if (st) st.declined = true; }
       else if (kind === 'dismissed') { step = cfg.stepDismiss; if (st) st.declined = true; }
       else if (kind === 'ignored') step = cfg.stepIgnore;

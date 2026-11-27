@@ -254,7 +254,7 @@
     if (meta) {
       if (meta.media > 0) vetoes.push('contains-media-or-code');           // img, svg, math, code, kbd, sup/sub, br-formatted text
       if (meta.links > 0 && meta.linkChars / Math.max(1, t.length) > V.linkShare) vetoes.push('mostly-links');
-      else if (meta.links > 0) flags.push('loses-links');                   // links become dead text until "Show original"
+      else if (meta.links > 0) flags.push('loses-links');                   // links become dead text until "See original"
       if (meta.inline > 0) flags.push('loses-emphasis');                    // strong / em / mark / abbr are flattened
     }
 

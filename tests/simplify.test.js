@@ -15,12 +15,12 @@ ok(S.simplify(null).text === '' && S.simplify(undefined).text === '' && S.simpli
 
 eq('Scientists utilize numerous techniques.', 'Scientists use many ways.', 'hard words become common words');
 eq('Utilize the tool. PURCHASE it now.', 'Use the tool. BUY it now.', 'capitalisation is kept');
-eq('She demonstrates the method and it requires evidence.', 'She shows the way and it needs proof.', 'the -s ending is carried over');
+eq('She demonstrates the method and it requires care.', 'She shows the way and it needs care.', 'the -s ending is carried over');
 eq('They utilized it. He is utilizing it.', 'They used it. He is using it.', '-ed and -ing are carried over for regular verbs');
 eq('They obtained the data.', 'They obtained the data.', 'no "getted": irregular replacements are skipped for -ed');
 eq('We met Constant Lambert in Reading.', 'We met Constant Lambert in Reading.', 'capitalised words inside a sentence (names) are left alone');
 eq('Approximately 40% of 1,250 samples.', 'About 40% of 1,250 samples.', 'numbers are untouched');
-eq('The enzyme’s function is vital.', 'The enzyme’s job is key.', 'possessives survive');
+eq('The enzyme’s technique is crucial.', 'The enzyme’s way is key.', 'possessives survive');
 eq('This is an enormous task.', 'This is a huge job.', 'a / an agrees with the new word');
 
 eq('In order to win, practise.', 'To win, practise.', 'wordy phrases are shortened');
@@ -28,13 +28,23 @@ eq('It is important to note that plants need light.', 'Plants need light.', 'emp
 eq('Due to the fact that it rained, we stayed.', 'Because it rained, we stayed.', 'phrase replacement keeps sentence case');
 
 const long1 = 'Inside the chloroplast, chlorophyll absorbs mostly red and blue light and reflects green, which is why leaves look green to us.';
-eq(long1, 'Inside the chloroplast, chlorophyll takes in mainly red and blue light and bounces back green. This is why leaves look green to us.', 'long sentence splits at ", which is"');
+eq(long1, 'Inside the chloroplast, chlorophyll takes in mostly red and blue light and reflects green. This is why leaves look green to us.', 'long sentence splits at ", which is"');
 const long2 = 'The enzyme responsible for the first step is probably the most abundant protein on Earth, and it is famously slow and inefficient at its job.';
-eq(long2, 'The enzyme responsible for the first step is likely the most common protein on Earth. It is well known to be slow and wasteful at its job.', 'long sentence splits at ", and it"');
+eq(long2, 'The enzyme responsible for the first step is likely the most abundant protein on Earth. It is famously slow and wasteful at its job.', 'long sentence splits at ", and it"');
 eq('Researchers utilized numerous techniques over many years of careful work; however, the results were insufficient.',
-  'Researchers used many ways over many years of careful work. But the results were not enough.', '"; however," becomes a new sentence');
+  'Researchers used many ways over many years of careful work. But the results were insufficient.', '"; however," becomes a new sentence');
 eq('It rained, but we went.', 'It rained, but we went.', 'short sentences are not split');
-ok(S.simplify(long1).splits === 1 && S.simplify(long1).swaps.length === 3, 'splits and swaps are reported');
+// Found in the 2026-11-25 review: swaps that changed the meaning or broke the grammar.
+eq('It went out for a few minutes.', 'It went out for a few minutes.', '"minutes" (time) is not made "tinies"');
+eq('The governor regulated the speed.', 'The governor controlled the speed.', 'control doubles its l: controlled');
+eq('They stored a sufficient quantity of honey and left immediately after.', 'They stored a sufficient amount of honey and left immediately after.', 'no "an enough amount", no "at once after"');
+eq('The workers were rapidly contracting their muscles.', 'The workers were quickly contracting their muscles.', 'adverbs become adverbs ("quickly", not "fast")');
+eq('The impact was large and the state paid.', 'The impact was large and the state paid.', 'nouns that are also verbs are left alone (impact, state)');
+eq('Once upon a time, provided that it rained, we stayed in.', 'Once upon a time, provided that it rained, we stayed in.', 'set phrases are left alone (upon, provided that)');
+eq('The results, however, were good and it is therefore true.', 'The results, however, were good and it is therefore true.', 'connectives mid-sentence are left alone');
+eq('She wrote that the spray reached the gallery, which stood more than thirty metres above the rocks, and that the glass rattled so hard in its frame that she feared it would shatter.',
+  'She wrote that the spray reached the gallery, which stood more than thirty metres above the rocks, and that the glass rattled so hard in its frame that she feared it would shatter.', 'no split before ", and that" (it carries on the clause begun earlier)');
+ok(S.simplify(long1).splits === 1 && S.simplify(long1).swaps.length === 1, 'splits and swaps are reported');
 
 for (const t of [long1, long2, 'In order to demonstrate the hypothesis, researchers utilized numerous techniques; however, the results were insufficient.']) {
   const once = S.simplify(t).text;

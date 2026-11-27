@@ -6,7 +6,8 @@
  * text of that kind is set out more readably BEFORE the reader reaches it, so nothing
  * changes in front of their eyes. Two rules, each with its own trait and its own counters:
  *
- *   split    a long multi-clause sentence (adapt/splitter.js) is shown one part per line,
+ *   split    (OFF: it changes the layout; see splitAllowed)
+ *            a long multi-clause sentence (adapt/splitter.js) is shown one part per line,
  *            later parts indented on every line they take. LAYOUT ONLY: each later part is
  *            put inside a block-level <span> of its own (the page's own nodes are moved into
  *            it, nothing is copied), with an empty <br> where a new line is needed before
@@ -62,6 +63,9 @@
   const RULES = Profile.RULES;    // ['split', 'reorder']
   const CLS = { br: 'glider-adapt-br', indent: 'glider-adapt-indent', part: 'glider-adapt-part', moved: 'glider-adapt-moved', toggle: 'glider-adapt-toggle' };
   const TOGGLE_NAME = 'Set out for easier reading';
+  // The split rule changes the layout (one part per line, indented), and Glider now changes nothing but the
+  // wording (owner's decision, 2026-11-25), so it is off. tests/adapt.mjs turns it on to keep the machinery tested.
+  const splitAllowed = () => !!globalThis.__gliderAllowSplit;
 
   const hasChrome = (() => { try { return !!(chrome && chrome.storage && chrome.storage.local); } catch (_) { return false; } })();
 
@@ -427,7 +431,7 @@
     const st = analyse(el);
     if (st.applied) return false;
     st.declined = false;
-    const which = st.did.split || st.did.reorder ? st.did : { split: true, reorder: true };
+    const which = st.did.split || st.did.reorder ? st.did : { split: splitAllowed(), reorder: true };
     if (adapt(el, st, which)) return true;
     quietly(() => syncControl(el, st));
     return false;
@@ -505,7 +509,7 @@
   function refresh(force) {
     const mode = effectiveMode();
     const now = Profile.add(profile, delta);
-    rules = { split: Profile.decide(now.split, mode), reorder: Profile.decide(now.reorder, mode) };
+    rules = { split: splitAllowed() ? Profile.decide(now.split, mode) : { active: false, why: 'layout-off' }, reorder: Profile.decide(now.reorder, mode) };
     if (mode === 'off') { watch(false); restoreAll(); return; }
     // A rule that lapses while learning stops being applied to new text; text already adapted stays as the reader saw it.
     watch(anyActive());

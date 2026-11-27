@@ -30,57 +30,50 @@
     ['give rise to', 'cause'], ['gives rise to', 'causes'], ['gave rise to', 'caused'], ['make use of', 'use'], ['makes use of', 'uses'],
   ];
 
-  /* Hard word -> common word, base forms. Endings (-s, -ed, -ing, -ly) are carried over by inflect(). */
+  /* Hard word -> common word, base forms. Endings (-s, -ed, -ing, -ly) are carried over by inflect().
+     The swap knows neither the part of speech nor the sense, so a word is here only when its replacement
+     reads right in every common use. Left out on purpose (2026-11-25 review) are words that are also a
+     noun or verb the replacement does not fit ("the impact" / "the affect", "the state" / "the say",
+     "an increase" / "a raise", "provided that" / "gave that"), that have a second sense ("a few minutes",
+     "a chemical element", "electric current", "a solution"), whose replacement says something else
+     ("several" / "a few", "evidence" / "proof", "vehicle" / "car"), or that sit mid-sentence as a
+     connective ("however", "therefore", "thus", "upon"), or whose replacement cannot stand where the
+     word stood ("a sufficient amount" / "an enough amount", "immediately after" / "at once after"). */
   const WORDS = {
-    utilize: 'use', utilise: 'use', employ: 'use', obtain: 'get', acquire: 'get', attain: 'reach', purchase: 'buy',
+    utilize: 'use', utilise: 'use', obtain: 'get', acquire: 'get', attain: 'reach', purchase: 'buy',
     commence: 'start', initiate: 'start', terminate: 'end', conclude: 'end', cease: 'stop', halt: 'stop',
     demonstrate: 'show', illustrate: 'show', indicate: 'show', exhibit: 'show', reveal: 'show', depict: 'show',
-    assist: 'help', facilitate: 'help', aid: 'help', enable: 'let', permit: 'let', require: 'need', necessitate: 'need',
+    assist: 'help', enable: 'let', permit: 'let', require: 'need', necessitate: 'need',
     attempt: 'try', endeavor: 'try', endeavour: 'try', construct: 'build', fabricate: 'make', manufacture: 'make',
-    generate: 'make', produce: 'make', create: 'make', modify: 'change', alter: 'change', transform: 'change',
-    convert: 'turn', select: 'choose', examine: 'study', investigate: 'study', analyze: 'study', analyse: 'study',
+    generate: 'make', create: 'make', modify: 'change', alter: 'change', transform: 'change',
+    convert: 'turn', examine: 'study', investigate: 'study', analyze: 'study', analyse: 'study',
     comprehend: 'understand', perceive: 'see', observe: 'see', identify: 'find', locate: 'find', detect: 'find', discover: 'find',
-    determine: 'find out', ascertain: 'find out', establish: 'set up', maintain: 'keep', retain: 'keep', preserve: 'keep',
+    determine: 'find out', ascertain: 'find out', establish: 'set up', retain: 'keep', preserve: 'keep',
     possess: 'have', contain: 'hold', comprise: 'include', incorporate: 'include', consume: 'use up', absorb: 'take in',
-    release: 'let out', emit: 'give off', reflect: 'bounce back', accumulate: 'build up', decrease: 'drop', diminish: 'shrink',
-    reduce: 'cut', increase: 'raise', expand: 'grow', enhance: 'improve', accelerate: 'speed up', concentrate: 'gather',
-    evolve: 'develop', occur: 'happen', emerge: 'appear', vanish: 'disappear', remain: 'stay', reside: 'live', inhabit: 'live in',
-    depart: 'leave', arrive: 'come', proceed: 'go on', continue: 'keep going', resume: 'restart', respond: 'answer', reply: 'answer',
-    inquire: 'ask', request: 'ask for', inform: 'tell', notify: 'tell', state: 'say', declare: 'say', assert: 'say', claim: 'say',
-    propose: 'suggest', recommend: 'suggest', consider: 'think about', contemplate: 'think about', assume: 'suppose',
-    regard: 'see', resemble: 'look like', differ: 'vary', compare: 'match up', combine: 'join', connect: 'join', attach: 'join',
-    separate: 'split', divide: 'split', distribute: 'spread', transmit: 'send', transport: 'carry', convey: 'carry', deliver: 'bring',
-    provide: 'give', supply: 'give', contribute: 'add', receive: 'get', accept: 'take', reject: 'refuse', prevent: 'stop',
-    prohibit: 'ban', restrict: 'limit', regulate: 'control', influence: 'affect', impact: 'affect', benefit: 'help',
-    approximately: 'about', roughly: 'about', numerous: 'many', several: 'a few', multiple: 'many', additional: 'more',
-    sufficient: 'enough', adequate: 'enough', insufficient: 'not enough', excessive: 'too much', abundant: 'common',
-    significant: 'big', substantial: 'large', considerable: 'large', enormous: 'huge', immense: 'huge', minute: 'tiny',
-    primary: 'main', principal: 'main', fundamental: 'basic', essential: 'needed', crucial: 'key', vital: 'key', critical: 'key',
-    initial: 'first', final: 'last', ultimate: 'last', previous: 'earlier', prior: 'earlier', subsequent: 'later', recent: 'new',
-    current: 'present', contemporary: 'modern', ancient: 'very old', frequently: 'often', regularly: 'often', occasionally: 'sometimes',
-    rarely: 'seldom', rapidly: 'fast', rapid: 'fast', swiftly: 'fast', gradually: 'slowly', immediately: 'at once', instantly: 'at once',
-    eventually: 'in the end', ultimately: 'in the end', initially: 'at first', primarily: 'mainly', mostly: 'mainly',
-    entirely: 'fully', completely: 'fully', partially: 'partly', extremely: 'very', highly: 'very', particularly: 'especially',
-    famously: 'well known to be', probably: 'likely', possibly: 'maybe', perhaps: 'maybe', certainly: 'surely', obviously: 'clearly',
-    evidently: 'clearly', apparently: 'it seems', typically: 'usually', generally: 'usually', commonly: 'often', normally: 'usually',
-    however: 'but', therefore: 'so', consequently: 'so', thus: 'so', hence: 'so', furthermore: 'also', moreover: 'also',
+    emit: 'give off', accumulate: 'build up', decrease: 'drop', diminish: 'shrink',
+    reduce: 'cut', expand: 'grow', enhance: 'improve', accelerate: 'speed up',     evolve: 'develop', occur: 'happen', emerge: 'appear', vanish: 'disappear', reside: 'live', inhabit: 'live in',
+    depart: 'leave', arrive: 'come', respond: 'answer', reply: 'answer',
+    inquire: 'ask', inform: 'tell', notify: 'tell', declare: 'say', assert: 'say',     propose: 'suggest', recommend: 'suggest', contemplate: 'think about',     resemble: 'look like', differ: 'vary', combine: 'join', connect: 'join', attach: 'join',
+    divide: 'split', distribute: 'spread', transmit: 'send', transport: 'carry', convey: 'carry', deliver: 'bring',
+    contribute: 'add', receive: 'get', accept: 'take', reject: 'refuse', prevent: 'stop',
+    prohibit: 'ban', restrict: 'limit', regulate: 'control',     approximately: 'about', roughly: 'about', numerous: 'many', multiple: 'many', additional: 'more',
+    excessive: 'too much',     substantial: 'large', enormous: 'huge', immense: 'huge',     fundamental: 'basic', crucial: 'key',     ultimate: 'last', previous: 'earlier', prior: 'earlier', subsequent: 'later',     ancient: 'very old', frequently: 'often', regularly: 'often', occasionally: 'sometimes',
+    rapidly: 'quickly', rapid: 'fast', swiftly: 'quickly', gradually: 'slowly',     eventually: 'in the end', ultimately: 'in the end', initially: 'at first', primarily: 'mainly',     entirely: 'fully', completely: 'fully', partially: 'partly', extremely: 'very', particularly: 'especially',
+    probably: 'likely', perhaps: 'maybe', obviously: 'clearly',
+    evidently: 'clearly', typically: 'usually', generally: 'usually', commonly: 'often', normally: 'usually',
+    furthermore: 'also', moreover: 'also',
     additionally: 'also', nevertheless: 'still', nonetheless: 'still', although: 'though', whereas: 'while', whilst: 'while',
-    regarding: 'about', concerning: 'about', despite: 'even with', via: 'through', per: 'for each', amongst: 'among', upon: 'on',
-    component: 'part', element: 'part', portion: 'part', segment: 'part', fragment: 'piece', quantity: 'amount', majority: 'most',
-    method: 'way', technique: 'way', procedure: 'steps', approach: 'way', strategy: 'plan', objective: 'goal', purpose: 'aim',
-    function: 'job', task: 'job', outcome: 'result', consequence: 'result', effect: 'result', factor: 'cause', origin: 'start',
-    location: 'place', region: 'area', vicinity: 'area', environment: 'surroundings', habitat: 'home', dwelling: 'home',
-    residence: 'home', individual: 'person', individuals: 'people', inhabitant: 'resident', vehicle: 'car', beverage: 'drink',
+    regarding: 'about', via: 'through', amongst: 'among',     component: 'part', portion: 'part', segment: 'part', fragment: 'piece', quantity: 'amount', majority: 'most',
+    method: 'way', technique: 'way', procedure: 'steps', strategy: 'plan', objective: 'goal', purpose: 'aim',
+    task: 'job', outcome: 'result', consequence: 'result', origin: 'start',
+    location: 'place', region: 'area', vicinity: 'area', habitat: 'home', dwelling: 'home',
+    residence: 'home', individuals: 'people', inhabitant: 'resident', beverage: 'drink',
     physician: 'doctor', ailment: 'illness', remedy: 'cure', assistance: 'help', requirement: 'need', capability: 'ability',
-    capacity: 'room', concept: 'idea', notion: 'idea', hypothesis: 'idea', evidence: 'proof', error: 'mistake', difficulty: 'trouble',
-    obstacle: 'barrier', challenge: 'problem', issue: 'problem', solution: 'answer', response: 'answer', inquiry: 'question',
-    opportunity: 'chance', advantage: 'plus', disadvantage: 'downside', abundance: 'plenty', shortage: 'lack', absence: 'lack',
-    workaround: 'fix', workarounds: 'fixes', inefficient: 'wasteful', efficient: 'quick', complex: 'hard',
-    complicated: 'hard', simple: 'easy', difficult: 'hard', challenging: 'hard', identical: 'the same', similar: 'alike',
-    distinct: 'different', diverse: 'varied', various: 'different', specific: 'exact', particular: 'certain', accurate: 'correct',
-    precise: 'exact', evident: 'clear', obvious: 'clear', apparent: 'clear', visible: 'seen', audible: 'heard', feasible: 'possible',
-    capable: 'able', beneficial: 'helpful', detrimental: 'harmful', hazardous: 'dangerous', perilous: 'dangerous', secure: 'safe',
-    fragile: 'easily broken', robust: 'strong', rigid: 'stiff', flexible: 'bendy', transparent: 'clear', opaque: 'not see-through',
+    concept: 'idea', notion: 'idea', error: 'mistake', difficulty: 'trouble',
+    obstacle: 'barrier', response: 'answer', inquiry: 'question',
+    opportunity: 'chance', disadvantage: 'downside', abundance: 'plenty', shortage: 'lack',     workaround: 'fix', workarounds: 'fixes', inefficient: 'wasteful',     complicated: 'hard', difficult: 'hard', challenging: 'hard', identical: 'the same',     distinct: 'different', diverse: 'varied', various: 'different', accurate: 'correct',
+    precise: 'exact', evident: 'clear', obvious: 'clear', apparent: 'clear', feasible: 'possible',
+    beneficial: 'helpful', detrimental: 'harmful', hazardous: 'dangerous', perilous: 'dangerous',     fragile: 'easily broken', robust: 'strong', rigid: 'stiff', flexible: 'bendy', transparent: 'clear', opaque: 'not see-through',
     arid: 'dry', humid: 'damp', frigid: 'very cold', tepid: 'lukewarm', vast: 'huge', scarce: 'rare',
   };
 
@@ -95,12 +88,15 @@
   const IRREGULAR = new Set(['get', 'buy', 'build', 'make', 'find', 'find out', 'keep', 'have', 'hold', 'see', 'tell', 'say', 'think about',
     'give', 'take', 'take in', 'give off', 'let', 'let out', 'send', 'bring', 'cut', 'grow', 'go on', 'keep going', 'come', 'leave',
     'understand', 'choose', 'set up', 'speed up', 'build up', 'use up', 'bounce back', 'split', 'spread', 'stop', 'hint', 'drop', 'plan']);
+  /** Replacements whose last consonant doubles before -ed / -ing. */
+  const DOUBLE = new Set(['control', 'ban', 'trap', 'chat']);
   function inflect(base, ending) {
     if (!ending) return base;
     const parts = base.split(' ');
     let w = parts[0];
     if (ending === 's') w += /(s|x|z|ch|sh)$/.test(w) ? 'es' : /[^aeiou]y$/.test(w) ? w.slice(0, -1) && 'ies'.replace(/^/, '') : 's';
     if (ending === 's' && /[^aeiou]y$/.test(parts[0])) w = parts[0].slice(0, -1) + 'ies';
+    if (DOUBLE.has(w) && (ending === 'ed' || ending === 'ing')) w += w.slice(-1);   // control -> controlled
     if (ending === 'ed') w = /e$/.test(w) ? w + 'd' : /[^aeiou]y$/.test(w) ? w.slice(0, -1) + 'ied' : w + 'ed';
     if (ending === 'ing') w = /[^e]e$/.test(w) ? w.slice(0, -1) + 'ing' : w + 'ing';
     parts[0] = w;
@@ -140,7 +136,8 @@
       [/,\s+but\s+/i, '. ', 'But '],
       [/,\s+so\s+/i, '. ', 'So '],
       [/,\s+which\s+(?=(is|are|was|were|has|have|had|can|could|will|would|makes?|made|means?|meant|gives?|gave|lets?|helps?|causes?|allows?)\b)/i, '. ', 'This '],
-      [/,\s+and\s+(?=(it|they|he|she|we|this|these|that|those|the|its|their|a|an)\b)/i, '. ', null],
+      // (not before "that": ", and that ..." usually carries on a clause begun earlier, "she wrote that ..., and that ...")
+      [/,\s+and\s+(?=(it|they|he|she|we|this|these|those|the|its|their|a|an)\b)/i, '. ', null],
     ];
     for (const [re, sep, lead] of joints) {
       const m = re.exec(sentence);
@@ -168,6 +165,10 @@
     for (const [re, to] of PHRASE_RES) {
       out = out.replace(re, (m) => { swaps.push({ from: m.trim(), to }); return to === '' ? '' : matchCase(m, to); });
     }
+    // Connectives are swapped only where they open a clause ("However, ..." / "; however, ..."): mid-sentence
+    // ("The results, however, were ...", "is therefore true") a plain word would not read right.
+    out = out.replace(/(^|[.!?;]\s+)(however),\s+/gi, (m, lead, w) => { swaps.push({ from: w, to: 'but' }); return (lead.trim() === ';' ? '. ' : lead) + 'But '; })
+      .replace(/(^|[.!?;]\s+)(therefore|consequently|thus|hence),\s+/gi, (m, lead, w) => { swaps.push({ from: w, to: 'so' }); return (lead.trim() === ';' ? '. ' : lead) + 'So '; });
     out = out.replace(/[A-Za-z][A-Za-z’']*/g, (word, at, whole) => {
       // Leave names alone: a capitalised word that does not start a sentence.
       const startsSentence = at === 0 || /[.!?]["”’)]?\s+$/.test(whole.slice(0, at));

@@ -101,34 +101,6 @@ html.glider-spacing :is(p, li, article, section, td, th, dd, dt, blockquote, fig
   text-align: right !important;
 }
 
-/* Eye tracking: a block the reader slowed down on gets a little more room
-   than the lens gives everywhere else. The extra class outranks the guard
-   above, and the nested list covers blocks inside it that the guard styles
-   directly. */
-html.glider-spacing .glider-ease,
-html.glider-spacing .glider-ease :is(p, li, article, section, td, th, dd, dt, blockquote, figcaption) {
-  letter-spacing: calc(var(--glider-letter-spacing, 1px) + 0.02em) !important;
-  word-spacing: calc(var(--glider-word-spacing, 3px) + 0.16em) !important;
-  line-height: calc(var(--glider-line-height, 1.8) + 0.3) !important;
-  /* The reader is on this text right now, so the letters never drift: a soft
-     tint fades in first, then the spacing changes in a single step. */
-  transition: letter-spacing 0s linear 0.35s, word-spacing 0s linear 0.35s, line-height 0s linear 0.35s;
-}
-
-/* The eased block reads as one quiet card with a green edge on the reading
-   side, so it is clear which text changed and that Glider changed it. Both
-   are shadows: nothing here takes up space or moves the text. */
-html.glider-spacing .glider-ease {
-  background-color: rgba(47, 107, 74, 0.08);
-  box-shadow: 0 0 0 8px rgba(47, 107, 74, 0.08), -12px 0 0 0 rgba(47, 107, 74, 0.6);
-  border-radius: 6px;
-  animation: glider-ease-cue 0.35s ease backwards;
-}
-
-@keyframes glider-ease-cue {
-  from { background-color: transparent; box-shadow: 0 0 0 8px transparent, -12px 0 0 0 transparent; }
-}
-
 /* Optional hyperlegible reading face (bundled, loaded by content.js). */
 html.glider-font :is(p, li, article, section, td, th, dd, dt, blockquote, figcaption, h1, h2, h3, h4, h5, h6) {
   font-family: "Glider Atkinson", "Atkinson Hyperlegible", Verdana, "Segoe UI", sans-serif !important;
@@ -178,32 +150,27 @@ html.glider-size :is(p, li, dd, dt, blockquote, figcaption) :is(p, li, dd, dt, b
   all: unset;
 }
 
-/* "See original": three small bars at the end of the block, faint until it is
-   pointed at or reached with the keyboard. Pressed (the text is set out for
-   reading) the lower bars step in; not pressed they are flush, like a paragraph. */
+/* "See original": the Glider logo (the five strokes), small, at the end of a block Glider changed;
+   faint until it is pointed at or reached with the keyboard. Pressed (Glider's
+   version is showing) it is in colour; not pressed (the page's own text is back)
+   it is grey. It has no text of its own, so it adds nothing to the block's text. */
 .glider-adapt-toggle {
   all: unset;
   display: inline-block;
   box-sizing: content-box;
-  width: 0.8em;
-  height: 0.62em;
+  width: 0.85em;
+  height: 0.85em;
   margin-left: 0.3em;
-  padding: 0.2em;
-  border-radius: 0.2em;
-  vertical-align: baseline;
+  padding: 0.1em;
+  border-radius: 0.25em;
+  vertical-align: -0.1em;
   cursor: pointer;
-  opacity: 0.4;
-  background:
-    linear-gradient(currentColor, currentColor) left top / 100% 0.12em no-repeat content-box,
-    linear-gradient(currentColor, currentColor) left center / 100% 0.12em no-repeat content-box,
-    linear-gradient(currentColor, currentColor) left bottom / 100% 0.12em no-repeat content-box;
+  opacity: 0.45;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3CclipPath id='tile'%3E%3Crect width='128' height='128' rx='26'/%3E%3C/clipPath%3E%3Cg clip-path='url(%23tile)'%3E%3Crect width='128' height='128' fill='%23EEF2EA'/%3E%3Crect x='94' y='18' width='46' height='12' rx='6' fill='%2320352A'/%3E%3Crect x='66' y='38' width='74' height='12' rx='6' fill='%2320352A'/%3E%3Crect x='32' y='58' width='108' height='12' rx='6' fill='%232F6B4A'/%3E%3Crect x='66' y='78' width='74' height='12' rx='6' fill='%2320352A'/%3E%3Crect x='94' y='98' width='46' height='12' rx='6' fill='%2320352A'/%3E%3C/g%3E%3C/svg%3E") center / 0.85em 0.85em no-repeat content-box;
 }
 
-.glider-adapt-toggle[aria-pressed="true"] {
-  background:
-    linear-gradient(currentColor, currentColor) left top / 100% 0.12em no-repeat content-box,
-    linear-gradient(currentColor, currentColor) right center / 68% 0.12em no-repeat content-box,
-    linear-gradient(currentColor, currentColor) right bottom / 68% 0.12em no-repeat content-box;
+.glider-adapt-toggle[aria-pressed="false"] {
+  filter: grayscale(1);
 }
 
 .glider-adapt-toggle:hover,
@@ -223,9 +190,7 @@ html.glider-size :is(p, li, dd, dt, blockquote, figcaption) :is(p, li, dd, dt, b
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.glider-syllables .glider-long,
-  html.glider-spacing .glider-ease,
-  html.glider-spacing .glider-ease * {
+  html.glider-syllables .glider-long {
     transition: none !important;
     animation: none !important;
   }
