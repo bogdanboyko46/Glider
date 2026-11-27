@@ -97,10 +97,10 @@ const SHOW = (text) => `(async () => {
 function pointer(page, start) {
   return {
     at: start || { x: W * 0.5, y: H * 0.92 },
-    async glide(x, y, ms = 600) {
+    async glide(x, y, ms = 600, linear = false) {
       const from = this.at, steps = Math.max(6, Math.round(ms / 16));
       for (let i = 1; i <= steps; i++) {
-        const t = i / steps, e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const t = i / steps, e = linear ? t : t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
         await page.move(from.x + (x - from.x) * e, from.y + (y - from.y) * e);
         await sleep(ms / steps);
       }
@@ -310,12 +310,12 @@ export const SCENES = {
   //   LIVE_W=1280 LIVE_H=582 LIVE_DSF=1.5 GLIDER_DSF=1.5 LIVE_PAGE=/demo/hard-reading.html node showcase/live-capture.mjs showcase
   // Nothing in the page is staged. A headless browser has no voice, so "Sound it out" is timed by a stand-in.
   showcase: {
-    settings: { on: false, fontSize: 100, wordSpacing: 4, lineHeight: 2 }, seconds: 27, words: ['photographic', 'wear'],
+    settings: { on: false, fontSize: 100, wordSpacing: 4, lineHeight: 2 }, seconds: 27, words: ['documentation', 'thorough'], dockFits: true,
     async run(page, p, scene) {
       const cue = (text) => scene.cues.push({ t: Date.now() - scene.t0, text });
       cue('Small print, as it arrives');
-      await sleep(450);
-      const mark = await box(page, inDock('.ll-pill-main'));
+      await sleep(900);   // the page settles and the edge mark has slid in before the pointer sets off
+      const mark = await box(page, inDock('.ll-pill-main .ll-strokes'));   // the bars themselves, not the padded button around them
       await p.glide(mark.x, mark.y, 550); await sleep(100); await p.click();
       await sleep(380);
       cue('Turn the lens on: room to read, and a bold start to every word');
@@ -344,7 +344,10 @@ export const SCENES = {
         const t = await word(page, w);
         if (!t) throw new Error('word not visible: ' + w);
         cue(caption);
-        await p.glide(t.x + t.w / 2 + 70, t.top - 8, 600);   // along the gap above the line
+        // Crossing the page, the pointer keeps an even pace (about 0.8 px a millisecond): eased, it slows over the line above
+        // the word and rests there long enough (150 ms) to open a lens for a word nobody asked about.
+        const gx = t.x + t.w / 2 + 70, gy = t.top - 8;
+        await p.glide(gx, gy, Math.max(250, Math.hypot(gx - p.at.x, gy - p.at.y) / 0.8), true);   // to the gap above the line
         await p.glide(t.x, t.top - 8, 260);
         await p.glide(t.x, t.y, 140);                         // then onto the word
         await sleep(1200);                                    // the lens opens, then its sounds and parts arrive
@@ -359,7 +362,8 @@ export const SCENES = {
           }
           await sleep(250);
         }
-        const def = await box(page, inDock('.ll-tip [data-act="define"]'));
+        // Only the hard word asks for its meaning: a look-alike's list already gives each word's meaning, and opening it too runs the lens off a short screen.
+        const def = soundOut ? await box(page, inDock('.ll-tip [data-act="define"]')) : null;
         if (def) { await p.glide(def.x, def.y, 450); await sleep(350); await p.click(); }
         await sleep(1700);
         console.log('  ' + w + ':', await page.eval(`(() => { const el = ${inDock('.ll-tip')}; return el ? el.innerText.replace(/\s+/g, ' ').slice(0, 260) : ''; })()`));
@@ -370,6 +374,9 @@ export const SCENES = {
         if (await open()) console.log('  the lens for ' + w + ' is still open');
         // Esc hands keyboard focus to the edge mark, which then shows its focus ring: a mouse user never sees that.
         await page.eval(`(() => { const r = document.querySelector('#glider-root').shadowRoot; if (r.activeElement) r.activeElement.blur(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); return 1; })()`);
+        // The closed lens leaves the pointer over the text, where it would open a lens for whatever word lies beneath:
+        // it moves off, at an even pace, to the empty space under the clause.
+        await p.glide(p.at.x, H - 14, Math.max(250, Math.abs(H - 14 - p.at.y) / 0.8), true);
       };
       await page.evalGlider(`(() => { const t = new Set(); speechSynthesis.speak = (u) => { t.add(setTimeout(() => u.onend && u.onend(), 150 + 16 * String(u.text).length)); }; speechSynthesis.cancel = () => { t.forEach(clearTimeout); t.clear(); }; return 1; })()`);
       await visit(scene.words[0], 'A hard word: its chunks, how each one sounds, and what it means', true);
@@ -479,6 +486,17 @@ async function film(chrome, base, name) {
     const t = await word(page, scene.target);
     const left = await page.eval(`Math.min(...[...document.querySelectorAll('p')].filter((p) => p.getBoundingClientRect().height > 0).map((p) => p.getBoundingClientRect().left))`);
     if (t) from = { x: Math.max(24, left - 40), y: t.top - 7 };
+  }
+  // A filming window is shorter than a real one. Glider puts its edge mark 40% of the way up the screen; on a short
+  // window the open panel no longer fits above it, so a click first pulls the whole dock down to make room and the
+  // mark is left lower once the panel closes, which a reader on a normal screen never sees. A scene with dockFits
+  // starts with the mark as high as it can sit and still open its panel in place, set before filming begins.
+  if (scene.dockFits) {
+    const panelH = await page.eval(`${inDock('.ll-panel')}.offsetHeight`);
+    const y = Math.max(20, Math.min(Math.round(H * 0.4), H - panelH - 16));
+    await page.evalGlider(`chrome.storage.local.set({ 'glider:dock': { h: 'r', v: 'b', x: 20, y: ${y} } }).then(() => 1)`);
+    await sleep(600);
+    console.log('  dock: panel', panelH, 'px tall, mark', y, 'px up from the bottom of a', H, 'px window');
   }
   const p = pointer(page, from);
   await page.move(p.at.x, p.at.y);

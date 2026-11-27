@@ -16,6 +16,14 @@ Made with dyslexia in mind. Runs on your device. No accounts, no build step.
 
 ## Showcase
 
+### The 30-second tour
+
+<img src="docs/showcase/glider-reel.gif" alt="Glider in 30 seconds: the opening line, then the real extension on a tenancy agreement. The mark on the side opens the panel, one switch spaces and bolds the text, the lens rates 'documentation' Hard and splits it into chunks with its meaning, the look-alike lens explains 'thorough', and the Glider logo closes" width="100%">
+
+A cut of the real extension at work, from opening the panel to the word lens. Watch it in full quality as [`glider-reel.mp4`](docs/showcase/glider-reel.mp4) (1920×1080, no sound).
+
+### The presentation
+
 Every clip below is a **live screen recording of the real extension** on the sample course page in [`demo/sample-assignment.html`](demo/sample-assignment.html). These are the slides from our presentation. You can download the full deck as [`Glider-showcase-gif.pptx`](showcase/Glider-showcase-gif.pptx): five slides that advance on click, with each clip looping until you move on.
 
 <table>
@@ -335,6 +343,9 @@ The presentation in [`showcase/`](showcase/) is built from live recordings of th
 
 The README clips in `docs/showcase/` are the deck's slides at 960 px.
 
+The 30-second tour (`docs/showcase/glider-reel.mp4`, and its GIF) is made by `make_linkedin.py`. It joins the opening scene (`record_mp4.py`) to a live recording from `live-capture.mjs showcase`.
+
+
 </details>
 
 ### Project layout
@@ -373,7 +384,7 @@ glider-extension/
 proxy/               the optional rewrite service (holds the Anthropic key, calls Claude)
 demo/                sample LMS-style assignment page
 showcase/            the presentation deck and the scripts that film and build it
-docs/showcase/       the deck's slides as GIFs, shown in this README
+docs/showcase/       the 30-second tour and the deck's slides as GIFs, shown in this README
 tests/               dependency-free Chrome DevTools Protocol tests
 tools/               scripts that rebuild the bundled word data
 parked/              the read-aloud engine, its test and the reading ruler, not loaded by the extension
