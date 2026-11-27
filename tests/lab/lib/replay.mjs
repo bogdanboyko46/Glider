@@ -47,15 +47,18 @@ export function replayShipped(fixes, blocks, P = {}) {
   const reset = (st, n) => Object.assign(st, { nLines: n, lineDwell: new Float64Array(n), visits: new Uint16Array(n), totalDwell: 0, runMs: 0, lastLine: -1, maxLine: -1, backtracks: [], triggers: 0, pend: null });
   const state = (b) => { let st = states.get(b); if (!st) { st = { hmm: new C.LineHMM(drift), words: blocks[b].words, leftAt: -1e9, lastTrigger: -1e9 }; reset(st, 0); states.set(b, st); } return st; };
   const normDist = (r, x, y) => { const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0; return Math.hypot(dx / sx, dy / sy); };
-  const pick = (x, y) => {
+  const pick = (x, y0) => {
+    const y = y0;
     let best = null, bd = Infinity;
     blocks.forEach((b, i) => { const d = normDist(b.rect, x, y); if (d < bd) { bd = d; best = i; } });
-    const stays = (r) => {   // level with the paragraph but beside it still counts, as in the reader
+    const stays = (r, y = y0) => {   // level with the paragraph but beside it still counts, as in the reader
       if (normDist(r, x, y) < 1.2) return true;
       const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0, dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
       return dy / sy < 1.2 && dx <= Math.max(3.5 * sx, Math.min(300, 0.3 * (r.right - r.left)));
     };
     if (cur !== null && stays(blocks[cur].rect) && normDist(blocks[cur].rect, x, y) <= bd + 0.8) return cur;
+    // As in the reader: still the current paragraph once the line tracker's learned offset is taken off.
+    if (cur !== null && stays(blocks[cur].rect, y - clamp(drift.y, -250, 250))) return cur;
     return bd <= 2 || (best !== null && stays(blocks[best].rect)) ? best : null;
   };
   const expected = (st, lines, L) => {

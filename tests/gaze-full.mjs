@@ -1,6 +1,6 @@
 // The whole content-script stack (lens + dock + eye tracking) on one page, with a
 // fake camera frame. Checks the dock's eye-tracking controls and what Glider
-// does when the tracker reports a struggle.
+// does (nothing of its own) when the tracker reports a struggle.
 //   node tests/gaze-full.mjs
 import { join } from 'node:path';
 import { launch, serve, IN_PAGE, REPO } from './cdp.mjs';
@@ -45,6 +45,14 @@ try {
   const scroll = await page.eval(`(() => { const b = __ll.q('.ll-body'); return b.scrollHeight - b.clientHeight; })()`);
   check('panel with eye tracking on fits on screen, nothing to scroll', p.y >= 0 && p.y + p.h <= 800 && p.x >= 0 && p.x + p.w <= 1280 && scroll <= 0, JSON.stringify(p) + ' scroll ' + scroll);
   await page.shot(join(REPO, 'tests', 'out', 'gaze-panel.png'));
+  // The camera box is hidden in Glider (camera: 'hidden'); the dock mark carries the status instead.
+  await page.eval(`Glider.app.setOpen(false); 0`);   // close the panel: the mark is what the reader sees
+  await page.sleep(500);
+  const dot = await page.eval(`__ll.q('.ll-pill').dataset.gaze || ''`);
+  check('no camera box: the dock mark shows the eye tracking status as a small dot (amber: needs calibrating)', dot === 'paused', dot);
+  await page.shot(join(REPO, 'tests', 'out', 'gaze-minimal.png'));
+  await page.eval(`Glider.app.setOpen(true); 0`);
+  await page.sleep(500);
   check('Adaptive on: adapting the page is enabled too (learning), and "See original" shows under it', await page.eval(`GliderAdapt.mode() === 'learn' && !__ll.q('.ll-gaze-original').hidden`));
   await page.eval(`__ll.q('[data-toggle="seeOriginal"]').click()`);
   await page.sleep(300);
@@ -67,16 +75,11 @@ try {
   await page.sleep(500);
   check('Esc cancels calibration', await page.eval(`!document.querySelector('[data-gaze-reader]').shadowRoot.getElementById('calib').classList.contains('show')`));
 
-  // A struggle report, as GazeReader would send it, for the second line of p2.
-  const detail = `(() => { const el = document.getElementById('p2'); const r = document.createRange(); r.selectNodeContents(el); const lines = GazeCore.mergeLineRects(r.getClientRects()); return { element: el, lineIndex: 1, lineRect: lines[1], lineText: '', paragraphText: el.textContent, severity: 0.5, metrics: {} }; })()`;
-  await page.eval(`Glider.app.onStruggle({ ...${detail}, reason: 'stuck-line' }); 0`);
-  await page.sleep(500);
-  const tip = await page.eval(`(() => { const t = __ll.q('.ll-tip'); const tok = Glider.app.tip.token; const line = ${detail}.lineRect; const r = tok && tok.getClientRects()[0]; return { hidden: t.hidden, syls: t.querySelectorAll('.ll-syl, .ll-part').length, word: tok && tok.textContent, onLine: !!r && (r.top + r.bottom) / 2 >= line.top - 4 && (r.top + r.bottom) / 2 <= line.bottom + 4, help: Glider.app.gazeHelp }; })()`);
-  check('stuck line: the syllable lens opens on the hardest word of that line', !tip.hidden && tip.syls > 1 && tip.onLine && tip.help.count === 1, JSON.stringify(tip));
-  await page.eval(`Glider.app.onStruggle({ ...${detail}, reason: 'rereading' }); 0`);
-  await page.sleep(500);
-  const eased = await page.eval(`(() => { const a = getComputedStyle(document.getElementById('p2')), b = getComputedStyle(document.getElementById('p1')); return { cls: document.getElementById('p2').classList.contains('glider-ease'), ws: [a.wordSpacing, b.wordSpacing], lh: [a.lineHeight, b.lineHeight] }; })()`);
-  check('re-reading: that paragraph gets wider spacing', eased.cls && parseFloat(eased.ws[0]) > parseFloat(eased.ws[1]) && parseFloat(eased.lh[0]) > parseFloat(eased.lh[1]), JSON.stringify(eased));
+  // The panel no longer acts on struggles (no word lens, no spacing card): only the simplifier changes the page, and only its wording.
+  const quiet = await page.eval(`(() => { const t = __ll.q('.ll-tip'); return { handler: typeof Glider.app.onStruggle, tip: !t || t.hidden, eased: document.querySelectorAll('.glider-ease').length, note: !!__ll.q('.ll-eased') }; })()`);
+  check('struggles: the panel opens no word lens and adds no spacing, card or note', quiet.handler === 'undefined' && quiet.tip && !quiet.eased && !quiet.note, JSON.stringify(quiet));
+  const split = await page.eval(`JSON.stringify(GliderAdapt.rules().split)`);
+  check('the layout rule (one part per line) is off: only wording changes', /"active":false/.test(split) && /layout-off/.test(split), split);
 
   await set({ on: false }, 900);
   check('lens off: tracker stops and its widget is gone', (await gaze()).status === 'idle' && !(await widget()));

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How honeybees find their way</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; background: #faf8f4; color: #222; font-family: Georgia, 'Times New Roman', serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 40px 24px 160px; }
+  .note { font-family: system-ui, sans-serif; font-size: 15px; line-height: 1.5; color: #555; background: #fff; border: 1px solid #e4e0d8; border-radius: 6px; padding: 12px 16px; margin-bottom: 40px; }
+  .note ol { margin: 6px 0 0; padding-left: 20px; }
+  html.clean .note { display: none; }
+  h1 { font-size: 30px; font-weight: normal; margin: 0 0 24px; }
+  p { font-size: 23px; line-height: 2.5; margin: 0 0 40px; }
+</style>
+<script>if (location.hash === '#clean') document.documentElement.classList.add('clean');</script>
+</head>
+<body>
+<main>
+  <div class="note">
+    Glider demo and test. This note is hidden when the address ends in <b>#clean</b>.
+    <ol>
+      <li>Glider panel: eye tracking on, calibrate (including the short reading passage), Show tracking on if you want the heat.</li>
+      <li>Read paragraphs 1 and 2 normally.</li>
+      <li>Paragraph 3 (it starts "Prior to commencing"): press <b>M</b>, then read it very slowly, word by word, going back over sentences. Press <b>M</b> again when you move on.</li>
+      <li>Read the rest normally to the end, scrolling as you go.</li>
+    </ol>
+    The page notes only which paragraphs Glider changed and when, and saves that to the lab folder on this computer.
+  </div>
+
+  <h1>How honeybees find their way</h1>
+
+  <p id="p1">Honeybees live together in large groups. A single hive can hold tens of thousands of bees, and each one has a job to do. Some clean, some guard the door, and some fly out to look for flowers.</p>
+
+  <p id="p2">When a bee finds a good patch of flowers, she flies home and tells the others. She does this with a dance on the wall of the hive. The other bees crowd around her and follow her moves.</p>
+
+  <p id="p3">Prior to commencing their foraging flights, young worker bees frequently perform orientation flights in the vicinity of the hive in order to memorize the location of the entrance; subsequently, they utilize this information to navigate home after travelling approximately three kilometres.</p>
+
+  <p id="p4">The dance is called the waggle dance. The bee runs in a straight line while shaking her body from side to side, then loops back and does it again, many times over.</p>
+
+  <p id="p5">The orientation of the dance demonstrates the direction of the food source in relation to the sun, whereas the duration of the waggle portion indicates the distance; numerous observers have attempted to ascertain how accurately recruits interpret these signals, with considerable variation between colonies.</p>
+
+  <p id="p6">In winter there are no flowers, so the bees live on the honey they stored in summer. They pack together in a tight ball in the middle of the hive to stay warm.</p>
+
+  <p id="p7">A colony that has accumulated a sufficient quantity of honey prior to the onset of winter is able to maintain a temperature of approximately thirty-four degrees at the centre of the cluster, as the workers generate heat by rapidly contracting their flight muscles without moving their wings.</p>
+
+  <p id="p8">Beekeepers frequently examine their hives in order to detect indications of disease at an initial stage, since numerous infections are able to spread rapidly through a colony; additionally, they endeavour to facilitate the bees’ access to water during prolonged periods of heat.</p>
+
+  <p id="p9">In spring the hive grows again. The queen lays more eggs, the young bees take over the work, and the first flights of the year begin on the warm days.</p>
+</main>
+<script>
+/* What Glider changed and when, for the lab folder. Nothing is shown on the page. */
+(() => {
+  const t0 = performance.now(), now = () => Math.round(performance.now() - t0);
+  const log = { v: 1, task: 'adapt-demo', startedAt: new Date().toISOString(), viewport: { w: innerWidth, h: innerHeight }, events: [] };
+  const push = (e) => log.events.push({ t: now(), scrollY: Math.round(scrollY), ...e });
+  const where = (el) => { const r = el.getBoundingClientRect(); return r.bottom < 0 ? 'above' : r.top > innerHeight ? 'below' : 'on-screen'; };
+  const idOf = (c) => { const o = c.previousElementSibling; return o && o.id ? o.id : '?'; };
+  new MutationObserver((muts) => {
+    for (const m of muts) {
+      for (const n of m.addedNodes) if (n.nodeType === 1 && n.hasAttribute('data-glider-simplified')) push({ k: 'changed', p: idOf(n), where: where(n), words: n.textContent.trim().split(/\s+/).length });
+      for (const n of m.removedNodes) if (n.nodeType === 1 && n.hasAttribute('data-glider-simplified')) push({ k: 'restored' });
+      if (m.type === 'attributes' && m.attributeName === 'data-glider-source' && m.target.hasAttribute('data-glider-simplified')) push({ k: 'source', p: idOf(m.target), source: m.target.getAttribute('data-glider-source'), where: where(m.target) });
+    }
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-glider-source'] });
+  let marked = false;
+  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat) { marked = !marked; push({ k: marked ? 'slow-start' : 'slow-end' }); } });
+  let lastY = -1;
+  setInterval(() => { if (Math.round(scrollY) !== lastY) { lastY = Math.round(scrollY); push({ k: 'scroll' }); } }, 500);
+  const save = () => {
+    if (log.saved === log.events.length) return;
+    log.saved = log.events.length; log.durationMs = now();
+    try { navigator.sendBeacon('/api/recording?task=adapt-demo', new Blob([JSON.stringify(log)], { type: 'text/plain' })); } catch (_) { /* nothing to do */ }
+  };
+  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save(); });
+  addEventListener('pagehide', save);
+})();
+</script>
+</body>
+</html>

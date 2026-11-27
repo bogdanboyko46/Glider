@@ -78,6 +78,7 @@
     markWholeBlock: false,  // mark the whole paragraph the reader is stuck in, not just the line
     clickRefine: true,      // clicks add calibration samples (the lab turns this off to keep runs comparable)
     widget: true,           // false hides the camera widget and toasts (the camera keeps running)
+    camera: 'box',          // 'hidden': no camera box (toasts stay); it comes back by itself while the face is lost
   };
 
   /* Read once after the dot calibration to find this reader's normal pace.
@@ -165,6 +166,13 @@
            box-shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 18px 40px -14px rgba(32, 53, 42, .34); }
     :host([data-dock="lb"]) #cam { left: auto; right: 14px; }
     #cam.min { width: 124px; }
+    /* camera: 'hidden'. All but invisible, never gone (a camera picture that is not drawn stops sending frames);
+       back in full while the face is lost. The calibration's face card shows it as before (its rule is stronger). */
+    #cam.ghost { opacity: .02; pointer-events: none; box-shadow: none; transition: none; }
+    #cam.ghost:not(.need) { width: 40px; padding: 0; border-radius: 6px; background: none; }
+    #cam.ghost:not(.need) #bar { display: none; }
+    #cam.ghost:not(.need) #slot { border-radius: 6px; }
+    #cam.ghost.need { opacity: 1; pointer-events: auto; box-shadow: 0 0 0 1px rgba(32, 53, 42, .08), 0 18px 40px -14px rgba(32, 53, 42, .34); }
     #bar { display: flex; align-items: center; gap: 4px; padding: 7px 4px 6px 8px; color: #20352a; font-size: 12.5px; font-weight: 700; }
     #bar span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #bar span::first-letter { text-transform: uppercase; }
@@ -192,10 +200,8 @@
        on top of the calibration screen, all but invisible. */
     #cam:has(~ #calib.show) { z-index: 3; opacity: .02; pointer-events: none; transition: none; }
     #cdot { position: fixed; left: 0; top: 0; will-change: translate; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: #2f6b4a;
-            box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); transition: translate .35s cubic-bezier(.45, 0, .25, 1); display: none; } /* keep settleMs at least this glide + 400ms */
+            box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); transition: translate .35s cubic-bezier(.45, 0, .25, 1), scale .12s linear; display: none; } /* keep settleMs at least this glide + 400ms */
     #cdot::after { content: ''; position: absolute; left: 10px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
-    #cdot.pulse { animation: shrink var(--dur, 1s) ease-out forwards; }
-    @keyframes shrink { from { transform: scale(1.15); } to { transform: scale(.6); } }
     #cnote { position: fixed; left: 50%; top: 9%; transform: translateX(-50%); width: min(620px, calc(100vw - 32px)); text-align: center;
              color: #20352a; font-size: 21px; line-height: 1.5; font-weight: 700; display: none; cursor: default; }
     #instr { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px));
@@ -287,7 +293,19 @@
     if (!cam) return;
     cam.style.opacity = opts.widget ? '' : '0.02';   // not 0: a fully transparent camera picture is not drawn, and its frames stop
     cam.style.pointerEvents = opts.widget ? '' : 'none';
+    cam.classList.toggle('ghost', opts.camera === 'hidden');
     if (!opts.widget) hideToast();
+    syncCamNeed();
+  }
+  /* camera: 'hidden': the box comes back while the face has been lost for a moment (so the reader can see why)
+     and goes again once it is found. */
+  const CAM_LOST_MS = 1200;
+  function syncCamNeed(t = performance.now()) {
+    const cam = $('cam');
+    if (!cam || opts.camera !== 'hidden') return;
+    const live = ['ready', 'tracking', 'paused', 'baseline'].includes(S.status);
+    const need = live && (!S.latest || (!S.latest.face && t - (S.faceSeenAt || 0) > CAM_LOST_MS));
+    if (cam.classList.contains('need') !== need) cam.classList.toggle('need', need);
   }
 
   let toastTimer = 0;
@@ -490,8 +508,10 @@
     // The calibration sees every frame of its dots, lost faces and blinks included (it sorts them out itself).
     if (S.calRun) S.calRun.push(d, t);
     if (S.model && t - S.geomT > 1000) { S.geomT = t; checkGeometry(); }
-    if (!d.face) { S.latest = { face: false, t }; return; }
+    if (!d.face) { S.latest = { face: false, t }; syncCamNeed(t); return; }
     S.latest = { ...d, t };
+    S.faceSeenAt = t;
+    syncCamNeed(t);
     if (S.probe && S.probe.length < 90) S.probe.push({ face: true, blink: !!d.blink, f: d.f, head: d.head });
     // (click refinement asks for frames that arrived in the last 200 ms, so these keep the arrival time)
     if (!d.blink) { S.recent.push({ f: d.f, t: performance.now() }); if (S.recent.length > 6) S.recent.shift(); }
@@ -554,10 +574,27 @@
     // The heat trace: the raw estimate through the faster filter, less the vertical offset the line
     // decoder has learned (S.drift.y, which it takes off before it picks a line), so the heat sits
     // where the tracker really has the eyes, and without the smooth gaze's lag.
-    if (opts.trace) traceAdd(S.traceX.filter(x, t), S.traceY.filter(y, t) - S.drift.y);
+    if (opts.trace) traceAdd(S.traceX.filter(x, t), traceLineY(S.traceY.filter(y, t) - S.drift.y));
     emit('gaze', S.gaze);
     const fix = S.fix.push(t, x, y);
     if (fix) onFixation(fix);
+  }
+
+  /* Where the heat goes up and down. The camera's own height, even less the offset learned at the start of the
+     line, sat on the line read for 61 % of the fixations on the 2026-11 laptop recordings; the line the decoder
+     has locked onto was right for 93 to 100 % of the reading time. So while a line is locked, the heat is drawn
+     on that line, still moving a little with the estimate (TRACE_LINE_GAIN of it, at most TRACE_LINE_SPAN of the
+     line's height either side of its middle). With no line, or the estimate more than TRACE_LINE_FAR
+     line spacings away, it is the estimate itself. */
+  const TRACE_LINE_GAIN = 0.25, TRACE_LINE_SPAN = 0.4, TRACE_LINE_FAR = 2;
+  function traceLineY(y) {
+    if (!S.cur || !S.cur.el.isConnected) return y;
+    const ls = getLines(S.cur.el), r = ls[S.cur.line];
+    if (!r) return y;
+    const mid = (r.top + r.bottom) / 2, h = Math.max(1, r.bottom - r.top);
+    const pitch = ls.length > 1 ? Math.max(h, (ls[ls.length - 1].top - ls[0].top) / (ls.length - 1)) : h;
+    if (Math.abs(y - mid) > TRACE_LINE_FAR * pitch) return y;
+    return mid + Math.max(-TRACE_LINE_SPAN * h, Math.min(TRACE_LINE_SPAN * h, TRACE_LINE_GAIN * (y - mid)));
   }
 
   function resetFilters() { S.euroX.reset(); S.euroY.reset(); S.traceX.reset(); S.traceY.reset(); }
@@ -598,6 +635,7 @@
      off at line starts), so a fixation level with the paragraph but beside it still counts, up to 0.3 of the
      paragraph's width and at most BLOCK_SIDE_MAX px. pickBlock only uses this for the nearest block. */
   const BLOCK_SIDE_SX = 3.5, BLOCK_SIDE_WIDTH = 0.3, BLOCK_SIDE_MAX = 300;
+  const DRIFT_STAY_MAX = 250;   // px: the most of the learned offset pickBlock will take off to keep the current paragraph
   function stays(r, x, y) {
     if (normDist(r, x, y) < 1.2) return true;
     const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
@@ -612,6 +650,10 @@
     if (S.block) {   // hysteresis: don't hop paragraphs on one noisy fixation
       const cur = blocks.find((b) => b.el === S.block);
       if (cur && stays(cur.r, x, y) && normDist(cur.r, x, y) <= bd + 0.8) return S.block;
+      // Still the paragraph being read once the line tracker's learned height offset is taken off: the height
+      // slides down the page while reading (2026-11-22 laptop recordings: 150 to 300 px below the text by the
+      // last lines), and without this the reader dropped out of the paragraph for its last lines.
+      if (cur && stays(cur.r, x, y - Math.max(-DRIFT_STAY_MAX, Math.min(DRIFT_STAY_MAX, S.drift.y)))) return S.block;
     }
     return bd <= 2 || (bestR && stays(bestR, x, y)) ? best : null;
   }
@@ -1133,6 +1175,8 @@
       for (const b of btns) b.onclick = () => done(b.dataset.act);
     });
   }
+  /** The calibration dot's size for the share of its frames taken so far (0..1): full size down to 0.55, easing in and out. */
+  const dotScale = (p) => 1 - 0.45 * (p <= 0 ? 0 : p >= 1 ? 1 : p * p * (3 - 2 * p));
   /** " Camera: 1280 by 720, 30 pictures a second, GPU." for the first calibration card; empty before the camera has reported. */
   function cameraLine() {
     const c = cameraStatus();
@@ -1154,14 +1198,13 @@
       for (let k = 0; k < n && !cancelled(); k++) {
         const x = Math.round(C.CHECK_POINTS[k][0] * innerWidth), y = Math.round(C.CHECK_POINTS[k][1] * innerHeight);
         cal.style.setProperty('--done', (k / n).toFixed(3));
-        dot.classList.remove('pulse');
+        dot.style.scale = '1';
         dot.style.translate = x + 'px ' + y + 'px'; dot.dataset.x = x; dot.dataset.y = y;
         const tShow = performance.now();
         S.check = [];
         await sleep(settle);
         const tStart = performance.now();
-        dot.style.setProperty('--dur', sample + 'ms'); void dot.offsetWidth; dot.classList.add('pulse');
-        await sleep(sample);
+        for (let el = 0; el < sample && !cancelled(); el = performance.now() - tStart) { dot.style.scale = String(dotScale(el / sample)); await sleep(16); }
         const tEnd = performance.now(), frames = S.check || [];
         S.check = null;
         if (cancelled()) break;
@@ -1171,7 +1214,7 @@
       }
     } finally {
       S.check = null;
-      dot.classList.remove('pulse'); dot.style.display = 'none';
+      dot.style.scale = '1'; dot.style.display = 'none';
     }
     return cancelled() ? { dots, reason: 'the check was skipped' } : { dots };
   }
@@ -1197,7 +1240,7 @@
         instr.innerHTML = `<div class="card face"><h3>Calibrate eye tracking</h3>
           <ol>${opts.widget ? '<li>Check that you can see your whole face in the camera box in the corner.</li>' : ''}
           <li>Sit the way you will read, about an arm's length from the screen.</li>
-          <li>Keep your head still and follow the green dot with your <b>eyes</b>. It moves to a new spot, then shrinks.</li>
+          <li>Keep your head still and follow the green dot with your <b>eyes</b>. Each time it stops, look at its white centre until it has shrunk.</li>
           ${opts.headSegment ? '<li>Near the end the screen asks you to turn your head a little while you keep watching the dot.</li>' : ''}</ol>
           ${S.quality.map((w) => `<p class="advice">${w.text}</p>`).join('')}
           <small>This takes about ${opts.validate ? 'a minute' : (opts.headSegment ? 45 : 40) + ' seconds'}${withBaseline ? '. After that there is one short passage to read' : ''}.${cameraLine()}</small>
@@ -1223,7 +1266,9 @@
           fit: { featureCount: opts.featureCount, model: opts.model, drift: driftScale(), fold: true, score: 'val' },   // all 18 dots go into the model in use; the figure is a 13-dot fit on the other 5
         });
         S.calRun = run;
-        let stepId = -1, pulsing = false;
+        // The dot shrinks once, smoothly, while its frames are taken. If the eyes jump and the run starts the dot's
+        // frames over, the dot holds its size until the new count catches up: it never grows back while it waits.
+        let stepId = -1, pulsing = false, sampleT0 = 0, prog = 0;
         for (;;) {
           if (escaped) throw new Error('cancelled');
           if (S.status === 'error') throw new Error('cancelled');   // the camera stopped under the dots: its message and Retry are already on screen
@@ -1235,7 +1280,7 @@
             // reader's own speed, with no dot on screen and nothing being measured: text shown next to a dot
             // that is already being sampled is read with the eyes that should be on the dot. Space or the
             // button goes on; Esc cancels the calibration, as on the first card.
-            dot.classList.remove('pulse'); dot.style.display = 'none'; pulsing = false;
+            dot.style.display = 'none'; pulsing = false;
             instr.style.display = 'block';
             instr.innerHTML = `<div class="card"><h3>One more step: a small head turn</h3>
               <p>The dot comes back for six seconds. Keep your <b>eyes on the dot</b> and slowly turn your head a little: left, right, up, down.</p>
@@ -1248,19 +1293,16 @@
             continue;
           }
           if (v.stepId !== stepId) {
-            stepId = v.stepId; pulsing = false;
+            stepId = v.stepId; pulsing = false; prog = 0;
             // Progress, 0..1, for a quiet indicator styled in CSS.
             cal.style.setProperty('--done', v.progress.toFixed(3));
-            dot.classList.remove('pulse');
             dot.style.transition = v.glide ? '' : 'none';
             cnote.textContent = v.text || ''; cnote.style.display = v.text ? 'block' : 'none';
           }
           if (dot.dataset.x !== String(v.x) || dot.dataset.y !== String(v.y)) { dot.style.translate = v.x + 'px ' + v.y + 'px'; dot.dataset.x = v.x; dot.dataset.y = v.y; }
-          if (v.sampling !== pulsing) {
-            pulsing = v.sampling;
-            dot.classList.remove('pulse');
-            if (pulsing) { dot.style.setProperty('--dur', v.sampleMs + 'ms'); void dot.offsetWidth; dot.classList.add('pulse'); }
-          }
+          if (v.sampling !== pulsing) { pulsing = v.sampling; if (pulsing) sampleT0 = performance.now(); }
+          if (pulsing && v.sampleMs > 0) prog = Math.max(prog, Math.min(1, (performance.now() - sampleT0) / v.sampleMs));
+          dot.style.scale = String(dotScale(prog));
           await sleep(16);
         }
         S.calRun = null;
@@ -1587,6 +1629,7 @@
       Object.assign(opts, o);
       if (o.baselineWpm && !S.baseline) S.wpm = o.baselineWpm;
       if (opts.trace !== trace) { traceClear(); S.traceX.reset(); S.traceY.reset(); }
+      if ('camera' in o || 'widget' in o) applyWidget();
       wake();
       return window.GazeReader;
     },

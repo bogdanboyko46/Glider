@@ -1622,13 +1622,17 @@
    *   - otherwise the line stays between sweeps. Only the first line of a visit, which had no sweep to go by, is
    *     corrected when the gaze sits more than JUMP lines from where it began for JUMP_N fixations in a
    *     row. (Applied to every line this rule did harm: the height slides too far along a line.)
-   *   - the first fixation in a paragraph takes the nearest line (less the offset learned so far), or
-   *     the first line when the reader came in from above.
+   *   - the first fixation in a paragraph takes its first visible line unless the height, less the offset
+   *     learned so far, is more than ENTRY_FAR lines below it (then the nearest line); a line that was only
+   *     glanced at (no progress along it) is no reference, so leaving it for the left edge starts afresh.
    * The name is kept from the hidden Markov model this replaced (it decoded the height directly and was
    * on the right line 36 to 55 % of the reading time on those recordings, against 92 to 100 % for this).
    */
   const LINE_START_N = 3, LINE_STEP_SIGMA = 0.8, LINE_SWEEP = 0.4, LINE_JUMP = 1.6, LINE_JUMP_N = 3;
-  const LINE_STEP_PRIOR = new Map([[1, 0.75], [0, 0.1], [-1, 0.08], [2, 0.05], [-2, 0.02]]), LINE_STEP_OTHER = 0.004;
+  // Going back one or two lines was made likelier in 2026-11: readers who meant to re-read often read on into the
+  // next line first, so the jump back was two lines, and on a laptop camera it measured about one and a half and
+  // was taken as one (lab stall recordings 75 -> 93 % and 72 -> 97 % right; synthetic re-readers 76 -> 98 %).
+  const LINE_STEP_PRIOR = new Map([[1, 0.65], [0, 0.1], [-1, 0.1], [2, 0.05], [-2, 0.1]]), LINE_STEP_OTHER = 0.004;
   const LINE_REFINE_N = 10, LINE_PAIR = 0.25;                // a line's own number is settled over its first fixations, paired within a quarter of the width
   const LINE_RESUME_PRIOR = 0.6;                             // after going back: picking up below the furthest line read
   // A hop: a jump to another line that is not a full sweep (back into the middle of the line above, say).
@@ -1658,14 +1662,30 @@
       const clampLine = (j) => Math.max(0, Math.min(n - 1, j));
       const begin = (base, hop) => { this.run = { ys: [fy], y: fy, pts: [], base, hop: !!hop, done: false, was: hop ? this.run : null }; this.off = 0; };
       let returnSweep = false;
-      if (this.line < 0 || this.line >= n || !this.run) {
+      // Where a visit starts. Nearly every visit starts at the paragraph's first (visible) line, and the
+      // absolute height cannot say otherwise reliably (on the 2026-11-22 laptop recordings it sat one to two
+      // lines low at the first line), so the first line is taken unless the height, less the offset learned
+      // so far, is more than ENTRY_FAR lines below it.
+      const entryLine = () => {
         let best = 0;
-        if (!enteredFromAbove) for (let j = 1; j < n; j++) if (Math.abs(mid(j) - (fy - this.drift.y)) < Math.abs(mid(best) - (fy - this.drift.y))) best = j;
-        this.line = best; begin(null);
+        for (let j = 1; j < n; j++) if (Math.abs(mid(j) - (fy - this.drift.y)) < Math.abs(mid(best) - (fy - this.drift.y))) best = j;
+        let first = lines.findIndex((l) => l.top >= 0); if (first < 0) first = 0;
+        if (LineHMM.ENTRY_FAR > 0 && best > first && (fy - this.drift.y - mid(first)) / pitch < LineHMM.ENTRY_FAR) best = first;
+        return best;
+      };
+      // A line the eyes only glanced at (no progress along it) is no reference for the next one: a sweep away
+      // from it is taken as a fresh start in the paragraph.
+      const glance = () => { const p = this.run.pts; if (p.length < LINE_READ_N) return true; let lo = Infinity, hi = -Infinity; for (const q of p) { lo = Math.min(lo, q[0]); hi = Math.max(hi, q[0]); } return hi - lo < LINE_READ_SPAN * width; };
+      if (this.line < 0 || this.line >= n || !this.run) {
+        this.line = enteredFromAbove ? 0 : entryLine(); begin(null);
       } else {
         const dx = fx - this.prevX;
         returnSweep = dx < -LINE_SWEEP * width;
-        if (returnSweep) begin({ line: this.line, y: this.run.y, pts: this.run.pts, max: this.maxLine });
+        // (from a glance, a shorter leftward move that lands at the paragraph's left edge counts too: the
+        // glance may have been left of the middle)
+        const toStart = returnSweep || (dx < -LINE_HOP_BACK * width && fx - Math.min(...lines.map((l) => l.left)) < LINE_START_ZONE * width);
+        if (toStart && LineHMM.ENTRY_FAR > 0 && !this.run.base && this.maxLine <= this.line && glance()) { returnSweep = true; this.line = entryLine(); this.maxLine = -1; begin(null); }
+        else if (returnSweep) begin({ line: this.line, y: this.run.y, pts: this.run.pts, max: this.maxLine });
         else if (this.run.ys.length >= LINE_START_N && dx < -LINE_HOP_BACK * width && Math.abs(fy - this.prevY) > LINE_HOP * pitch) begin({ line: this.line, y: this.prevY, max: this.maxLine }, true);
         else if (this.run.ys.length < LINE_START_N) {
           this.run.ys.push(fy);
@@ -1683,10 +1703,14 @@
           // and every further fixation sharpens the answer; without a neighbour, start against start.
           let d = (run.y - run.base.y) / pitch;
           if (!run.hop && run.base.pts && run.base.pts.length) {
-            const ds = [];
-            for (const [x, y] of run.pts) {
+            // The height takes a moment to settle after a sweep (on the 2026-11-22 laptop recordings it climbed
+            // for three or four fixations), so each line's first SETTLE_SKIP fixations are left out of the pairing
+            // once there are others to use.
+            const skip = (p) => (p.length > LineHMM.SETTLE_SKIP + 1 ? p.slice(LineHMM.SETTLE_SKIP) : p);
+            const base = skip(run.base.pts), ds = [];
+            for (const [x, y] of skip(run.pts)) {
               let near = null;
-              for (const q of run.base.pts) if (Math.abs(q[0] - x) <= LINE_PAIR * width && (!near || Math.abs(q[0] - x) < Math.abs(near[0] - x))) near = q;
+              for (const q of base) if (Math.abs(q[0] - x) <= LINE_PAIR * width && (!near || Math.abs(q[0] - x) < Math.abs(near[0] - x))) near = q;
               if (near) ds.push(y - near[1]);
             }
             if (ds.length) { ds.sort((a, b) => a - b); d = (ds.length % 2 ? ds[(ds.length - 1) / 2] : (ds[ds.length / 2 - 1] + ds[ds.length / 2]) / 2) / pitch; }
@@ -1707,16 +1731,31 @@
         } else if (!run.base && run.ys.length >= LINE_START_N) {
           const dv = (fy - run.y) / pitch;
           if (Math.abs(dv) > LINE_JUMP) {
-            if (++this.off >= LINE_JUMP_N) { this.line = clampLine(this.line + Math.round(dv)); begin(null); }
+            if (++this.off >= LINE_JUMP_N) {
+              if (LineHMM.ENTRY_FAR > 0 && glance()) this.maxLine = -1;   // the line left was only glanced at
+              this.line = clampLine(this.line + Math.round(dv)); begin(null);
+            }
           } else this.off = 0;
         }
       }
       this.prevX = fx; this.prevY = fy;
-      if (this.line > this.maxLine && (!this.run.base || this.run.ys.length >= LINE_START_N)) this.maxLine = this.line;
+      // The furthest line read. While a new line's number is still being refined it is taken from the run's own
+      // starting point each time, so a passing guess (two lines down, then one) does not stay as the furthest
+      // line and make the next sweep look like picking up after a regression.
+      if (LineHMM.ENTRY_FAR > 0 && this.run.base) { if (this.run.ys.length >= LINE_START_N) this.maxLine = Math.max(this.run.base.max, this.line); }
+      else if (this.line > this.maxLine && (!this.run.base || this.run.ys.length >= LINE_START_N)) this.maxLine = this.line;
       this.drift.y = this.run.y - mid(this.line);
       return { line: this.line, conf: this.run.ys.length >= LINE_START_N ? LINE_CONF_SETTLED : LINE_CONF_STARTING, returnSweep };
     }
   }
+
+  // Switches for the 2026-11-22 changes (lab recordings on a laptop camera), so replays can compare with the
+  // tracker before them: ENTRY_FAR 0 restores the nearest-line start and turns the glance rule off;
+  // SETTLE_SKIP 0 pairs every fixation of a line again.
+  LineHMM.ENTRY_FAR = 3;    // lines
+  LineHMM.SETTLE_SKIP = 2;  // fixations
+  const LINE_READ_N = 3, LINE_READ_SPAN = 0.25;   // a line was read when its first fixations cover a quarter of the width
+  const LINE_START_ZONE = 0.15;                   // the left part of the paragraph where lines are picked up
 
   /** Collapse Range.getClientRects() fragments into one rect per visual line. */
   function mergeLineRects(rects) {

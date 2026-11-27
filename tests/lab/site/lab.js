@@ -494,7 +494,7 @@
     ui.margin.style.top = (line.top + line.bottom) / 2 - 5 + 'px';
   }
   /** Self-paced reading: Space ends a line; optional S (stall) and R (re-read) keys. */
-  async function selfPaced(ctx, lines, { stall = false, rereadFrom = 0 } = {}) {
+  async function selfPaced(ctx, lines, { stall = false, rereadFrom = 0, rereadTo = -1 } = {}) {
     let cur = 0;
     let mark = now();
     let stallT0 = null;
@@ -515,6 +515,8 @@
         if (stallT0 == null) stallT0 = t;
         else { ctx.truth.push({ kind: 'phase', name: 'stall', line: cur, t0: stallT0, t1: t }); stallT0 = null; }
       } else if (key === 'r') {
+        // R at the end of the last re-read line also ends that line, so it can replace the Space there.
+        if (cur === rereadTo) ctx.truth.push({ kind: 'line', block: BLOCK_ID, line: cur, t0: mark, t1: t });
         reread = { kind: 'phase', name: 'reread', line: rereadFrom, t0: t, t1: t };
         ctx.truth.push(reread);
         cur = Math.min(rereadFrom, lines.length - 1);
@@ -555,12 +557,17 @@
     },
     calibrate: {
       desc: 'Runs the extension\'s own calibration flow, then dumps the model.',
-      defaults: { baseline: false },
+      // headSegment and model are lab-only switches: they are sent to the tracker (bridge 'init') before every
+      // calibration, so a calibration without them goes back to the shipped defaults (no head segment, model A).
+      defaults: { baseline: false, headSegment: false, model: 'A' },
       intro: () => 'Calibration. The extension will show its own full-screen dots: follow them with your eyes and keep your head still.',
       async run(ctx) {
         ctx.noAbort = true; // Esc belongs to the extension's calibration UI here
         ui.stage.hidden = true;
         const t0 = now();
+        const hs = ctx.params.headSegment, model = String(ctx.params.model || 'A');
+        ctx.extra.calOpts = { headSegment: hs === true || hs === 'true' || hs === 1, model };
+        try { await bridge.cmd('init', ctx.extra.calOpts); } catch (err) { ctx.extra.initError = String(err.message); }
         try {
           ctx.extra.result = await bridge.cmd('calibrate', { baseline: !!ctx.params.baseline }, 240000);
         } catch (err) {
@@ -695,7 +702,7 @@
         const [a, b] = p.rereadLines;
         return `<div class="small">Read at your own pace and <b>press Space at the end of every line</b>, as before. Two extra things:<br><br>`
           + `1. On <b>line ${p.stallLine}</b>, stop part-way and stare at one word for about 6 seconds. Press <b>S</b> when you stop and <b>S</b> again when you carry on.<br><br>`
-          + `2. Read <b>lines ${a} and ${b}</b>, then press <b>R</b> and jump back to the start of line ${a}. Do this twice (so you read lines ${a} and ${b} three times in all), then finish the text.<br><br>`
+          + `2. At the end of <b>line ${b}</b>, press <b>R</b> instead of Space and jump back to the start of line ${a}. Do this twice (so you read lines ${a} and ${b} three times in all), then finish the text.<br><br>`
           + `Small marks at the left show these lines.</div>`;
       },
       async run(ctx) {
@@ -713,8 +720,8 @@
         };
         mark(stallLine, 'stall');
         for (const n of rereadLines) mark(n, 're-read');
-        ui.foot.textContent = 'Space = end of line   S = stall begins / ends   R = jumped back';
-        await selfPaced(ctx, lines, { stall: true, rereadFrom: Math.max(0, rereadLines[0] - 1) });
+        ui.foot.textContent = 'Space = end of line   S = stall begins / ends   R = end of line ' + rereadLines[rereadLines.length - 1] + ', jumping back';
+        await selfPaced(ctx, lines, { stall: true, rereadFrom: Math.max(0, rereadLines[0] - 1), rereadTo: rereadLines[rereadLines.length - 1] - 1 });
       },
       summary(ctx) {
         const s = lineStats(ctx);
