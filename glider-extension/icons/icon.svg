@@ -1,8 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="30" fill="#141B34"/>
-  <rect x="34" y="29" width="60" height="9" rx="4.5" fill="#FFFFFF" fill-opacity=".34"/>
-  <rect x="20" y="49" width="88" height="30" rx="15" fill="#FFD84D"/>
-  <rect x="34" y="59.5" width="40" height="9" rx="4.5" fill="#141B34"/>
-  <circle cx="87" cy="64" r="5.5" fill="#141B34"/>
-  <rect x="34" y="90" width="44" height="9" rx="4.5" fill="#FFFFFF" fill-opacity=".34"/>
+  <!-- The Glider logo, "Reach": five strokes (10 18 28 18 10) reaching in from the right edge. -->
+  <clipPath id="tile"><rect width="128" height="128" rx="26"/></clipPath>
+  <g clip-path="url(#tile)">
+    <rect width="128" height="128" fill="#EEF2EA"/>
+    <rect x="94" y="18" width="46" height="12" rx="6" fill="#20352A"/>
+    <rect x="66" y="38" width="74" height="12" rx="6" fill="#20352A"/>
+    <rect x="32" y="58" width="108" height="12" rx="6" fill="#2F6B4A"/>
+    <rect x="66" y="78" width="74" height="12" rx="6" fill="#20352A"/>
+    <rect x="94" y="98" width="46" height="12" rx="6" fill="#20352A"/>
+  </g>
 </svg>
